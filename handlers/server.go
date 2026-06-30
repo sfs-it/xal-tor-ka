@@ -48,6 +48,12 @@ type Server struct {
 	DockerProxyURL string
 	DockerExclude  []string // container name substrings to hide (own stack)
 
+	// UpstreamLocalhost is the host that user-entered "localhost"/"127.0.0.1"
+	// upstreams are rewritten to. In Docker that is "host.docker.internal" (the
+	// host seen from inside a container); on a host/LXD deploy set "127.0.0.1"
+	// (or "" to disable the rewrite entirely).
+	UpstreamLocalhost string
+
 	// BaseBackends are the static config.json backends; services.json backends
 	// are merged on top at Reload time.
 	BaseBackends []models.Backend

@@ -1,0 +1,35 @@
+# Xal-Tor-Ka — unit systemd per deploy SENZA Docker (host / LXD / macchina dedicata).
+# Copia in /etc/systemd/system/xaltorka.service e adatta i percorsi/variabili.
+# Vedi INSTALL.md §9. NOTA: scaffolding beta, non ancora testato end-to-end su host.
+[Unit]
+Description=Xal-Tor-Ka — auth gatekeeper & reverse-proxy manager
+After=network-online.target nginx.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=xaltorka
+Group=xaltorka
+WorkingDirectory=/opt/xaltorka
+# Profilo host: reload via comando, upstream localhost → 127.0.0.1.
+Environment=DEPLOY_MODE=host
+Environment=GATE_URL=https://gate.tuodominio.it
+# Il servizio Go scrive i vhost e poi ricarica NGINX. Un utente non-root non può
+# segnalare il master nginx: si concede via sudoers (vedi deploy/xaltorka.sudoers).
+Environment=NGINX_RELOAD_CMD=sudo /usr/sbin/nginx -s reload
+# Upstream del gate usato nei vhost generati (il servizio Go ascolta su :8080).
+Environment=PROXY_UPSTREAM=127.0.0.1:8080
+ExecStart=/usr/local/bin/xaltorka -config /opt/xaltorka
+Restart=on-failure
+RestartSec=3
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+# Percorsi scrivibili: la config-dir e la conf.d di NGINX (vhost generati).
+ReadWritePaths=/opt/xaltorka /etc/nginx/conf.d
+
+[Install]
+WantedBy=multi-user.target

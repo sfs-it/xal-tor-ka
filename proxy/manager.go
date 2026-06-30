@@ -1,8 +1,12 @@
 package proxy
 
 import (
+	"context"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"xaltorka/config"
@@ -11,10 +15,17 @@ import (
 
 // Manager renders and writes the generated NGINX config atomically, keeping a
 // timestamped snapshot of the previous version (stop&revert primitive, MYRULES
-// NGINX §4). Validation (`nginx -t`) and reload happen in the NGINX container.
+// NGINX §4).
+//
+// Reload: in the Docker stack the NGINX container polls conf.d and reloads
+// itself, so ReloadCmd stays empty. Outside Docker (host/LXD/dedicated machine)
+// set ReloadCmd to a command that reloads the local NGINX, e.g.
+// "nginx -s reload" or "systemctl reload nginx"; it runs after each successful
+// write.
 type Manager struct {
 	OutPath    string // e.g. <configdir>/nginx/conf.d/backends.conf
 	BackupsDir string
+	ReloadCmd  string // shell command to reload NGINX after a write ("" = no-op, Docker poller)
 	Gen        GenConfig
 }
 
@@ -39,5 +50,24 @@ func (m *Manager) Apply(backends []models.Backend) error {
 	if err := os.WriteFile(tmp, []byte(conf), 0o644); err != nil {
 		return err
 	}
-	return os.Rename(tmp, m.OutPath)
+	if err := os.Rename(tmp, m.OutPath); err != nil {
+		return err
+	}
+	return m.reload()
+}
+
+// reload runs the configured NGINX reload command (no-op if unset). nginx itself
+// validates the new config on reload and keeps the running config if it is
+// invalid, so a bad generated file does not take the proxy down.
+func (m *Manager) reload() error {
+	if m.ReloadCmd == "" {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "sh", "-c", m.ReloadCmd).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("nginx reload (%q): %w: %s", m.ReloadCmd, err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }

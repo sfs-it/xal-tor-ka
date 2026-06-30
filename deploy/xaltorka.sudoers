@@ -1,0 +1,6 @@
+# Consente all'utente di servizio "xaltorka" di ricaricare NGINX senza password,
+# senza dargli root pieno. Installa con:
+#   sudo install -m 0440 deploy/xaltorka.sudoers /etc/sudoers.d/xaltorka
+#   sudo visudo -cf /etc/sudoers.d/xaltorka   # verifica sintassi
+# Adatta il percorso di nginx (which nginx). Solo deploy non-Docker (INSTALL.md §9).
+xaltorka ALL=(root) NOPASSWD: /usr/sbin/nginx -s reload

@@ -18,6 +18,11 @@ services:
       - ADMIN_CIDR=${ADMIN_CIDR:-127.0.0.1/32}
       - EDGE_CIDR=${EDGE_CIDR:-172.16.0.0/12}
       - DOCKER_PROXY=http://docker-socket-proxy:2375
+      # Deployment knobs (default = Docker; vedi .env.example). In Docker il reload
+      # NGINX lo fa il container nginx via polling, quindi NGINX_RELOAD_CMD resta vuoto.
+      - DEPLOY_MODE=${DEPLOY_MODE:-docker}
+      - NGINX_RELOAD_CMD=${NGINX_RELOAD_CMD:-}
+      - UPSTREAM_LOCALHOST=${UPSTREAM_LOCALHOST:-host.docker.internal}
     volumes:
       - ./:/etc/xaltorka
     networks:

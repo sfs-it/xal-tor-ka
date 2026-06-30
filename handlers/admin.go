@@ -594,9 +594,15 @@ func (s *Server) handleUserPassword(w http.ResponseWriter, r *http.Request) {
 }
 
 // hostInternalize rewrites an upstream pointing at localhost/127.0.0.1 to
-// host.docker.internal: dentro i container "localhost" è il container stesso,
-// non l'host, quindi i servizi dell'host vanno raggiunti via host.docker.internal.
-func hostInternalize(upstream string) string {
+// s.UpstreamLocalhost: inside a container "localhost" is the container itself,
+// not the host, so host services must be reached via host.docker.internal (the
+// Docker default). On a host/LXD deploy this is "127.0.0.1"; an empty value
+// disables the rewrite (upstream left untouched).
+func (s *Server) hostInternalize(upstream string) string {
+	target := s.UpstreamLocalhost
+	if target == "" {
+		return upstream // rewrite disabilitato (deploy host senza traduzione)
+	}
 	i := strings.Index(upstream, "://")
 	if i < 0 {
 		return upstream
@@ -613,7 +619,7 @@ func hostInternalize(upstream string) string {
 	if host != "localhost" && host != "127.0.0.1" {
 		return upstream
 	}
-	host = "host.docker.internal"
+	host = target
 	hp := host
 	if port != "" {
 		hp = host + ":" + port
@@ -785,7 +791,7 @@ func (s *Server) handleBackendAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, host := r.PostFormValue("id"), r.PostFormValue("host")
-	upstream := hostInternalize(r.PostFormValue("upstream"))
+	upstream := s.hostInternalize(r.PostFormValue("upstream"))
 	rule := r.PostFormValue("rule")
 	if id == "" || host == "" || upstream == "" {
 		http.Error(w, "id, host, upstream obbligatori", http.StatusBadRequest)
@@ -900,7 +906,7 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 	if path == "" {
 		path = "/"
 	}
-	upstream := hostInternalize(r.PostFormValue("upstream"))
+	upstream := s.hostInternalize(r.PostFormValue("upstream"))
 	if err := validateUpstream(upstream); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

@@ -210,3 +210,62 @@ sudo fail2ban-client status xaltorka
 ```
 
 Il path del log è configurabile con `auth_log` in `config.json` (default `logs/auth.log`).
+
+## 9. Deploy senza Docker (host / LXD / macchina dedicata)
+
+> ⚠️ **Scaffolding beta, non ancora testato end-to-end su una macchina reale.**
+> Il *core* (servizio Go) è un binario statico già agnostico al runtime; i punti
+> Docker-specifici sono governati da tre **knob** via env (default = Docker):
+>
+> | Env | Docker (default) | Host/LXD |
+> |-----|------------------|----------|
+> | `DEPLOY_MODE` | `docker` | `host` |
+> | `NGINX_RELOAD_CMD` | *(vuoto: reload a carico del container nginx)* | `nginx -s reload` / `systemctl reload nginx` |
+> | `UPSTREAM_LOCALHOST` | `host.docker.internal` | `127.0.0.1` |
+>
+> `DEPLOY_MODE=host` imposta da solo i default della colonna destra; le altre due
+> env lo sovrascrivono se valorizzate.
+
+Passi (Debian/Ubuntu o dentro un container LXD con NGINX installato):
+
+```bash
+# 1) compila il binario statico (sulla build machine) e copialo sul target
+make build                      # -> ./xaltorka (CGO off, statico)
+sudo install -m 0755 xaltorka /usr/local/bin/xaltorka
+xaltorka version                # -> beta0.1
+
+# 2) crea utente di servizio e cartella di configurazione
+sudo useradd --system --home /opt/xaltorka --shell /usr/sbin/nologin xaltorka
+sudo mkdir -p /opt/xaltorka && sudo chown xaltorka:xaltorka /opt/xaltorka
+# copia qui config.json, e crea secrets.json/users.json dai .example
+sudo -u xaltorka cp secrets.example.json /opt/xaltorka/secrets.json
+sudo -u xaltorka sh -c 'printf "{ \"users\": [] }\n" > /opt/xaltorka/users.json'
+
+# 3) NGINX dell'host: includi i vhost generati dal servizio Go
+#    (il servizio scrive /opt/xaltorka/nginx/conf.d/backends.conf)
+echo 'include /opt/xaltorka/nginx/conf.d/*.conf;' | sudo tee /etc/nginx/conf.d/xaltorka-include.conf
+
+# 4) reload NGINX senza password per l'utente di servizio
+sudo install -m 0440 deploy/xaltorka.sudoers /etc/sudoers.d/xaltorka
+
+# 5) servizio systemd
+sudo cp deploy/xaltorka.service /etc/systemd/system/xaltorka.service
+sudoedit /etc/systemd/system/xaltorka.service   # adatta GATE_URL e percorsi
+sudo systemctl daemon-reload
+sudo systemctl enable --now xaltorka
+journalctl -u xaltorka -f
+
+# 6) onboarding primo admin (come in §4, ma da CLI locale)
+sudo -u xaltorka xaltorka setup --email admin@tuodominio.it --config /opt/xaltorka
+```
+
+**Punti da verificare sul campo (beta):**
+- **Upstream del gate** nei vhost generati: imposta `PROXY_UPSTREAM=127.0.0.1:8080`
+  (già nel unit) e fai ascoltare il servizio Go su `127.0.0.1:8080`
+  (`server.listen` in `config.json`).
+- **`resolver` NGINX**: la generazione usa `PROXY_RESOLVER` (default `127.0.0.11`,
+  il DNS interno di Docker). Su host valorizzalo col resolver di sistema
+  (es. `127.0.0.53` con systemd-resolved) o adatta i vhost.
+- **Permessi reload**: il `sudoers` sopra copre `nginx -s reload`; se usi
+  `systemctl reload nginx` aggiorna `NGINX_RELOAD_CMD` e la regola sudoers.
+- **TLS**: come in Docker, si assume terminazione a monte (`TLS_MODE=external`).

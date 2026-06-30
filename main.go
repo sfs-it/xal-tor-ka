@@ -105,25 +105,38 @@ func run() error {
 		store = auth.NewPersistentStore(ttl, idle, sessPath)
 	}
 
+	// Deployment knobs (retro-compatibili: i default valgono per Docker).
+	// DEPLOY_MODE=docker|host sceglie il profilo; le due env specifiche lo sovrascrivono.
+	deployMode := getenv("DEPLOY_MODE", "docker")
+	defReload, defUpstreamLocal := "", "host.docker.internal"
+	if deployMode == "host" {
+		defReload, defUpstreamLocal = "nginx -s reload", "127.0.0.1"
+	}
+	reloadCmd := getenv("NGINX_RELOAD_CMD", defReload)
+	upstreamLocal := getenv("UPSTREAM_LOCALHOST", defUpstreamLocal)
+	slog.Info("deploy mode", "mode", deployMode, "nginx_reload", reloadCmd != "", "upstream_localhost", upstreamLocal)
+
 	srvHandlers := &handlers.Server{
-		Cfg:            &bundle.Config,
-		Users:          dir,
-		Sessions:       store,
-		Resolver:       matrix.NewResolver(&bundle.Config),
-		Local:          providers.NewLocal(dir),
-		OIDC:           buildOIDC(&bundle.Config, bundle.Secrets),
-		UsersPath:      resolvePath(*configDir, bundle.Config.UsersFile, "users.json"),
-		BackupsDir:     filepath.Join(*configDir, "backups"),
-		SetupPath:      filepath.Join(*configDir, "data", "setup.json"),
-		ServicesPath:   resolvePath(*configDir, bundle.Config.ServicesFile, "services.json"),
-		SecretsPath:    resolvePath(*configDir, bundle.Config.SecretsFile, "secrets.json"),
-		BaseBackends:   bundle.Config.Backends,
-		DockerProxyURL: getenv("DOCKER_PROXY", ""),
-		DockerExclude:  splitCSV(getenv("DISCOVER_EXCLUDE", "xaltorka,docker-socket-proxy")),
-		Audit:          auditLog,
+		Cfg:               &bundle.Config,
+		Users:             dir,
+		Sessions:          store,
+		Resolver:          matrix.NewResolver(&bundle.Config),
+		Local:             providers.NewLocal(dir),
+		OIDC:              buildOIDC(&bundle.Config, bundle.Secrets),
+		UpstreamLocalhost: upstreamLocal,
+		UsersPath:         resolvePath(*configDir, bundle.Config.UsersFile, "users.json"),
+		BackupsDir:        filepath.Join(*configDir, "backups"),
+		SetupPath:         filepath.Join(*configDir, "data", "setup.json"),
+		ServicesPath:      resolvePath(*configDir, bundle.Config.ServicesFile, "services.json"),
+		SecretsPath:       resolvePath(*configDir, bundle.Config.SecretsFile, "secrets.json"),
+		BaseBackends:      bundle.Config.Backends,
+		DockerProxyURL:    getenv("DOCKER_PROXY", ""),
+		DockerExclude:     splitCSV(getenv("DISCOVER_EXCLUDE", "xaltorka,docker-socket-proxy")),
+		Audit:             auditLog,
 		Proxy: &proxy.Manager{
 			OutPath:    filepath.Join(*configDir, "nginx", "conf.d", "backends.conf"),
 			BackupsDir: filepath.Join(*configDir, "backups"),
+			ReloadCmd:  reloadCmd,
 			Gen: proxy.GenConfig{
 				Upstream:     getenv("PROXY_UPSTREAM", "xaltorka:8080"),
 				GateLoginURL: strings.TrimRight(bundle.Config.Server.ExternalURL, "/"),
