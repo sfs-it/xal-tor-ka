@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 SFS.it di Zanutto Agostino
+
 // Package models defines the typed data structures of Xal-Tor-Ka:
 // configuration, secrets, users and runtime entities. See BLUEPRINT.md §7–§8.
 // No use of map[string]interface{} / any for known fields (MYRULES Go §5).

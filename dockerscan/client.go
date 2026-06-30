@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 SFS.it di Zanutto Agostino
+
 // Package dockerscan queries a read-only docker-socket-proxy to discover running
 // containers and their published ports, so the admin UI can propose ready-made
 // vhosts. It never touches the raw docker socket (that lives only in the

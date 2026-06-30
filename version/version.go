@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 SFS.it di Zanutto Agostino
+
 // Package version holds the single source of truth for the Xal-Tor-Ka build
 // version. The default tracks the active pre-release line; release builds override
 // it at link time:

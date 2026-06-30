@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 SFS.it di Zanutto Agostino
+
 // Package providers defines the authentication provider interface and its
 // implementations (Local now; Google/Microsoft OIDC later). See BLUEPRINT.md §6.
 package providers

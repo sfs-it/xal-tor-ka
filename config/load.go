@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 SFS.it di Zanutto Agostino
+
 // Package config loads and validates the three configuration files of
 // Xal-Tor-Ka (config.json, secrets.json, users.json). See BLUEPRINT.md §7.
 // Decoding is strict (DisallowUnknownFields) and fails fast with the offending

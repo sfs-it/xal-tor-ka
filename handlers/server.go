@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 SFS.it di Zanutto Agostino
+
 // Package handlers wires the HTTP endpoints of Xal-Tor-Ka: the auth_request
 // validation endpoint, the local login + TOTP flow, the first-run setup wizard,
 // the services dashboard (/listing) and a minimal admin reload. See BLUEPRINT.md

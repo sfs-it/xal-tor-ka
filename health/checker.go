@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 SFS.it di Zanutto Agostino
+
 // Package health periodically probes the HTTP health endpoint of each backend
 // and records its status for the admin Monitoring view. Not ICMP: it does an
 // application-level GET (BLUEPRINT.md §11). The checker reads the current backend

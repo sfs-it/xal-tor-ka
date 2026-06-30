@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 SFS.it di Zanutto Agostino
+
 // Package audit writes a fail2ban-friendly log of authentication failures
 // (one line per event, with the real client IP), so the host's fail2ban can
 // monitor it and ban brute-forcers. Decoupled: the app only writes the file.

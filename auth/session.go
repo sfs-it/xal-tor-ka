@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 SFS.it di Zanutto Agostino
+
 // Package auth provides session storage, password hashing and TOTP verification
 // for Xal-Tor-Ka. The session store is the authoritative in-RAM cache described
 // in BLUEPRINT.md §8.1; an optional file persists sessions across restarts

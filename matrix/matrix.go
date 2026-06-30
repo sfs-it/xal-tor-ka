@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 SFS.it di Zanutto Agostino
+
 // Package matrix resolves (host, path) requests to backend access rules and
 // checks user→backend authorization. See BLUEPRINT.md §5. The backend set is
 // swappable at runtime (config backends + services.json) under an RWMutex.

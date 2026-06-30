@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 SFS.it di Zanutto Agostino
+
 // Package proxy generates the NGINX reverse-proxy configuration from the
 // resolved backend set and applies it atomically. See BLUEPRINT.md §16.3 and
 // the auth_request contract §4. The generated file is consumed by the NGINX
