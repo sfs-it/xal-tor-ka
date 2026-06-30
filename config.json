@@ -1,0 +1,41 @@
+{
+  "auth_mode": true,
+  "disable_totp": true,
+  "auth_log": "logs/auth.log",
+  "server": {
+    "listen": "${GO_PORT:-:8080}",
+    "external_url": "${GATE_URL:-http://localhost:8080}",
+    "trusted_proxies": ["127.0.0.1/32"]
+  },
+  "tls": {
+    "mode": "${TLS_MODE:-selfsigned}",
+    "domains": ["localhost"],
+    "acme": { "provider": "powerdns", "pdns_api_url": "", "email": "" }
+  },
+  "session": {
+    "cookie_name": "xtk_session",
+    "cookie_domain": "${COOKIE_DOMAIN:-}",
+    "ttl_minutes": 720,
+    "idle_timeout_minutes": 60,
+    "store": "file",
+    "sqlite_path": "data/sessions.json"
+  },
+  "admin": { "ip_whitelist": ["${ADMIN_CIDR:-127.0.0.1/32}", "::1/128"] },
+  "providers": [
+    { "id": "local", "type": "local", "enabled": true },
+    { "id": "google", "type": "oidc", "name": "Google", "enabled": false,
+      "issuer": "https://accounts.google.com", "client_id": "" },
+    { "id": "microsoft", "type": "oidc", "name": "Microsoft", "enabled": false,
+      "issuer": "https://login.microsoftonline.com/<TENANT_ID>/v2.0", "client_id": "" }
+  ],
+  "users_file": "users.json",
+  "secrets_file": "secrets.json",
+  "services_file": "services.json",
+  "monitoring": {
+    "alerting": {
+      "telegram": { "enabled": false, "chat_id": "" },
+      "email": { "enabled": false, "smtp_host": "", "from": "", "to": [] }
+    }
+  },
+  "backends": []
+}

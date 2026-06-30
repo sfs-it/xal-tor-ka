@@ -1,0 +1,41 @@
+# Go build artifacts
+/xaltorka
+/bin/
+*.test
+*.out
+
+# Runtime data & local secrets (mai versionati: contengono segreti o stato locale)
+/data/
+/backups/
+/logs/
+/secrets.json
+/users.json
+/services.json
+/certs/
+/.env
+
+# Tieni versionati i template
+!/secrets.example.json
+!/users.example.json
+!/services.example.json
+!/.env.example
+
+# Config NGINX generato dal proxy manager (rigenerato all'avvio)
+/nginx/conf.d/backends.conf
+
+# IDE
+.idea/
+
+# Estrazioni temporanee
+/tmp/
+
+# WSL: marcatore "scaricato da internet" (ADS)
+*:Zone.Identifier
+
+# Materiale IA + registri di sessione: solo nel repo personale locale, MAI pubblicati
+# (gitignorati → non in git → backuppati a parte: vedi tarball nel workspace).
+/CLAUDE.md
+/MYRULES.md
+/CHANGELOG.md
+/HISTORY.md
+/PHONETALK=chat=Xal-Tor-Ka.zip

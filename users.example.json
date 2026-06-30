@@ -1,0 +1,11 @@
+{
+  "users": [
+    {
+      "email": "admin@localhost",
+      "provider": "local",
+      "password_hash": "argon2id$placeholder-da-sostituire",
+      "totp_secret": "JBSWY3DPEHPK3PXP",
+      "backends": ["demo"]
+    }
+  ]
+}

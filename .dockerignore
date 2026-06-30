@@ -1,0 +1,16 @@
+# build context: solo ciò che serve a compilare
+.git
+.idea
+*.md
+data/
+backups/
+certs/
+nginx/
+docker-compose.yml
+demo/
+.env
+.env.*
+# segreti e stato runtime: mai nell'immagine
+secrets.json
+users.json
+PHONETALK*.zip*

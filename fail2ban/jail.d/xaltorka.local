@@ -1,0 +1,9 @@
+# Jail fail2ban per Xal-Tor-Ka.
+# Copia in /etc/fail2ban/jail.d/xaltorka.local e adatta logpath.
+[xaltorka]
+enabled  = true
+filter   = xaltorka
+logpath  = /opt/xaltorka/logs/auth.log
+maxretry = 5
+findtime = 600
+bantime  = 3600

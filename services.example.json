@@ -1,0 +1,23 @@
+{
+  "backends": [
+    {
+      "id": "intranet",
+      "name": "Intranet",
+      "host": "intranet.example.com",
+      "url": "https://intranet.example.com",
+      "routes": [
+        { "path": "/", "rule": "whitelist", "upstream": "http://10.0.0.10:8080" }
+      ],
+      "health": { "url": "http://10.0.0.10:8080/health", "interval_seconds": 30, "timeout_seconds": 5 }
+    }
+  ],
+  "links": [
+    {
+      "id": "status",
+      "name": "Status page",
+      "url": "https://status.example.com",
+      "description": "Pagina di stato pubblica",
+      "public": true
+    }
+  ]
+}
