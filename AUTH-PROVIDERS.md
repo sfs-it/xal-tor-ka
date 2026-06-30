@@ -1,189 +1,189 @@
-# Xal-Tor-Ka — Provider di autenticazione esterni (OIDC)
+# Xal-Tor-Ka — External authentication providers (OIDC)
 
-Oltre al login locale (password + TOTP), Xal-Tor-Ka può delegare l'autenticazione
-a un **provider OpenID Connect** esterno: l'utente clicca «Accedi con Google /
-Microsoft / …», si autentica sul provider (che gestisce anche l'eventuale MFA) e
-torna autenticato. Sono supportati tutti gli IdP conformi a OIDC con discovery
-(`/.well-known/openid-configuration`): **Google**, **Microsoft (Entra ID)** e i
-generici **Keycloak, Authentik, Auth0, Okta, GitLab**, ecc.
+Beyond local login (password + TOTP), Xal-Tor-Ka can delegate authentication
+to an external **OpenID Connect provider**: the user clicks "Sign in with Google /
+Microsoft / …", authenticates with the provider (which also handles any MFA) and
+comes back authenticated. All OIDC-compliant IdPs with discovery
+(`/.well-known/openid-configuration`) are supported: **Google**, **Microsoft (Entra ID)** and the
+generic **Keycloak, Authentik, Auth0, Okta, GitLab**, etc.
 
-> **Come funziona (in breve).** Xal-Tor-Ka usa l'*Authorization Code Flow*:
-> redirige al provider con `state`+`nonce` (anti-CSRF/replay), riceve il codice sul
-> proprio endpoint di callback, lo scambia con un `id_token` JWT, ne **verifica la
-> firma** sulle chiavi pubbliche del provider (JWKS) e legge l'email. È
-> **fail-closed**: qualunque errore nel giro nega il login, non lo concede.
+> **How it works (in brief).** Xal-Tor-Ka uses the *Authorization Code Flow*:
+> it redirects to the provider with `state`+`nonce` (anti-CSRF/replay), receives the code on its
+> own callback endpoint, exchanges it for an `id_token` JWT, **verifies its
+> signature** against the provider's public keys (JWKS) and reads the email. It is
+> **fail-closed**: any error along the way denies the login, it does not grant it.
 
 ---
 
-## 0. Concetti chiave (validi per tutti i provider)
+## 0. Key concepts (valid for all providers)
 
-| Concetto | Valore in Xal-Tor-Ka |
+| Concept | Value in Xal-Tor-Ka |
 |----------|----------------------|
-| **Redirect URI** (da registrare sul provider) | `<GATE_URL>/auth/<id>/callback` |
-| **Issuer** | URL base del provider (vedi sotto per provider) |
-| **id provider** | la chiave in `config.json` (`google`, `microsoft`, o uno scelto da te) |
-| **client_id** | rilasciato dal provider → in `config.json` |
-| **client_secret** | rilasciato dal provider → in **`secrets.json`** (mai in config.json, mai in git) |
+| **Redirect URI** (to register on the provider) | `<GATE_URL>/auth/<id>/callback` |
+| **Issuer** | provider base URL (see per-provider below) |
+| **provider id** | the key in `config.json` (`google`, `microsoft`, or one you choose) |
+| **client_id** | issued by the provider → in `config.json` |
+| **client_secret** | issued by the provider → in **`secrets.json`** (never in config.json, never in git) |
 
-Esempio di redirect URI con `GATE_URL=https://gate.tuodominio.it`:
+Example redirect URI with `GATE_URL=https://gate.yourdomain.com`:
 
 ```
-https://gate.tuodominio.it/auth/google/callback
-https://gate.tuodominio.it/auth/microsoft/callback
+https://gate.yourdomain.com/auth/google/callback
+https://gate.yourdomain.com/auth/microsoft/callback
 ```
 
-> ⚠️ Il redirect URI **deve combaciare esattamente** con quello registrato sul
-> provider (schema, host, porta, path). Deriva da `server.external_url` (`GATE_URL`):
-> se quello è sbagliato, il provider rifiuta con `redirect_uri_mismatch`.
+> ⚠️ The redirect URI **must match exactly** the one registered on the
+> provider (scheme, host, port, path). It is derived from `server.external_url` (`GATE_URL`):
+> if that is wrong, the provider rejects with `redirect_uri_mismatch`.
 
-### Nessun auto-provisioning (per sicurezza)
+### No auto-provisioning (for security)
 
-Autenticarsi con Google **non basta** per entrare: l'utente deve **esistere già**
-in Xal-Tor-Ka ed essere dichiarato per **quel** provider. Altrimenti chiunque abbia
-un account Google potrebbe loggarsi. Crea l'utente con l'email dell'IdP e il
-provider corrispondente:
+Authenticating with Google **is not enough** to get in: the user must **already exist**
+in Xal-Tor-Ka and be declared for **that** provider. Otherwise anyone with
+a Google account could log in. Create the user with the IdP email and the
+corresponding provider:
 
 ```bash
-# utente OIDC (niente password: l'autenticazione la fa il provider)
+# OIDC user (no password: authentication is handled by the provider)
 docker compose run --rm xaltorka user \
   --config /etc/xaltorka \
   --email mario.rossi@gmail.com --provider google
-# eventualmente promuovi ad admin: aggiungi --admin
+# optionally promote to admin: add --admin
 ```
 
-Poi, da `/admin → Utenti → (l'utente) → Proprietà`, assegna le **autorizzazioni**
-ai backend `whitelist` (gli admin accedono a tutto). Le autorizzazioni vivono in
-`users.json` come per gli utenti locali.
+Then, from `/admin → Users → (the user) → Properties`, assign the **authorizations**
+to the `whitelist` backends (admins access everything). The authorizations live in
+`users.json` just like for local users.
 
-> L'email restituita dall'IdP deve combaciare con `email` dell'utente. Per
-> Microsoft, se manca il claim `email`, si usa `preferred_username` (di norma l'UPN).
+> The email returned by the IdP must match the user's `email`. For
+> Microsoft, if the `email` claim is missing, `preferred_username` is used (usually the UPN).
 
 ---
 
-## 1. Attivazione (procedura generale, 4 passi)
+## 1. Activation (general procedure, 4 steps)
 
-1. **Registra l'app** sul provider (sezioni 2–4) e ottieni `client_id` +
-   `client_secret`, impostando il redirect URI `<GATE_URL>/auth/<id>/callback`.
-2. **`config.json`** → metti `enabled: true`, `client_id` e (per OIDC generici)
-   l'`issuer` corretto:
+1. **Register the app** on the provider (sections 2–4) and obtain `client_id` +
+   `client_secret`, setting the redirect URI `<GATE_URL>/auth/<id>/callback`.
+2. **`config.json`** → set `enabled: true`, `client_id` and (for generic OIDC)
+   the correct `issuer`:
    ```json
    { "id": "google", "type": "oidc", "name": "Google", "enabled": true,
      "issuer": "https://accounts.google.com", "client_id": "1234...apps.googleusercontent.com" }
    ```
-3. **`secrets.json`** → metti il client secret sotto la stessa chiave id:
+3. **`secrets.json`** → set the client secret under the same id key:
    ```json
    { "providers": { "google": { "client_secret": "GOCSPX-..." } } }
    ```
-4. **Ricostruisci** (lo schema/config è cambiato → serve il binario aggiornato):
+4. **Rebuild** (the schema/config has changed → the updated binary is needed):
    ```bash
    make rebuild        # = docker compose up -d --build
-   make logs           # cerca: "oidc provider abilitato" id=google ...
+   make logs           # look for: "oidc provider abilitato" id=google ...
    ```
 
-Da qui, nella pagina `/login` compare il bottone **«Accedi con Google»**. Crea gli
-utenti OIDC (vedi sopra) e provali.
+From here, the **"Sign in with Google"** button appears on the `/login` page. Create the
+OIDC users (see above) and test them.
 
-> La validazione è rigida (Fail-Fast all'avvio): un provider `oidc` con
-> `enabled:true` **richiede** `issuer` e `client_id`, altrimenti il servizio si
-> rifiuta di partire con un messaggio chiaro.
+> Validation is strict (Fail-Fast at startup): an `oidc` provider with
+> `enabled:true` **requires** `issuer` and `client_id`, otherwise the service
+> refuses to start with a clear message.
 
 ---
 
 ## 2. Google
 
-1. Vai su **Google Cloud Console** → *APIs & Services* → **Credentials**
+1. Go to **Google Cloud Console** → *APIs & Services* → **Credentials**
    (`https://console.cloud.google.com/apis/credentials`).
-2. Configura prima la **OAuth consent screen** (tipo *External* se usi account
-   Gmail generici; *Internal* se solo Google Workspace della tua organizzazione).
+2. First configure the **OAuth consent screen** (type *External* if you use generic
+   Gmail accounts; *Internal* if only your organization's Google Workspace).
 3. **Create Credentials → OAuth client ID** → *Application type:* **Web application**.
-4. In **Authorized redirect URIs** aggiungi:
-   `https://gate.tuodominio.it/auth/google/callback`
-5. Copia **Client ID** e **Client secret**.
+4. Under **Authorized redirect URIs** add:
+   `https://gate.yourdomain.com/auth/google/callback`
+5. Copy the **Client ID** and **Client secret**.
 6. In `config.json` (provider `google`): `enabled:true`, `client_id:<...>`,
    `issuer:"https://accounts.google.com"`. In `secrets.json`:
    `providers.google.client_secret:<...>`.
 
-Google restituisce `email` con `email_verified` → l'identità è affidabile.
+Google returns `email` with `email_verified` → the identity is trustworthy.
 
 ---
 
 ## 3. Microsoft (Entra ID / Azure AD)
 
-1. Portale **Microsoft Entra admin center** (`https://entra.microsoft.com`) o Azure
+1. **Microsoft Entra admin center** portal (`https://entra.microsoft.com`) or Azure
    Portal → **App registrations** → **New registration**.
-2. **Redirect URI**: tipo *Web* → `https://gate.tuodominio.it/auth/microsoft/callback`.
-3. Dalla pagina **Overview** copia **Application (client) ID** e **Directory
+2. **Redirect URI**: type *Web* → `https://gate.yourdomain.com/auth/microsoft/callback`.
+3. From the **Overview** page copy the **Application (client) ID** and **Directory
    (tenant) ID**.
-4. **Certificates & secrets → New client secret** → copia il *Value* (non l'ID).
+4. **Certificates & secrets → New client secret** → copy the *Value* (not the ID).
 5. In `config.json` (provider `microsoft`):
    - `enabled:true`, `client_id:<Application ID>`
    - `issuer:"https://login.microsoftonline.com/<TENANT_ID>/v2.0"`
-     (sostituisci `<TENANT_ID>` con il **Directory (tenant) ID**).
+     (replace `<TENANT_ID>` with the **Directory (tenant) ID**).
 6. In `secrets.json`: `providers.microsoft.client_secret:<Value>`.
 
-> ⚠️ **Usa il tenant specifico**, non `common`. Per le app multi-tenant l'issuer di
-> discovery contiene il placeholder `{tenantid}` e la verifica dell'`id_token`
-> fallirebbe. Con il tenant ID esplicito (single-tenant) tutto torna. Se ti serve
-> davvero il multi-tenant, va gestito a parte (validazione issuer custom).
+> ⚠️ **Use the specific tenant**, not `common`. For multi-tenant apps the discovery
+> issuer contains the placeholder `{tenantid}` and `id_token` verification
+> would fail. With the explicit tenant ID (single-tenant) everything works. If you
+> really need multi-tenant, it must be handled separately (custom issuer validation).
 
 ---
 
-## 4. Provider OIDC generici (Keycloak, Authentik, Auth0, Okta, GitLab…)
+## 4. Generic OIDC providers (Keycloak, Authentik, Auth0, Okta, GitLab…)
 
-Funzionano tutti allo stesso modo: scegli un `id` libero (es. `keycloak`), registra
-un client *Web/Confidential* con redirect URI `<GATE_URL>/auth/<id>/callback`,
-e usa come `issuer` l'URL base del provider. Il discovery deve rispondere a
+They all work the same way: pick a free `id` (e.g. `keycloak`), register
+a *Web/Confidential* client with redirect URI `<GATE_URL>/auth/<id>/callback`,
+and use the provider's base URL as the `issuer`. Discovery must respond at
 `<issuer>/.well-known/openid-configuration`.
 
-| Provider | Issuer tipico |
+| Provider | Typical issuer |
 |----------|---------------|
-| **Keycloak** | `https://kc.tuodominio.it/realms/<realm>` |
-| **Authentik** | `https://auth.tuodominio.it/application/o/<app-slug>/` |
+| **Keycloak** | `https://kc.yourdomain.com/realms/<realm>` |
+| **Authentik** | `https://auth.yourdomain.com/application/o/<app-slug>/` |
 | **Auth0** | `https://<tenant>.eu.auth0.com/` |
-| **Okta** | `https://<org>.okta.com/` (o `…/oauth2/default`) |
-| **GitLab** | `https://gitlab.com` (o l'URL della tua istanza) |
+| **Okta** | `https://<org>.okta.com/` (or `…/oauth2/default`) |
+| **GitLab** | `https://gitlab.com` (or your instance's URL) |
 
-Esempio `config.json`:
+`config.json` example:
 
 ```json
-{ "id": "keycloak", "type": "oidc", "name": "SSO aziendale", "enabled": true,
-  "issuer": "https://kc.tuodominio.it/realms/intranet",
+{ "id": "keycloak", "type": "oidc", "name": "Corporate SSO", "enabled": true,
+  "issuer": "https://kc.yourdomain.com/realms/intranet",
   "client_id": "xaltorka" }
 ```
 
-`secrets.json`: `providers.keycloak.client_secret:<...>`. Crea gli utenti con
+`secrets.json`: `providers.keycloak.client_secret:<...>`. Create the users with
 `--provider keycloak`.
 
-> **GitHub** *non* è OIDC standard (non espone un discovery/`id_token` per il login):
-> richiederebbe un handler OAuth2 dedicato. Non è supportato da questa via; usa un
-> IdP OIDC davanti a GitHub (es. Keycloak con identity broker) se necessario.
+> **GitHub** is *not* standard OIDC (it does not expose a discovery/`id_token` for login):
+> it would require a dedicated OAuth2 handler. It is not supported through this path; use an
+> OIDC IdP in front of GitHub (e.g. Keycloak with identity broker) if needed.
 
 ---
 
-## 5. SSO tra sottodomini (nota importante)
+## 5. SSO across subdomains (important note)
 
-Il redirect URI di callback è **fisso** (l'host di `GATE_URL`), perché va registrato
-sul provider. Dopo il callback, il cookie di sessione viene posato su quell'host.
+The callback redirect URI is **fixed** (the `GATE_URL` host), because it has to be registered
+on the provider. After the callback, the session cookie is set on that host.
 
-- **In sviluppo** (`*.localhost`, cookie host-only) la sessione OIDC vale sull'host
-  del gate, non automaticamente sugli altri vhost.
-- **In produzione**, per avere **SSO** su tutti i sottodomini (`app1.dominio`,
-  `app2.dominio`, …) imposta `session.cookie_domain` al **dominio padre**
-  (`.tuodominio.it`): così il cookie è condiviso tra i sottodomini. Vedi
+- **In development** (`*.localhost`, host-only cookie) the OIDC session is valid on the gate
+  host, not automatically on the other vhosts.
+- **In production**, to have **SSO** across all subdomains (`app1.dominio`,
+  `app2.dominio`, …) set `session.cookie_domain` to the **parent domain**
+  (`.yourdomain.com`): this way the cookie is shared among the subdomains. See
   `session.cookie_domain` in `config.json` (env `COOKIE_DOMAIN`).
 
 ---
 
 ## 6. Troubleshooting
 
-| Sintomo | Causa probabile |
+| Symptom | Probable cause |
 |---------|-----------------|
-| `redirect_uri_mismatch` sul provider | redirect URI non identico a quello registrato; controlla `GATE_URL`/`external_url` (schema+host+path) |
-| Login torna con «provider non disponibile» | discovery fallita: `issuer` errato o IdP irraggiungibile dal container; verifica egress di rete |
-| «utente non abilitato: \<email\>» | l'utente non esiste o ha un `provider` diverso; crealo con `user --email … --provider <id>` |
-| «verifica anti-CSRF fallita» / «sessione scaduta» | cookie `xtk_oidc` perso (oltre 10 min tra start e callback, o cookie bloccati) — riparti dal login |
-| Microsoft: login ok ma email vuota | abilita il claim opzionale `email` nella app, oppure ci si appoggia a `preferred_username` |
-| Il bottone non compare in `/login` | provider `enabled:false`, oppure non hai fatto `rebuild` dopo aver toccato `config.json` |
+| `redirect_uri_mismatch` on the provider | redirect URI not identical to the registered one; check `GATE_URL`/`external_url` (scheme+host+path) |
+| Login returns with "provider not available" | discovery failed: wrong `issuer` or IdP unreachable from the container; check network egress |
+| "user not enabled: \<email\>" | the user does not exist or has a different `provider`; create it with `user --email … --provider <id>` |
+| "anti-CSRF check failed" / "session expired" | `xtk_oidc` cookie lost (more than 10 min between start and callback, or cookies blocked) — start over from login |
+| Microsoft: login ok but email empty | enable the optional `email` claim in the app, or rely on `preferred_username` |
+| The button does not appear on `/login` | provider `enabled:false`, or you did not run `rebuild` after touching `config.json` |
 
-I tentativi falliti (incluso OIDC) finiscono in `logs/auth.log` con
-`event=oidc …` → integrabili in **fail2ban** (vedi `INSTALL.md` §8).
+Failed attempts (OIDC included) end up in `logs/auth.log` with
+`event=oidc …` → integrable into **fail2ban** (see `INSTALL.md` §8).

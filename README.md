@@ -1,58 +1,77 @@
 # ⛬ Xal-Tor-Ka · `beta0.1`
 
-> Authentication gatekeeper & reverse-proxy manager in Docker. NGINX is the only
-> exposed surface; an internal Go service answers every request via `auth_request`
-> and decides **pass / login / deny** from a per-backend authorization matrix.
+> 🌍 **Languages:** **English (official)** ·
+> [Italiano](DOCS/it/README.md) · [Français](DOCS/fr/README.md) ·
+> [Español](DOCS/es/README.md) · [Deutsch](DOCS/de/README.md) ·
+> [Русский](DOCS/ru/README.md) · [Português](DOCS/pt/README.md) ·
+> [中文](DOCS/zh/README.md) · [हिन्दी](DOCS/hi/README.md) ·
+> [العربية](DOCS/ar/README.md) — see [`DOCS/`](DOCS/README.md)
 
-**Xal-Tor-Ka** sits in front of a public VPS. NGINX is the single exposed entry
-point (a static shield); an internal Go service — never exposed directly —
-evaluates every request through NGINX's `auth_request` and returns **200 / 401 /
-403** based on a per-host, per-path matrix with three levels: `public`,
-`authenticated` (TOTP 2FA), and `whitelist` (explicitly allowed users).
-Authentication is **local** (argon2id + TOTP) or delegated to an **OIDC provider**
-(Google, Microsoft/Entra, Keycloak, Authentik, Auth0, Okta…). The whole
-configuration lives in JSON and is managed from a hardened, IP-restricted web admin
-— with snapshot backups, hot reload, health checks and a fail2ban-friendly audit
-log.
+**One guarded entrance in front of all your online services.** Xal-Tor-Ka is the
+"digital doorman" of your infrastructure: it puts a single hardened door in front of
+every site and application you publish, and decides — for each one — who may enter.
+No more passwords scattered service by service: the rule lives in one place.
 
-```
-Internet → NGINX (gatekeeper) ──auth_request (internal)──► Xal-Tor-Ka (Go)
-                  │ 200=pass / 401=login / 403=deny
-                  └── proxy_pass (only if authorized) ──► internal backends
-```
+For a **decision-maker**, the value is simple: you publish an internal application
+without exposing it to the world; you choose whether a service is **open to
+everyone**, **reserved for signed-in users** (with two-step verification), or
+**only for explicitly authorized people**; and you manage everything from a
+**protected web panel**. Users can sign in with internal credentials or with their
+corporate **Google** or **Microsoft** account. The system keeps an access log,
+defends itself against brute-force attempts, and backs up its own configuration.
+
+> 👉 If you just want to know **what it does and how it does it**, go to
+> **[`TECHNOTES.md`](TECHNOTES.md)** (technical but readable).
+> If you need to **install it or check the prerequisites**, see
+> **[`REQUIREMENTS.md`](REQUIREMENTS.md)** and **[`INSTALL.md`](INSTALL.md)**.
+
+## Who it is for
+
+- You run several web services (intranet, business apps, dashboards, internal
+  tools) and want **a single controlled entry point** instead of protecting each
+  one separately.
+- You want to **decide centrally** who sees what, with a second security factor
+  and/or corporate sign-in (Google/Microsoft), **without modifying the individual
+  services**.
+- You want the only thing exposed to the internet to be a **shield**, while the
+  real services stay hidden behind it.
+
+## What you get
+
+- **A single, hardened door**: the rest of the infrastructure is not reachable
+  directly from the internet.
+- **Three access levels** per service: public · signed-in users only (2FA) ·
+  allow-listed people only.
+- **Sign in with Google / Microsoft** or with internal credentials.
+- **A protected web panel** to manage services, users and permissions.
+- **Operational security**: access log (pluggable into intrusion-prevention
+  systems), automatic configuration backups, service health monitoring.
 
 ## Status
 
-**`beta0.1`** — pre-1.0. Core is implemented and runs (local auth + TOTP, OIDC
-login, reverse-proxy manager, admin UI, health checks, backups, fail2ban log).
-Open items tracked in [`TODO.md`](TODO.md).
+**`beta0.1`** — a pre-1.0 release. The core is built and working; some advanced
+features are being polished (see [`TODO.md`](TODO.md)).
 
-## Docs
+## Documentation
 
-- [`INSTALL.md`](INSTALL.md) — deploy on a remote VPS, step by step.
-- [`AUTH-PROVIDERS.md`](AUTH-PROVIDERS.md) — enable Google / Microsoft / generic OIDC.
-- [`BLUEPRINT.md`](BLUEPRINT.md) — authoritative architecture & data model.
+| Document | Audience | Content |
+|----------|----------|---------|
+| **[TECHNOTES.md](TECHNOTES.md)** | curious / technical evaluators | what it does and **how** |
+| **[REQUIREMENTS.md](REQUIREMENTS.md)** | engineers | what you need to run it |
+| **[INSTALL.md](INSTALL.md)** | engineers | step-by-step install (Docker and non-Docker) |
+| **[AUTH-PROVIDERS.md](AUTH-PROVIDERS.md)** | engineers | enable Google / Microsoft / OIDC |
+| **[BLUEPRINT.md](BLUEPRINT.md)** | developers | authoritative architecture spec |
 
-## Quick start (local)
+Translations of the entry documents (README, TECHNOTES) live under
+[`DOCS/`](DOCS/README.md). The **English versions in the repository root are
+official**; in case of any discrepancy, English prevails.
 
-```bash
-make up                 # build + start the stack (NGINX exposed on :80)
-make setup EMAIL=you@example.com   # one-time admin onboarding (token URL)
-make version            # -> beta0.1
-```
-
-## Naming
+## Name
 
 **`Xal-Tor-Ka`** when you talk *about* it (brand, UI, docs); **`xaltorka`** when you
-talk *to* it (Go module, binary, Docker service, hostname, logs).
-
-## Versioning
-
-Single source of truth: [`version/version.go`](version/version.go). Release builds
-override it at link time: `-ldflags "-X xaltorka/version.Version=beta0.2"`. Pre-1.0
-line is `beta0.N`. Surfaced in `xaltorka version`, `/healthz`, the startup log, the
-admin topbar and the login footer.
+talk *to* it (Go module, binary, Docker service, hostname).
 
 ---
 
-© 2026 **SFS.it di Zanutto Agostino** — licensed under the [Apache License 2.0](LICENSE).
+© 2026 **SFS.it di Zanutto Agostino** — distributed under the
+[Apache License 2.0](LICENSE).

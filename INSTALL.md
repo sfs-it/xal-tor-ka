@@ -1,271 +1,271 @@
-# Xal-Tor-Ka — Installazione su macchina remota
+# Xal-Tor-Ka — Installation on a remote machine
 
-Guida semplice per mettere in produzione il gateway su una VPS (Debian/Ubuntu).
-NGINX è l'unico servizio esposto; il servizio Go resta interno.
+A simple guide to deploying the gateway to production on a VPS (Debian/Ubuntu).
+NGINX is the only exposed service; the Go service stays internal.
 
-> **Prerequisiti sulla VPS:** Docker Engine + plugin Compose
-> (`docker --version`, `docker compose version`). Su Debian/Ubuntu:
+> **Prerequisites on the VPS:** Docker Engine + Compose plugin
+> (`docker --version`, `docker compose version`). On Debian/Ubuntu:
 > `curl -fsSL https://get.docker.com | sh`.
 
 ---
 
-## 1. Copia i file sulla VPS
+## 1. Copy the files to the VPS
 
-Ti serve una cartella (es. `/opt/xaltorka`) con:
+You need a folder (e.g. `/opt/xaltorka`) containing:
 
 ```
 /opt/xaltorka/
 ├── docker-compose.yml
 ├── Dockerfile
-├── .env                 # creato da te (vedi punto 2)
+├── .env                 # created by you (see step 2)
 ├── config.json
-├── secrets.json         # creato da te dai .example
-├── users.json           # creato da te (vuoto all'inizio)
+├── secrets.json         # created by you from the .example
+├── users.json           # created by you (empty at first)
 ├── services.json
-├── go.mod  go.sum  main.go  *.go  ...   # il sorgente (serve alla build)
+├── go.mod  go.sum  main.go  *.go  ...   # the source (needed for the build)
 └── nginx/conf.d/xaltorka.conf
 ```
 
-Più semplice: clona/copia l'intero repository nella cartella.
+Simpler: clone/copy the entire repository into the folder.
 
 ```bash
 sudo mkdir -p /opt/xaltorka && sudo chown "$USER":"$USER" /opt/xaltorka
-# copia qui i file del progetto (git clone, scp, rsync...)
+# copy the project files here (git clone, scp, rsync...)
 cd /opt/xaltorka
 cp secrets.example.json secrets.json
 printf '{ "users": [] }\n' > users.json
 ```
 
-## 2. Configura l'ambiente (`.env`)
+## 2. Configure the environment (`.env`)
 
 ```bash
 cp .env.example .env
 nano .env
 ```
 
-Imposta almeno:
+Set at least:
 
-| Variabile    | Cosa metterci |
+| Variable     | What to put |
 |--------------|---------------|
-| `GATE_URL`   | URL pubblico, es. `https://gate.tuodominio.it` |
-| `HTTP_PORT`  | porta pubblica di NGINX (default `80`) |
-| `TLS_MODE`   | `external` se hai un reverse proxy/LB con TLS davanti; altrimenti `selfsigned` |
-| `ADMIN_CIDR` | il TUO IP (o VPN) che potrà usare l'area admin, es. `203.0.113.7/32` |
-| `EDGE_CIDR`  | la rete da cui arrivano gli header `X-Forwarded-*` (subnet docker o proxy a monte) |
-| `PUID`/`PGID`| output di `id -u` / `id -g` (proprietario dei file di config) |
+| `GATE_URL`   | public URL, e.g. `https://gate.yourdomain.com` |
+| `HTTP_PORT`  | NGINX public port (default `80`) |
+| `TLS_MODE`   | `external` if you have a reverse proxy/LB with TLS in front; otherwise `selfsigned` |
+| `ADMIN_CIDR` | YOUR IP (or VPN) allowed to use the admin area, e.g. `203.0.113.7/32` |
+| `EDGE_CIDR`  | the network the `X-Forwarded-*` headers come from (docker subnet or upstream proxy) |
+| `PUID`/`PGID`| output of `id -u` / `id -g` (owner of the config files) |
 
-> **TLS:** in produzione il consiglio è terminare il TLS a monte (reverse proxy
-> dell'host o LB) e lasciare `TLS_MODE=external`. La modalità `acme` (Let's Encrypt
-> via PowerDNS) è prevista ma non ancora implementata (BLUEPRINT §3.1).
+> **TLS:** in production the recommendation is to terminate TLS upstream (host
+> reverse proxy or LB) and leave `TLS_MODE=external`. The `acme` mode (Let's Encrypt
+> via PowerDNS) is planned but not yet implemented (BLUEPRINT §3.1).
 
-## 3. Avvia lo stack
+## 3. Start the stack
 
 ```bash
 make up        # = docker compose up -d --build
-make ps        # stato dei servizi
-make logs      # log in tempo reale
+make ps        # service status
+make logs      # live logs
 ```
 
-Verifica:
+Verify:
 
 ```bash
 curl -s http://localhost:${HTTP_PORT:-80}/healthz   # -> {"status":"ok",...}
 ```
 
-## 4. Crea il primo amministratore (onboarding ibrido)
+## 4. Create the first administrator (hybrid onboarding)
 
-Il setup parte da CLI e si completa nel browser (niente editing manuale di file).
+Setup starts from the CLI and finishes in the browser (no manual file editing).
 
 ```bash
-make setup EMAIL=admin@tuodominio.it
-# oppure:
-docker compose run --rm xaltorka setup --email admin@tuodominio.it --config /etc/xaltorka
+make setup EMAIL=admin@yourdomain.com
+# or:
+docker compose run --rm xaltorka setup --email admin@yourdomain.com --config /etc/xaltorka
 ```
 
-Il comando stampa un URL con un token a scadenza, es.:
+The command prints a URL with an expiring token, e.g.:
 
 ```
 http://localhost/setup?token=XXXXXXXX
 ```
 
-Aprilo nel browser (sostituendo l'host con `GATE_URL` se accedi da remoto):
+Open it in the browser (replacing the host with `GATE_URL` if you connect remotely):
 
-1. la pagina mostra l'email già compilata → imposta la **password**;
-2. compare un **QR**: scansionalo con un'app authenticator (Google Authenticator,
-   Authy, …) o inserisci la chiave a mano;
-3. digita il **codice a 6 cifre** per confermare → profilo attivato.
+1. the page shows the email already filled in → set the **password**;
+2. a **QR** appears: scan it with an authenticator app (Google Authenticator,
+   Authy, …) or enter the key manually;
+3. type the **6-digit code** to confirm → profile activated.
 
-Da qui in poi: login su `${GATE_URL}/login`.
+From now on: log in at `${GATE_URL}/login`.
 
-## 5. Aggiungi servizi
+## 5. Add services
 
-Due tipi di "servizio" compaiono nella dashboard `/listing`:
+Two types of "service" show up in the `/listing` dashboard:
 
-**a) Backend reverse-proxati** (instradati dal gateway):
+**a) Reverse-proxied backends** (routed by the gateway):
 
 ```bash
 docker compose run --rm xaltorka add-backend \
   --config /etc/xaltorka \
   --id intranet --name "Intranet" \
-  --host intranet.tuodominio.it \
+  --host intranet.yourdomain.com \
   --upstream http://10.0.0.10:8080 \
   --rule whitelist
-# applica: riavvia il servizio
+# apply: restart the service
 make rebuild
 ```
 
-**b) Link esterni** (solo riquadro/bookmark nella dashboard, non proxati):
+**b) External links** (just a tile/bookmark in the dashboard, not proxied):
 
 ```bash
 docker compose run --rm xaltorka add-link \
   --config /etc/xaltorka \
-  --id wiki --name "Wiki" --url https://wiki.tuodominio.it --public
-# applica a caldo (dal TUO IP in ADMIN_CIDR):
+  --id wiki --name "Wiki" --url https://wiki.yourdomain.com --public
+# apply hot (from YOUR IP in ADMIN_CIDR):
 curl -X POST http://localhost/admin/reload
 ```
 
-**c) Scoperta automatica dei container Docker** (comodità, opzionale):
-da `/admin` → «Scopri container» vedi i container con porte pubblicate e con un
-click crei il vhost `<nome>.localhost → host.docker.internal:<porta>`. La visibilità
-passa da un sidecar **read-only** `docker-socket-proxy` (la docker.sock NON è montata
-in Xal-Tor-Ka). Per disattivarla: togli il servizio `docker-socket-proxy` dal compose
-e la variabile `DOCKER_PROXY`. In produzione Linux serve il supporto a
-`host-gateway` (già impostato via `extra_hosts`).
+**c) Automatic discovery of Docker containers** (convenience, optional):
+from `/admin` → «Discover containers» you see containers with published ports and with one
+click you create the vhost `<name>.localhost → host.docker.internal:<port>`. Visibility
+goes through a **read-only** `docker-socket-proxy` sidecar (docker.sock is NOT mounted
+in Xal-Tor-Ka). To disable it: remove the `docker-socket-proxy` service from the compose file
+and the `DOCKER_PROXY` variable. On production Linux it needs `host-gateway`
+support (already set via `extra_hosts`).
 
-> Autorizzazioni: un servizio `public` (link) o `public`/`authenticated` (backend)
-> è visibile a tutti gli utenti loggati. Per i `whitelist` aggiungi l'`id` del
-> servizio alla lista `backends` dell'utente in `users.json` (gestione utenti da
-> `/admin` in arrivo).
+> Authorizations: a `public` service (link) or a `public`/`authenticated` backend
+> is visible to all logged-in users. For `whitelist` ones, add the service `id`
+> to the user's `backends` list in `users.json` (user management from
+> `/admin` coming soon).
 
 ## 5-ter. 2FA (TOTP)
 
-Il secondo fattore TOTP è attivo di default. Per disattivarlo (solo password) imposta
-in `config.json` `"disable_totp": true` e riavvia. **In produzione tienilo `false`.**
+The TOTP second factor is enabled by default. To disable it (password only), set
+`"disable_totp": true` in `config.json` and restart. **In production keep it `false`.**
 
-## 5-quater. Login con provider esterni (Google/Microsoft/OIDC)
+## 5-quater. Login with external providers (Google/Microsoft/OIDC)
 
-Oltre al login locale, puoi abilitare l'accesso via **Google**, **Microsoft (Entra
-ID)** o un qualsiasi IdP **OIDC** (Keycloak, Authentik, Auth0, Okta, GitLab). I
-provider sono già presenti in `config.json` come esempi **disabilitati**; per
-attivarli (registrazione app, `client_id`/`client_secret`, redirect URI, creazione
-utenti) segui la guida dedicata **[`AUTH-PROVIDERS.md`](AUTH-PROVIDERS.md)**.
+Besides local login, you can enable access via **Google**, **Microsoft (Entra
+ID)** or any **OIDC** IdP (Keycloak, Authentik, Auth0, Okta, GitLab). The
+providers are already present in `config.json` as **disabled** examples; to
+enable them (app registration, `client_id`/`client_secret`, redirect URI, user
+creation) follow the dedicated guide **[`AUTH-PROVIDERS.md`](AUTH-PROVIDERS.md)**.
 
-> Dopo aver toccato `config.json` serve **`make rebuild`** (non un semplice
-> restart): il binario rilegge lo schema all'avvio e il campo provider è nuovo.
+> After touching `config.json` you need **`make rebuild`** (not a plain
+> restart): the binary re-reads the schema at startup and the provider field is new.
 
-## 5-bis. Amministrazione (modello unificato)
+## 5-bis. Administration (unified model)
 
-Non esiste una password admin separata: **l'amministratore è un utente**
-(`users.json`) con flag `admin: true`. Si accede con il normale login (`/login`);
-chi è admin vede anche `/admin` (oltre alla IP whitelist `ADMIN_CIDR`, livello di rete).
+There is no separate admin password: **the administrator is a user**
+(`users.json`) with the `admin: true` flag. You log in with the normal login (`/login`);
+admins also see `/admin` (on top of the `ADMIN_CIDR` IP whitelist, network level).
 
-- Il **primo admin** è il profilo creato dal setup iniziale (punto 4).
-- Creare/promuovere un admin da CLI (recovery/bootstrap):
-  `make admin EMAIL=tu@dominio PASSWORD=segreto`
-  (equivale a `docker compose run --rm xaltorka user --email … --password … --admin`).
-- Da `/admin → Utenti` puoi dare/togliere il flag admin, reimpostare password e 2FA.
+- The **first admin** is the profile created by the initial setup (step 4).
+- Create/promote an admin from the CLI (recovery/bootstrap):
+  `make admin EMAIL=you@domain PASSWORD=secret`
+  (equivalent to `docker compose run --rm xaltorka user --email … --password … --admin`).
+- From `/admin → Users` you can grant/revoke the admin flag, reset passwords and 2FA.
 
-## 6. Operatività
+## 6. Operations
 
-| Comando        | Effetto |
+| Command        | Effect |
 |----------------|---------|
-| `make up`      | build + avvio in background |
-| `make down`    | stop e rimozione container |
-| `make logs`    | log in tempo reale |
-| `make rebuild` | ricostruzione immagini + riavvio |
-| `make ps`      | stato servizi |
+| `make up`      | build + start in the background |
+| `make down`    | stop and remove containers |
+| `make logs`    | live logs |
+| `make rebuild` | rebuild images + restart |
+| `make ps`      | service status |
 
-**Backup:** ad ogni scrittura di `users.json`/`services.json` viene creato uno
-snapshot in `backups/` (timestamp). I segreti (`secrets.json`, `users.json`) non
-vanno mai versionati: sono già in `.gitignore`.
+**Backup:** on every write of `users.json`/`services.json` a snapshot is created
+in `backups/` (timestamped). Secrets (`secrets.json`, `users.json`) must never
+be versioned: they are already in `.gitignore`.
 
-## 7. Note di sicurezza
+## 7. Security notes
 
-- Il servizio Go **non espone porte**: è raggiungibile solo dalla rete interna docker.
-- `secrets.json` e `users.json` contengono segreti → permessi `600`, niente git.
-- L'area `/admin` è limitata a `ADMIN_CIDR`. Dietro NGINX, l'IP reale del client
-  arriva via `X-Forwarded-For` ed è considerato attendibile solo dalle reti in
+- The Go service **exposes no ports**: it is reachable only from the internal docker network.
+- `secrets.json` and `users.json` contain secrets → `600` permissions, no git.
+- The `/admin` area is restricted to `ADMIN_CIDR`. Behind NGINX, the real client IP
+  arrives via `X-Forwarded-For` and is trusted only from the networks in
   `EDGE_CIDR`.
-- In produzione metti il gateway dietro HTTPS (`TLS_MODE=external` + terminazione TLS
-  a monte) così i cookie di sessione viaggiano come `Secure`.
+- In production, put the gateway behind HTTPS (`TLS_MODE=external` + TLS termination
+  upstream) so session cookies travel as `Secure`.
 
-## 8. fail2ban (protezione brute-force)
+## 8. fail2ban (brute-force protection)
 
-Xal-Tor-Ka scrive i tentativi di accesso falliti (login, 2FA, accesso admin) in
-`logs/auth.log`, con l'IP reale del client (via `X-Forwarded-For` dai
-`trusted_proxies`). Formato per riga:
+Xal-Tor-Ka writes failed access attempts (login, 2FA, admin access) to
+`logs/auth.log`, with the real client IP (via `X-Forwarded-For` from the
+`trusted_proxies`). Per-line format:
 
 ```
 2026-06-24T10:00:00Z xaltorka auth-fail ip=<IP> event=<login|totp|admin_denied|admin_ip> ...
 ```
 
-Per attivare il ban sull'host (fail2ban già installato):
+To enable banning on the host (fail2ban already installed):
 
 ```bash
 sudo cp fail2ban/filter.d/xaltorka.conf /etc/fail2ban/filter.d/xaltorka.conf
 sudo cp fail2ban/jail.d/xaltorka.local /etc/fail2ban/jail.d/xaltorka.local
-# adatta logpath in jail.d/xaltorka.local al percorso reale di logs/auth.log
+# adjust logpath in jail.d/xaltorka.local to the real path of logs/auth.log
 sudo systemctl restart fail2ban
 sudo fail2ban-client status xaltorka
 ```
 
-Il path del log è configurabile con `auth_log` in `config.json` (default `logs/auth.log`).
+The log path is configurable with `auth_log` in `config.json` (default `logs/auth.log`).
 
-## 9. Deploy senza Docker (host / LXD / macchina dedicata)
+## 9. Deploy without Docker (host / LXD / dedicated machine)
 
-> ⚠️ **Scaffolding beta, non ancora testato end-to-end su una macchina reale.**
-> Il *core* (servizio Go) è un binario statico già agnostico al runtime; i punti
-> Docker-specifici sono governati da tre **knob** via env (default = Docker):
+> ⚠️ **Beta scaffolding, not yet tested end-to-end on a real machine.**
+> The *core* (Go service) is a static binary already agnostic to the runtime; the
+> Docker-specific points are governed by three **knobs** via env (default = Docker):
 >
 > | Env | Docker (default) | Host/LXD |
 > |-----|------------------|----------|
 > | `DEPLOY_MODE` | `docker` | `host` |
-> | `NGINX_RELOAD_CMD` | *(vuoto: reload a carico del container nginx)* | `nginx -s reload` / `systemctl reload nginx` |
+> | `NGINX_RELOAD_CMD` | *(empty: reload handled by the nginx container)* | `nginx -s reload` / `systemctl reload nginx` |
 > | `UPSTREAM_LOCALHOST` | `host.docker.internal` | `127.0.0.1` |
 >
-> `DEPLOY_MODE=host` imposta da solo i default della colonna destra; le altre due
-> env lo sovrascrivono se valorizzate.
+> `DEPLOY_MODE=host` sets the right-hand column defaults on its own; the other two
+> env vars override it when set.
 
-Passi (Debian/Ubuntu o dentro un container LXD con NGINX installato):
+Steps (Debian/Ubuntu or inside an LXD container with NGINX installed):
 
 ```bash
-# 1) compila il binario statico (sulla build machine) e copialo sul target
-make build                      # -> ./xaltorka (CGO off, statico)
+# 1) build the static binary (on the build machine) and copy it to the target
+make build                      # -> ./xaltorka (CGO off, static)
 sudo install -m 0755 xaltorka /usr/local/bin/xaltorka
 xaltorka version                # -> beta0.1
 
-# 2) crea utente di servizio e cartella di configurazione
+# 2) create a service user and a configuration folder
 sudo useradd --system --home /opt/xaltorka --shell /usr/sbin/nologin xaltorka
 sudo mkdir -p /opt/xaltorka && sudo chown xaltorka:xaltorka /opt/xaltorka
-# copia qui config.json, e crea secrets.json/users.json dai .example
+# copy config.json here, and create secrets.json/users.json from the .example
 sudo -u xaltorka cp secrets.example.json /opt/xaltorka/secrets.json
 sudo -u xaltorka sh -c 'printf "{ \"users\": [] }\n" > /opt/xaltorka/users.json'
 
-# 3) NGINX dell'host: includi i vhost generati dal servizio Go
-#    (il servizio scrive /opt/xaltorka/nginx/conf.d/backends.conf)
+# 3) host NGINX: include the vhosts generated by the Go service
+#    (the service writes /opt/xaltorka/nginx/conf.d/backends.conf)
 echo 'include /opt/xaltorka/nginx/conf.d/*.conf;' | sudo tee /etc/nginx/conf.d/xaltorka-include.conf
 
-# 4) reload NGINX senza password per l'utente di servizio
+# 4) reload NGINX without a password for the service user
 sudo install -m 0440 deploy/xaltorka.sudoers /etc/sudoers.d/xaltorka
 
-# 5) servizio systemd
+# 5) systemd service
 sudo cp deploy/xaltorka.service /etc/systemd/system/xaltorka.service
-sudoedit /etc/systemd/system/xaltorka.service   # adatta GATE_URL e percorsi
+sudoedit /etc/systemd/system/xaltorka.service   # adjust GATE_URL and paths
 sudo systemctl daemon-reload
 sudo systemctl enable --now xaltorka
 journalctl -u xaltorka -f
 
-# 6) onboarding primo admin (come in §4, ma da CLI locale)
-sudo -u xaltorka xaltorka setup --email admin@tuodominio.it --config /opt/xaltorka
+# 6) onboarding of the first admin (as in §4, but from the local CLI)
+sudo -u xaltorka xaltorka setup --email admin@yourdomain.com --config /opt/xaltorka
 ```
 
-**Punti da verificare sul campo (beta):**
-- **Upstream del gate** nei vhost generati: imposta `PROXY_UPSTREAM=127.0.0.1:8080`
-  (già nel unit) e fai ascoltare il servizio Go su `127.0.0.1:8080`
+**Points to verify in the field (beta):**
+- **Gate upstream** in the generated vhosts: set `PROXY_UPSTREAM=127.0.0.1:8080`
+  (already in the unit) and have the Go service listen on `127.0.0.1:8080`
   (`server.listen` in `config.json`).
-- **`resolver` NGINX**: la generazione usa `PROXY_RESOLVER` (default `127.0.0.11`,
-  il DNS interno di Docker). Su host valorizzalo col resolver di sistema
-  (es. `127.0.0.53` con systemd-resolved) o adatta i vhost.
-- **Permessi reload**: il `sudoers` sopra copre `nginx -s reload`; se usi
-  `systemctl reload nginx` aggiorna `NGINX_RELOAD_CMD` e la regola sudoers.
-- **TLS**: come in Docker, si assume terminazione a monte (`TLS_MODE=external`).
+- **NGINX `resolver`**: generation uses `PROXY_RESOLVER` (default `127.0.0.11`,
+  Docker's internal DNS). On a host, set it to the system resolver
+  (e.g. `127.0.0.53` with systemd-resolved) or adapt the vhosts.
+- **Reload permissions**: the `sudoers` above covers `nginx -s reload`; if you use
+  `systemctl reload nginx`, update `NGINX_RELOAD_CMD` and the sudoers rule.
+- **TLS**: as in Docker, upstream termination is assumed (`TLS_MODE=external`).
