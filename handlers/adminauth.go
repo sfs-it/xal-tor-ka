@@ -21,7 +21,7 @@ var forbiddenAdminTmpl = template.Must(template.New("forbidden").Funcs(tmplFuncs
  <p class="hint">{{T .Lang "blocked.you_are"}} <strong>{{.Email}}</strong>. {{T .Lang "blocked.need_admin"}}</p>
  <form method="post" action="/logout"><button class="btn primary">{{T .Lang "blocked.logout_switch"}}</button></form>
  <p style="margin-top:.9rem"><a href="/listing">{{T .Lang "blocked.to_dashboard"}}</a></p>
-</div></div></body></html>`))
+</div></div>{{corner .Lang}}</body></html>`))
 
 // Admin authorization (BLUEPRINT §9 — unified model): the administrator is a
 // normal user (users.json) with the admin=true flag. Access to /admin requires

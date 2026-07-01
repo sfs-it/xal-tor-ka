@@ -22,8 +22,7 @@ var profileTmpl = template.Must(template.New("profile").Funcs(tmplFuncs).Parse(`
 <header class="topbar">
  <div class="brand">⛬ Xal-Tor-Ka<span class="sub">{{T .Lang "profile.subtitle"}}</span></div>
  <nav class="topnav"><a href="/listing">{{T .Lang "btn.back_services"}}</a>{{if .IsAdmin}}<a href="/admin">{{T .Lang "nav.admin"}}</a>{{end}}
-  ` + langSelHTML + `
-  <form class="inline" method="post" action="/logout"><button class="btn sm">{{T .Lang "btn.logout"}}</button></form></nav>
+  {{cluster .Lang}}</nav>
 </header>
 <main class="container">
  <h1>{{T .Lang "profile.title"}}</h1>
@@ -66,7 +65,7 @@ var profileQRTmpl = template.Must(template.New("profileqr").Funcs(tmplFuncs).Par
  <p><img src="{{.QR}}" alt="QR otpauth" width="240" height="240"></p>
  <p>{{T .Lang "qr.key"}}: <code>{{.Secret}}</code></p>
  <p style="margin-top:1.2rem"><a href="/profilo">{{T .Lang "qr.back_profile"}}</a></p>
-</div></div></body></html>`))
+</div></div>{{corner .Lang}}</body></html>`))
 
 type profileData struct {
 	Email, Provider      string

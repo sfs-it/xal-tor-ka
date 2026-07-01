@@ -245,11 +245,9 @@ var listingTmpl = template.Must(template.New("listing").Funcs(tmplFuncs).Parse(`
 <title>Xal-Tor-Ka · {{T .Lang "listing.subtitle"}}</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
 <header class="topbar">
  <div class="brand">⛬ Xal-Tor-Ka<span class="sub">{{T .Lang "listing.subtitle"}}</span></div>
- <nav class="topnav"><span style="color:var(--muted);font-size:.9rem">{{.Email}}</span>
+ <nav class="topnav"><span class="who">{{.Email}}</span>
   {{if .IsAdmin}}<a href="/admin">{{T .Lang "nav.admin"}}</a>{{end}}
-  <a href="/profilo">{{T .Lang "nav.profile"}}</a>
-  ` + langSelHTML + `
-  <form class="inline" method="post" action="/logout"><button class="btn sm">{{T .Lang "btn.logout"}}</button></form></nav>
+  {{cluster .Lang}}</nav>
 </header>
 <main class="container">
  <h1>{{T .Lang "listing.title"}}</h1>

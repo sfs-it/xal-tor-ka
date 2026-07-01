@@ -133,13 +133,25 @@ details summary{cursor:pointer;color:var(--accent-ink);font-size:.85rem}
 ul.hostlist{margin:.5rem 0 0;padding-inline-start:1.1rem;font-family:var(--font-mono);font-size:.84rem;color:var(--text)}
 ul.hostlist li{margin:.15rem 0}
 
-/* Language switcher -------------------------------------------------------- */
-.langsel{font:inherit;font-size:.82rem;color:var(--muted);background:var(--panel-2);
-  border:1px solid var(--line);border-radius:8px;padding:.28rem 1.6rem .28rem .55rem;cursor:pointer;
-  appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23888' stroke-width='1.5'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right .5rem center}
-.langsel:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
-.langbar{margin-top:1.4rem;display:flex;justify-content:center}
+/* Action cluster: language popup + profile + logout icons (end of every bar) - */
+.who{color:var(--muted);font-size:.85rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cluster{display:flex;align-items:center;gap:.4rem}
+.iconbtn{display:inline-flex;align-items:center;justify-content:center;gap:.3rem;min-width:36px;height:36px;
+  padding:0 .5rem;border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:10px;
+  cursor:pointer;font:inherit;text-decoration:none;transition:.13s}
+.iconbtn:hover{color:var(--accent-ink);border-color:color-mix(in srgb,var(--accent) 50%,var(--line));text-decoration:none}
+.iconbtn .lc{font-size:.72rem;font-weight:700;letter-spacing:.04em}
+.langpop{position:relative}
+.langpop > summary{list-style:none}
+.langpop > summary::-webkit-details-marker{display:none}
+.langpop > summary::marker{content:""}
+.langpop .menu{position:absolute;top:calc(100% + .45rem);inset-inline-end:0;min-width:160px;z-index:60;
+  display:flex;flex-direction:column;gap:.05rem;background:var(--panel);border:1px solid var(--line);
+  border-radius:11px;box-shadow:var(--shadow);padding:.35rem}
+.langpop .menu a{padding:.42rem .6rem;border-radius:8px;color:var(--text);font-size:.88rem;white-space:nowrap}
+.langpop .menu a:hover{background:var(--panel-2);text-decoration:none}
+.langpop .menu a.on{color:var(--accent-ink);font-weight:650;background:var(--accent-weak)}
+.corner{position:fixed;top:1rem;inset-inline-end:1rem;z-index:50}
 
 /* OIDC provider buttons */
 .oidc{margin-top:1.1rem}

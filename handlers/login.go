@@ -31,7 +31,7 @@ var loginTmpl = template.Must(template.New("login").Funcs(tmplFuncs).Parse(`<!do
   {{range .OIDC}}<a class="btn oauth" href="/auth/{{.ID}}/start?next={{$.Next}}">{{T $.Lang "login.with"}} {{.Name}}</a>{{end}}
  </div>{{end}}
  {{if .Version}}<div class="ver-foot">⛬ Xal-Tor-Ka · {{.Version}}</div>{{end}}
- <div class="langbar">` + langSelHTML + `</div>
+ {{corner .Lang}}
 </div></div></body></html>`))
 
 var totpTmpl = template.Must(template.New("totp").Funcs(tmplFuncs).Parse(`<!doctype html>
@@ -45,7 +45,7 @@ var totpTmpl = template.Must(template.New("totp").Funcs(tmplFuncs).Parse(`<!doct
   <div class="field"><label>{{T .Lang "totp.code"}}</label><input name="code" inputmode="numeric" autocomplete="one-time-code" required></div>
   <button class="btn primary">{{T .Lang "btn.verify"}}</button>
  </form>
- <div class="langbar">` + langSelHTML + `</div>
+ {{corner .Lang}}
 </div></div></body></html>`))
 
 type formData struct {
