@@ -36,11 +36,11 @@ import (
 // adminTopbar renders the shared admin header (active nav highlighted) with the
 // trailing icon cluster (language popup + profile + logout) like every other bar.
 func adminTopbar(active, lang string) string {
-	items := []struct{ key, href, label string }{
-		{"servizi", "/admin/servizi", "Servizi"},
-		{"docker", "/admin/docker", "Docker"},
-		{"utenti", "/admin/utenti", "Utenti"},
-		{"monitoring", "/admin/monitoring", "Monitoring"},
+	items := []struct{ key, href, k string }{
+		{"servizi", "/admin/servizi", "admin.services"},
+		{"docker", "/admin/docker", "admin.docker"},
+		{"utenti", "/admin/utenti", "admin.users"},
+		{"monitoring", "/admin/monitoring", "admin.monitoring"},
 	}
 	var nav strings.Builder
 	for _, i := range items {
@@ -48,11 +48,11 @@ func adminTopbar(active, lang string) string {
 		if i.key == active {
 			cls = ` class="active"`
 		}
-		fmt.Fprintf(&nav, `<a href="%s"%s>%s</a>`, i.href, cls, i.label)
+		fmt.Fprintf(&nav, `<a href="%s"%s>%s</a>`, i.href, cls, template.HTMLEscapeString(i18n.T(lang, i.k)))
 	}
-	return `<header class="topbar"><div class="brand"><a href="/admin" style="color:inherit;text-decoration:none">⛬ Xal-Tor-Ka</a><span class="sub">Amministrazione</span><span class="ver">` + version.Version + `</span></div><nav class="topnav">` +
+	return `<header class="topbar"><div class="brand"><a href="/admin" style="color:inherit;text-decoration:none">⛬ Xal-Tor-Ka</a><span class="sub">` + template.HTMLEscapeString(i18n.T(lang, "admin.subtitle")) + `</span><span class="ver">` + version.Version + `</span></div><nav class="topnav">` +
 		nav.String() +
-		`<a href="/listing">Dashboard</a>` + string(iconCluster(lang, true)) + `</nav></header>`
+		`<a href="/listing">` + template.HTMLEscapeString(i18n.T(lang, "nav.dashboard")) + `</a>` + string(iconCluster(lang, true)) + `</nav></header>`
 }
 
 // renderAdminPage writes the shared chrome (head + topbar + container) around a
@@ -67,33 +67,38 @@ func (s *Server) renderAdminPage(w http.ResponseWriter, r *http.Request, active 
 	fmt.Fprintf(w, `<!doctype html><html lang="%s"%s><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Xal-Tor-Ka · Admin</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>`, lang, dir)
 	io.WriteString(w, adminTopbar(active, lang))
 	io.WriteString(w, `<main class="container">`)
-	_ = t.Execute(w, data)
+	if ct, err := t.Clone(); err == nil {
+		ct.Funcs(locFuncs(lang))
+		_ = ct.Execute(w, data)
+	} else {
+		_ = t.Execute(w, data)
+	}
 	io.WriteString(w, `</main></body></html>`)
 }
 
-var overviewTmpl = template.Must(template.New("ov").Parse(`<h1>Amministrazione</h1>
+var overviewTmpl = locParse("ov", `<h1>{{T "admin.title"}}</h1>
 <div class="grid">
- <a class="card" href="/admin/servizi"><div class="row"><h3>Servizi</h3><span class="tag">{{.Services}}</span></div><div class="meta">{{.ConfigBackends}} da config · {{.Links}} link</div></a>
- <a class="card" href="/admin/docker"><div class="row"><h3>Docker</h3><span class="tag">scopri</span></div><div class="meta">container attivi e porte host</div></a>
- <a class="card" href="/admin/utenti"><div class="row"><h3>Utenti</h3><span class="tag">{{.Users}}</span></div><div class="meta">utenti e autorizzazioni</div></a>
- <a class="card" href="/admin/monitoring"><div class="row"><h3>Monitoring</h3><span class="badge up">{{.Up}}</span> <span class="badge down">{{.Down}}</span></div><div class="meta">stato dei backend</div></a>
+ <a class="card" href="/admin/servizi"><div class="row"><h3>{{T "admin.services"}}</h3><span class="tag">{{.Services}}</span></div><div class="meta">{{.ConfigBackends}} {{T "admin.from_config"}} · {{.Links}} {{T "admin.links"}}</div></a>
+ <a class="card" href="/admin/docker"><div class="row"><h3>{{T "admin.docker"}}</h3><span class="tag">{{T "admin.discover"}}</span></div><div class="meta">{{T "admin.ov.docker_meta"}}</div></a>
+ <a class="card" href="/admin/utenti"><div class="row"><h3>{{T "admin.users"}}</h3><span class="tag">{{.Users}}</span></div><div class="meta">{{T "admin.ov.users_meta"}}</div></a>
+ <a class="card" href="/admin/monitoring"><div class="row"><h3>{{T "admin.monitoring"}}</h3><span class="badge up">{{.Up}}</span> <span class="badge down">{{.Down}}</span></div><div class="meta">{{T "admin.ov.mon_meta"}}</div></a>
 </div>
 <section style="margin-top:1.4rem">
- <h2>Sicurezza — IP ammessi all'area admin</h2>
- <p class="hint">Solo questi IP/reti possono accedere a <code>/admin</code>. Sorgente attuale: <b>{{.AdminIPsSource}}</b>. Il tuo IP: <code>{{.ClientIP}}</code>.</p>
+ <h2>{{T "admin.sec.title"}}</h2>
+ <p class="hint">{{T "admin.sec.hint"}} <b>{{.AdminIPsSource}}</b>. {{T "admin.sec.your_ip"}} <code>{{.ClientIP}}</code>.</p>
  <div class="card">
   <form method="post" action="/admin/adminips">
-   <div><label>IP/CIDR ammessi (spazio o virgola; IP singolo = /32)</label><input name="ip_whitelist" value="{{.AdminIPsRaw}}" placeholder="203.0.113.7/32 10.0.0.0/24"></div>
-   <p class="hint">⚠️ La nuova lista <b>deve includere il tuo IP</b>, altrimenti verresti bloccato fuori. Svuota il campo per tornare al valore di <code>config.json</code>/<code>ADMIN_CIDR</code>.</p>
-   <div class="actions" style="justify-content:flex-start"><button class="btn primary">salva</button></div>
+   <div><label>{{T "admin.sec.field"}}</label><input name="ip_whitelist" value="{{.AdminIPsRaw}}" placeholder="203.0.113.7/32 10.0.0.0/24"></div>
+   <p class="hint">⚠️ {{T "admin.sec.warn"}}</p>
+   <div class="actions" style="justify-content:flex-start"><button class="btn primary">{{T "btn.save"}}</button></div>
   </form>
  </div>
-</section>`))
+</section>`)
 
-var servicesTmpl = template.Must(template.New("services").Parse(`<section>
- <h2>Servizi reverse-proxy</h2>
- <p class="hint">I servizi da <code>config.json</code> sono di sola lettura (infrastruttura). Quelli aggiunti qui vivono in <code>services.json</code>.</p>
- <table><thead><tr><th>servizio</th><th>host</th><th>regola</th><th>upstream</th><th>IP allow</th><th></th></tr></thead><tbody>
+var servicesTmpl = locParse("services", `<section>
+ <h2>{{T "admin.svc.h2"}}</h2>
+ <p class="hint">{{T "admin.svc.hint"}}</p>
+ <table><thead><tr><th>{{T "admin.col.service"}}</th><th>{{T "admin.col.host"}}</th><th>{{T "admin.col.rule"}}</th><th>{{T "admin.col.upstream"}}</th><th>{{T "admin.col.ipallow"}}</th><th></th></tr></thead><tbody>
  {{range .ConfigBackends}}<tr><td>{{.ID}} <span class="tag ro">config</span></td>
    <td><a href="//{{.Host}}" target="_blank" rel="noopener"><code>{{.Host}}</code></a></td>
    <td>{{range .Routes}}<span class="tag">{{.Rule}}</span> {{end}}</td>
@@ -105,196 +110,196 @@ var servicesTmpl = template.Must(template.New("services").Parse(`<section>
    <td>{{range .Routes}}<code>{{.Upstream}}</code><br>{{end}}</td>
    <td>{{if .IPAllow}}🔒 {{range .IPAllow}}<code>{{.}}</code> {{end}}{{end}}</td>
    <td class="rowact">
-    <a class="btn sm" href="/admin/backend/edit?id={{.ID}}">edit</a>
-    <form class="inline" method="post" action="/admin/backend/toggle"><input type="hidden" name="id" value="{{.ID}}"><button class="btn sm">{{if .Disabled}}abilita{{else}}disabilita{{end}}</button></form>
-    <form class="inline" method="post" action="/admin/backend/del" onsubmit="return confirm('Eliminare {{.ID}}?')"><input type="hidden" name="id" value="{{.ID}}"><button class="btn danger sm">elimina</button></form>
+    <a class="btn sm" href="/admin/backend/edit?id={{.ID}}">{{T "admin.act.edit"}}</a>
+    <form class="inline" method="post" action="/admin/backend/toggle"><input type="hidden" name="id" value="{{.ID}}"><button class="btn sm">{{if .Disabled}}{{T "admin.act.enable"}}{{else}}{{T "admin.act.disable"}}{{end}}</button></form>
+    <form class="inline" method="post" action="/admin/backend/del" onsubmit="return confirm('{{T "admin.confirm_del"}}')"><input type="hidden" name="id" value="{{.ID}}"><button class="btn danger sm">{{T "admin.act.delete"}}</button></form>
    </td></tr>
  {{else}}{{end}}
  </tbody></table>
- <div class="card addcard" style="margin-top:1rem"><h3>Aggiungi servizio proxato</h3>
+ <div class="card addcard" style="margin-top:1rem"><h3>{{T "admin.svc.add"}}</h3>
   <form method="post" action="/admin/backend/add"><div class="formgrid">
-   <div><label>id</label><input name="id" required></div>
-   <div><label>nome</label><input name="name"></div>
-   <div><label>host</label><input name="host" placeholder="app.dominio.it" required></div>
-   <div><label>path</label><input name="path" value="/"></div>
-   <div><label>regola</label><select name="rule"><option>whitelist</option><option>authenticated</option><option>public</option></select></div>
-   <div><label>upstream</label><input name="upstream" placeholder="http://10.0.0.5:8080"></div>
-   <div><label>url pubblico</label><input name="url" placeholder="https://app.dominio.it"></div>
-   <div><label>IP allow (CIDR, opz.)</label><input name="ip_allow" placeholder="203.0.113.0/24"></div>
-   <div><button class="btn primary">aggiungi</button></div>
+   <div><label>{{T "admin.f.id"}}</label><input name="id" required></div>
+   <div><label>{{T "admin.f.name"}}</label><input name="name"></div>
+   <div><label>{{T "admin.f.host"}}</label><input name="host" placeholder="app.dominio.it" required></div>
+   <div><label>{{T "admin.f.path"}}</label><input name="path" value="/"></div>
+   <div><label>{{T "admin.f.rule"}}</label><select name="rule"><option>whitelist</option><option>authenticated</option><option>public</option></select></div>
+   <div><label>{{T "admin.f.upstream"}}</label><input name="upstream" placeholder="http://10.0.0.5:8080"></div>
+   <div><label>{{T "admin.f.url"}}</label><input name="url" placeholder="https://app.dominio.it"></div>
+   <div><label>{{T "admin.f.ipallow"}}</label><input name="ip_allow" placeholder="203.0.113.0/24"></div>
+   <div><button class="btn primary">{{T "btn.add"}}</button></div>
   </div></form></div>
 </section>
 <section>
- <h2>Link esterni</h2><p class="hint">Riquadri nella dashboard, non proxati.</p>
- <table><thead><tr><th>nome</th><th>url</th><th>visibilità</th><th></th></tr></thead><tbody>
+ <h2>{{T "admin.links.h2"}}</h2><p class="hint">{{T "admin.links.hint"}}</p>
+ <table><thead><tr><th>{{T "admin.col.name"}}</th><th>{{T "admin.col.url"}}</th><th>{{T "admin.col.visibility"}}</th><th></th></tr></thead><tbody>
  {{range .Links}}<tr{{if .Disabled}} class="off"{{end}}>
    <td><b>{{.Name}}</b>{{if .Disabled}} <span class="tag ro">off</span>{{end}}{{if .Description}}<div class="hint">{{.Description}}</div>{{end}}</td>
    <td><a href="{{.URL}}" target="_blank" rel="noopener"><code>{{.URL}}</code></a></td>
-   <td><span class="tag ext">{{if .Public}}pubblico{{else}}riservato{{end}}</span></td>
+   <td><span class="tag ext">{{if .Public}}{{T "admin.vis.public"}}{{else}}{{T "admin.vis.private"}}{{end}}</span></td>
    <td class="rowact">
-    <form class="inline" method="post" action="/admin/link/toggle"><input type="hidden" name="id" value="{{.ID}}"><button class="btn sm">{{if .Disabled}}abilita{{else}}disabilita{{end}}</button></form>
-    <form class="inline" method="post" action="/admin/link/del" onsubmit="return confirm('Eliminare {{.ID}}?')"><input type="hidden" name="id" value="{{.ID}}"><button class="btn danger sm">elimina</button></form>
+    <form class="inline" method="post" action="/admin/link/toggle"><input type="hidden" name="id" value="{{.ID}}"><button class="btn sm">{{if .Disabled}}{{T "admin.act.enable"}}{{else}}{{T "admin.act.disable"}}{{end}}</button></form>
+    <form class="inline" method="post" action="/admin/link/del" onsubmit="return confirm('{{T "admin.confirm_del"}}')"><input type="hidden" name="id" value="{{.ID}}"><button class="btn danger sm">{{T "admin.act.delete"}}</button></form>
    </td></tr>
  {{else}}{{end}}
  </tbody></table>
- <div class="card addcard" style="margin-top:1rem"><h3>Aggiungi link</h3>
+ <div class="card addcard" style="margin-top:1rem"><h3>{{T "admin.links.add"}}</h3>
   <form method="post" action="/admin/link/add"><div class="formgrid">
-   <div><label>id</label><input name="id" required></div>
-   <div><label>nome</label><input name="name" required></div>
-   <div><label>url</label><input name="url" placeholder="https://..." required></div>
-   <div><label>descrizione</label><input name="desc"></div>
-   <div><label class="check"><input type="checkbox" name="public"> pubblico</label></div>
-   <div><button class="btn primary">aggiungi</button></div>
+   <div><label>{{T "admin.f.id"}}</label><input name="id" required></div>
+   <div><label>{{T "admin.f.name"}}</label><input name="name" required></div>
+   <div><label>{{T "admin.f.url"}}</label><input name="url" placeholder="https://..." required></div>
+   <div><label>{{T "admin.f.desc"}}</label><input name="desc"></div>
+   <div><label class="check"><input type="checkbox" name="public"> {{T "admin.f.public"}}</label></div>
+   <div><button class="btn primary">{{T "btn.add"}}</button></div>
   </div></form></div>
-</section>`))
+</section>`)
 
-var dockerTmpl = template.Must(template.New("docker").Parse(`<section>
- <h2>Scopri container Docker</h2>
+var dockerTmpl = locParse("docker", `<section>
+ <h2>{{T "admin.dk.h2"}}</h2>
  {{if .DockerEnabled}}
-  <p class="hint">Container attivi con porte pubblicate. «Aggiungi» crea un vhost <code>&lt;nome&gt;.localhost</code> → <code>host.docker.internal:&lt;porta&gt;</code>.</p>
-  <table><thead><tr><th>container</th><th>porta</th><th>vhost proposto</th><th>azione</th></tr></thead><tbody>
-  {{range .Discovered}}<tr><td>{{.Name}}</td><td>{{.Port}}</td><td>{{.Host}}</td>
-   <td>{{if .Added}}<span class="tag ro">già aggiunto</span>{{else}}<form class="inline" method="post" action="/admin/discover/add">
+  <p class="hint">{{T "admin.dk.hint"}}</p>
+  <table><thead><tr><th>{{T "admin.dk.container"}}</th><th>{{T "admin.dk.port"}}</th><th>{{T "admin.dk.vhost"}}</th><th></th></tr></thead><tbody>
+  {{range .Discovered}}<tr><td>{{.Name}}</td><td>{{.Port}}</td><td><code>{{.Host}}</code></td>
+   <td>{{if .Added}}<span class="tag ro">{{T "admin.dk.added"}}</span>{{else}}<form class="inline" method="post" action="/admin/discover/add">
     <input type="hidden" name="name" value="{{.Name}}"><input type="hidden" name="port" value="{{.Port}}">
     <select name="rule"><option>whitelist</option><option>authenticated</option><option>public</option></select>
-    <button class="btn primary sm">aggiungi</button></form>{{end}}</td></tr>
-  {{else}}<tr><td colspan="4" class="empty">nessun container con porte pubblicate</td></tr>{{end}}
+    <button class="btn primary sm">{{T "btn.add"}}</button></form>{{end}}</td></tr>
+  {{else}}<tr><td colspan="4" class="empty">{{T "admin.dk.none"}}</td></tr>{{end}}
   </tbody></table>
- {{else}}<p class="hint">Scoperta Docker non attiva (variabile <code>DOCKER_PROXY</code> non impostata).</p>{{end}}
- <h3 style="margin-top:1.4rem">Mappa porte → vhost</h3>
- <p class="hint">Servizi già instradati verso una porta dell'host (<code>host.docker.internal</code>).</p>
- <table><thead><tr><th>vhost</th><th>porta host</th><th>regola</th></tr></thead><tbody>
+ {{else}}<p class="hint">{{T "admin.dk.disabled"}}</p>{{end}}
+ <h3 style="margin-top:1.4rem">{{T "admin.dk.portmap"}}</h3>
+ <p class="hint">{{T "admin.dk.portmap_hint"}}</p>
+ <table><thead><tr><th>{{T "admin.dk.vhost"}}</th><th>{{T "admin.dk.hostport"}}</th><th>{{T "admin.col.rule"}}</th></tr></thead><tbody>
  {{range .Ports}}<tr{{if .Disabled}} class="off"{{end}}>
    <td><a href="//{{.Host}}" target="_blank" rel="noopener"><code>{{.Host}}</code></a></td>
    <td><code>host.docker.internal:{{.Port}}</code></td>
    <td><span class="tag">{{.Rule}}</span></td></tr>
- {{else}}<tr><td colspan="3" class="empty">nessuna porta instradata</td></tr>{{end}}
+ {{else}}<tr><td colspan="3" class="empty">{{T "admin.dk.noport"}}</td></tr>{{end}}
  </tbody></table>
- <h3 style="margin-top:1.4rem">Porte host (localhost)</h3>
- <p class="hint">Trova porte in ascolto sull'host (es. tunnel PuTTY/SSH verso server remoti) da esporre come vhost.</p>
+ <h3 style="margin-top:1.4rem">{{T "admin.dk.hostports"}}</h3>
+ <p class="hint">{{T "admin.dk.hostports_hint"}}</p>
  <form method="get" action="/admin/hostscan">
-  <label class="check">da <input name="from" value="3000" style="width:5.5rem"></label>
-  <label class="check">a <input name="to" value="3100" style="width:5.5rem"></label>
-  <button class="btn sm">scansiona</button>
+  <label class="check">{{T "admin.dk.from"}} <input name="from" value="3000" style="width:5.5rem"></label>
+  <label class="check">{{T "admin.dk.to"}} <input name="to" value="3100" style="width:5.5rem"></label>
+  <button class="btn sm">{{T "admin.dk.scan"}}</button>
  </form>
-</section>`))
+</section>`)
 
-var usersTmpl = template.Must(template.New("users").Parse(`<section>
- <h2>Utenti</h2>
- <table><thead><tr><th>email</th><th></th><th>host abilitati</th><th></th></tr></thead><tbody>
+var usersTmpl = locParse("users", `<section>
+ <h2>{{T "admin.users"}}</h2>
+ <table><thead><tr><th>{{T "admin.usr.email"}}</th><th></th><th>{{T "admin.usr.enabled_hosts"}}</th><th></th></tr></thead><tbody>
  {{range .Users}}<tr>
   <td><a href="/admin/utenti/{{.Email}}">{{.Email}}</a></td>
   <td>{{if .Admin}}<span class="tag">admin</span>{{end}}</td>
-  <td>{{if .Admin}}<span class="hint">tutti (admin)</span>{{else if .Hosts}}<details><summary>{{len .Hosts}} host</summary><ul class="hostlist">{{range .Hosts}}<li>{{.}}</li>{{end}}</ul></details>{{else}}<span class="hint">nessuno</span>{{end}}</td>
+  <td>{{if .Admin}}<span class="hint">{{T "admin.usr.all_admin"}}</span>{{else if .Hosts}}<details><summary>{{len .Hosts}} host</summary><ul class="hostlist">{{range .Hosts}}<li>{{.}}</li>{{end}}</ul></details>{{else}}<span class="hint">{{T "admin.usr.none"}}</span>{{end}}</td>
   <td><div class="actions">
-   <a class="btn sm" href="/admin/utenti/{{.Email}}">proprietà</a>
-   <form class="inline" method="post" action="/admin/user/del" onsubmit="return confirm('Eliminare {{.Email}}?')"><input type="hidden" name="email" value="{{.Email}}"><button class="btn danger sm">elimina</button></form>
+   <a class="btn sm" href="/admin/utenti/{{.Email}}">{{T "admin.usr.properties"}}</a>
+   <form class="inline" method="post" action="/admin/user/del" onsubmit="return confirm('{{T "admin.confirm_del"}}')"><input type="hidden" name="email" value="{{.Email}}"><button class="btn danger sm">{{T "admin.act.delete"}}</button></form>
   </div></td></tr>{{end}}
  </tbody></table>
- <div class="card addcard" style="margin-top:1rem"><h3>Crea utente locale</h3>
+ <div class="card addcard" style="margin-top:1rem"><h3>{{T "admin.usr.create"}}</h3>
   <form method="post" action="/admin/user/add">
    <div class="formgrid">
-    <div><label>email</label><input type="email" name="email" required></div>
-    <div><label>password</label><input type="password" name="password" required></div>
+    <div><label>{{T "admin.usr.email"}}</label><input type="email" name="email" required></div>
+    <div><label>{{T "field.password"}}</label><input type="password" name="password" required></div>
    </div>
-   <div class="checks"><label>autorizzazioni</label>{{range .AllIDs}}<label class="check"><input type="checkbox" name="authz" value="{{.}}">{{.}}</label>{{end}}</div>
-   <div class="actions" style="justify-content:flex-start"><button class="btn primary">crea utente</button></div>
+   <div class="checks"><label>{{T "admin.usr.authz"}}</label>{{range .AllIDs}}<label class="check"><input type="checkbox" name="authz" value="{{.}}">{{.}}</label>{{end}}</div>
+   <div class="actions" style="justify-content:flex-start"><button class="btn primary">{{T "admin.usr.create_btn"}}</button></div>
   </form></div>
-</section>`))
+</section>`)
 
-var userDetailTmpl = template.Must(template.New("userdetail").Parse(`<section>
- <p><a href="/admin/utenti">← Utenti</a></p>
- <h2>Proprietà di «{{.Email}}»</h2>
+var userDetailTmpl = locParse("userdetail", `<section>
+ <p><a href="/admin/utenti">← {{T "admin.users"}}</a></p>
+ <h2>{{T "admin.usr.props_of"}} «{{.Email}}»</h2>
  <div class="card">
   <div class="formgrid">
-   <div><label>email</label><form class="inline" method="post" action="/admin/user/email"><input type="hidden" name="old" value="{{.Email}}"><input name="email" value="{{.Email}}"><button class="btn sm">salva</button></form></div>
-   <div><label>provider</label><div style="padding-top:.4rem">{{.Provider}}{{if .Admin}} · <span class="tag">admin</span>{{end}}</div></div>
+   <div><label>{{T "admin.usr.email"}}</label><form class="inline" method="post" action="/admin/user/email"><input type="hidden" name="old" value="{{.Email}}"><input name="email" value="{{.Email}}"><button class="btn sm">{{T "btn.save"}}</button></form></div>
+   <div><label>{{T "admin.f.provider"}}</label><div style="padding-top:.4rem">{{.Provider}}{{if .Admin}} · <span class="tag">admin</span>{{end}}</div></div>
   </div>
   <div class="actions" style="justify-content:flex-start;margin-top:.8rem">
-   <form class="inline" method="post" action="/admin/user/admin"><input type="hidden" name="email" value="{{.Email}}"><button class="btn sm">{{if .Admin}}togli admin{{else}}rendi admin{{end}}</button></form>
-   <form class="inline" method="post" action="/admin/user/password"><input type="hidden" name="email" value="{{.Email}}"><input type="password" name="password" placeholder="nuova password" style="width:11rem"><button class="btn sm">imposta password</button></form>
-   <form class="inline" method="post" action="/admin/user/totp"><input type="hidden" name="email" value="{{.Email}}"><button class="btn sm">reset 2FA</button></form>
-   <form class="inline" method="post" action="/admin/user/del" onsubmit="return confirm('Eliminare {{.Email}}?')"><input type="hidden" name="email" value="{{.Email}}"><button class="btn danger sm">elimina utente</button></form>
+   <form class="inline" method="post" action="/admin/user/admin"><input type="hidden" name="email" value="{{.Email}}"><button class="btn sm">{{if .Admin}}{{T "admin.usr.revoke_admin"}}{{else}}{{T "admin.usr.make_admin"}}{{end}}</button></form>
+   <form class="inline" method="post" action="/admin/user/password"><input type="hidden" name="email" value="{{.Email}}"><input type="password" name="password" placeholder="{{T "admin.usr.new_pw"}}" style="width:11rem"><button class="btn sm">{{T "admin.usr.set_pw"}}</button></form>
+   <form class="inline" method="post" action="/admin/user/totp"><input type="hidden" name="email" value="{{.Email}}"><button class="btn sm">{{T "admin.usr.reset_2fa"}}</button></form>
+   <form class="inline" method="post" action="/admin/user/del" onsubmit="return confirm('{{T "admin.confirm_del"}}')"><input type="hidden" name="email" value="{{.Email}}"><button class="btn danger sm">{{T "admin.usr.del_user"}}</button></form>
   </div>
  </div>
- <div class="card" style="margin-top:1rem"><h3>Autorizzazioni (host abilitati)</h3>
-  {{if .Admin}}<p class="hint">Questo utente è amministratore: accede a tutti i servizi, la whitelist non si applica.</p>
+ <div class="card" style="margin-top:1rem"><h3>{{T "admin.usr.authz_title"}}</h3>
+  {{if .Admin}}<p class="hint">{{T "admin.usr.admin_all_note"}}</p>
   {{else}}<form method="post" action="/admin/user/authz"><input type="hidden" name="email" value="{{.Email}}">
-   <div class="checks">{{range .AllIDs}}<label class="check"><input type="checkbox" name="authz" value="{{.}}" {{if index $.Checked .}}checked{{end}}>{{.}}</label>{{else}}<span class="hint">nessun servizio configurato</span>{{end}}</div>
-   <div class="actions" style="justify-content:flex-start;margin-top:.6rem"><button class="btn primary">salva autorizzazioni</button></div>
+   <div class="checks">{{range .AllIDs}}<label class="check"><input type="checkbox" name="authz" value="{{.}}" {{if index $.Checked .}}checked{{end}}>{{.}}</label>{{else}}<span class="hint">{{T "admin.usr.no_services"}}</span>{{end}}</div>
+   <div class="actions" style="justify-content:flex-start;margin-top:.6rem"><button class="btn primary">{{T "admin.usr.save_authz"}}</button></div>
   </form>{{end}}
  </div>
-</section>`))
+</section>`)
 
-var monitoringTmpl = template.Must(template.New("mon").Parse(`<section>
- <h2>Stato</h2>
- <table><thead><tr><th>id</th><th>host</th><th>stato</th><th>ultimo errore</th><th>ultimo check</th></tr></thead><tbody>
+var monitoringTmpl = locParse("mon", `<section>
+ <h2>{{T "admin.mon.status"}}</h2>
+ <table><thead><tr><th>id</th><th>{{T "admin.col.host"}}</th><th>{{T "admin.mon.state"}}</th><th>{{T "admin.mon.last_error"}}</th><th>{{T "admin.mon.last_check"}}</th></tr></thead><tbody>
  {{range .Monitoring}}<tr><td>{{.BackendID}}</td><td><code>{{.Host}}</code></td><td><span class="badge {{.State}}">{{.State}}</span></td><td>{{.LastError}}</td><td>{{.LastCheck.Format "15:04:05"}}</td></tr>
- {{else}}<tr><td colspan="5" class="empty">nessun health check configurato/eseguito</td></tr>{{end}}
+ {{else}}<tr><td colspan="5" class="empty">{{T "admin.mon.none"}}</td></tr>{{end}}
  </tbody></table>
 </section>
 <section>
- <h2>Monitor personalizzati</h2>
- <p class="hint">Sonde HTTP indipendenti dai backend proxati (compaiono anche nella tabella Stato).</p>
- <table><thead><tr><th>id</th><th>nome</th><th>url</th><th>intervallo</th><th>timeout</th><th></th></tr></thead><tbody>
+ <h2>{{T "admin.mon.custom"}}</h2>
+ <p class="hint">{{T "admin.mon.custom_hint"}}</p>
+ <table><thead><tr><th>id</th><th>{{T "admin.f.name"}}</th><th>{{T "admin.col.url"}}</th><th>{{T "admin.mon.interval"}}</th><th>{{T "admin.mon.timeout"}}</th><th></th></tr></thead><tbody>
  {{range .Monitors}}<tr>
    <td>{{.ID}}</td><td>{{.Name}}</td><td><code>{{.URL}}</code></td>
    <td>{{if .IntervalSeconds}}{{.IntervalSeconds}}{{else}}30{{end}}s</td>
    <td>{{if .TimeoutSeconds}}{{.TimeoutSeconds}}{{else}}5{{end}}s</td>
-   <td class="rowact"><form class="inline" method="post" action="/admin/monitor/del" onsubmit="return confirm('Eliminare {{.ID}}?')"><input type="hidden" name="id" value="{{.ID}}"><button class="btn danger sm">elimina</button></form></td></tr>
- {{else}}<tr><td colspan="6" class="empty">nessun monitor personalizzato</td></tr>{{end}}
+   <td class="rowact"><form class="inline" method="post" action="/admin/monitor/del" onsubmit="return confirm('{{T "admin.confirm_del"}}')"><input type="hidden" name="id" value="{{.ID}}"><button class="btn danger sm">{{T "admin.act.delete"}}</button></form></td></tr>
+ {{else}}<tr><td colspan="6" class="empty">{{T "admin.mon.no_custom"}}</td></tr>{{end}}
  </tbody></table>
- <div class="card addcard" style="margin-top:1rem"><h3>Aggiungi monitor</h3>
+ <div class="card addcard" style="margin-top:1rem"><h3>{{T "admin.mon.add"}}</h3>
   <form method="post" action="/admin/monitor/add"><div class="formgrid">
-   <div><label>id</label><input name="id" required></div>
-   <div><label>nome</label><input name="name"></div>
-   <div><label>url health</label><input name="url" placeholder="https://host/health" required></div>
-   <div><label>intervallo (s)</label><input name="interval" value="30"></div>
-   <div><label>timeout (s)</label><input name="timeout" value="5"></div>
-   <div><button class="btn primary">aggiungi</button></div>
+   <div><label>{{T "admin.f.id"}}</label><input name="id" required></div>
+   <div><label>{{T "admin.f.name"}}</label><input name="name"></div>
+   <div><label>{{T "admin.mon.health_url"}}</label><input name="url" placeholder="https://host/health" required></div>
+   <div><label>{{T "admin.mon.interval_s"}}</label><input name="interval" value="30"></div>
+   <div><label>{{T "admin.mon.timeout_s"}}</label><input name="timeout" value="5"></div>
+   <div><button class="btn primary">{{T "btn.add"}}</button></div>
   </div></form></div>
-</section>`))
+</section>`)
 
-var adminEditTmpl = template.Must(template.New("adminedit").Parse(`<!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · Modifica servizio</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
-<header class="topbar"><div class="brand">⛬ Xal-Tor-Ka<span class="sub">Modifica servizio</span></div>
- <nav class="topnav"><a href="/admin/servizi">← Servizi</a></nav></header>
+var adminEditTmpl = locParse("adminedit", `<!doctype html>
+<html lang="{{curlang}}"{{if rtl}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Xal-Tor-Ka · {{T "admin.edit.title"}}</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
+<header class="topbar"><div class="brand">⛬ Xal-Tor-Ka<span class="sub">{{T "admin.edit.title"}}</span></div>
+ <nav class="topnav"><a href="/admin/servizi">← {{T "admin.services"}}</a></nav></header>
 <main class="container">
- <h1>Modifica «{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}»</h1>
+ <h1>{{T "admin.edit.h1"}} «{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}»</h1>
  <div class="card">
   <form method="post" action="/admin/backend/edit">
    <input type="hidden" name="id" value="{{.ID}}">
    <div class="formgrid">
-    <div><label>id (non modificabile)</label><input value="{{.ID}}" disabled></div>
-    <div><label>nome</label><input name="name" value="{{.Name}}"></div>
-    <div><label>host</label><input name="host" value="{{.Host}}" required></div>
-    <div><label>url pubblico</label><input name="url" value="{{.URL}}"></div>
-    <div><label>path</label><input name="path" value="{{.Path}}"></div>
-    <div><label>regola</label><select name="rule">
+    <div><label>{{T "admin.edit.id_ro"}}</label><input value="{{.ID}}" disabled></div>
+    <div><label>{{T "admin.f.name"}}</label><input name="name" value="{{.Name}}"></div>
+    <div><label>{{T "admin.f.host"}}</label><input name="host" value="{{.Host}}" required></div>
+    <div><label>{{T "admin.f.url"}}</label><input name="url" value="{{.URL}}"></div>
+    <div><label>{{T "admin.f.path"}}</label><input name="path" value="{{.Path}}"></div>
+    <div><label>{{T "admin.f.rule"}}</label><select name="rule">
      <option {{if eq .Rule "whitelist"}}selected{{end}}>whitelist</option>
      <option {{if eq .Rule "authenticated"}}selected{{end}}>authenticated</option>
      <option {{if eq .Rule "public"}}selected{{end}}>public</option></select></div>
-    <div><label>upstream</label><input name="upstream" value="{{.Upstream}}" required></div>
+    <div><label>{{T "admin.f.upstream"}}</label><input name="upstream" value="{{.Upstream}}" required></div>
    </div>
-   <div style="margin-top:.6rem"><label>descrizione</label><input name="description" value="{{.Description}}"></div>
-   <div style="margin-top:.6rem"><label>IP allow-list (CIDR, opzionale — vuoto = nessun limite)</label><input name="ip_allow" value="{{.IPAllow}}" placeholder="es. 203.0.113.0/24 10.0.0.5"></div>
+   <div style="margin-top:.6rem"><label>{{T "admin.f.desc"}}</label><input name="description" value="{{.Description}}"></div>
+   <div style="margin-top:.6rem"><label>{{T "admin.edit.ipallow"}}</label><input name="ip_allow" value="{{.IPAllow}}" placeholder="es. 203.0.113.0/24 10.0.0.5"></div>
    <div class="actions" style="justify-content:flex-start;margin-top:1rem">
-    <button class="btn primary">salva</button><a class="btn" href="/admin/servizi">annulla</a></div>
+    <button class="btn primary">{{T "btn.save"}}</button><a class="btn" href="/admin/servizi">{{T "admin.cancel"}}</a></div>
   </form>
  </div>
-</main></body></html>`))
+</main></body></html>`)
 
-var adminQRTmpl = template.Must(template.New("adminqr").Parse(`<!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+var adminQRTmpl = locParse("adminqr", `<!doctype html>
+<html lang="{{curlang}}"{{if rtl}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Xal-Tor-Ka · 2FA</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
 <div class="auth-wrap"><div class="auth-card qr">
- <h1>2FA per {{.Email}}</h1>
- <p class="hint">Fai scansionare il QR con l'app authenticator dell'utente, oppure passagli la chiave.</p>
+ <h1>{{T "admin.qr.title"}} {{.Email}}</h1>
+ <p class="hint">{{T "admin.qr.hint"}}</p>
  <p><img src="{{.QR}}" alt="QR otpauth" width="240" height="240"></p>
- <p>Chiave: <code>{{.Secret}}</code></p>
- <p style="margin-top:1.2rem"><a href="/admin/utenti">← torna agli utenti</a></p>
-</div></div></body></html>`))
+ <p>{{T "qr.key"}}: <code>{{.Secret}}</code></p>
+ <p style="margin-top:1.2rem"><a href="/admin/utenti">← {{T "admin.qr.back"}}</a></p>
+</div></div></body></html>`)
 
 // handleAdmin is the overview page with summary tiles linking to the sections.
 func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
@@ -565,32 +570,32 @@ func (s *Server) handleDiscoverAdd(w http.ResponseWriter, r *http.Request) {
 	s.afterMutation(w, r, err)
 }
 
-var hostScanTmpl = template.Must(template.New("hostscan").Parse(`<!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · Porte host</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
-<header class="topbar"><div class="brand">⛬ Xal-Tor-Ka<span class="sub">Porte host</span></div>
- <nav class="topnav"><a href="/admin/servizi">← Servizi</a></nav></header>
+var hostScanTmpl = locParse("hostscan", `<!doctype html>
+<html lang="{{curlang}}"{{if rtl}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Xal-Tor-Ka · {{T "admin.hs.subtitle"}}</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
+<header class="topbar"><div class="brand">⛬ Xal-Tor-Ka<span class="sub">{{T "admin.hs.subtitle"}}</span></div>
+ <nav class="topnav"><a href="/admin/servizi">← {{T "admin.services"}}</a></nav></header>
 <main class="container">
- <h1>Porte in ascolto su host ({{.From}}–{{.To}})</h1>
- <p class="hint">Porte raggiungibili via <code>host.docker.internal</code> (es. tunnel PuTTY/SSH, servizi host). Spunta le porte e aggiungile in blocco; nome vuoto → <code>host-&lt;porta&gt;</code>.</p>
+ <h1>{{T "admin.hs.h1"}} ({{.From}}–{{.To}})</h1>
+ <p class="hint">{{T "admin.hs.hint"}}</p>
  <form method="post" action="/admin/hostscan/add">
   <table><thead><tr>
    <th><input type="checkbox" onclick="for(const c of document.querySelectorAll('input[name=ports]'))c.checked=this.checked"></th>
-   <th>porta</th><th>nome vhost</th><th>stato</th></tr></thead><tbody>
+   <th>{{T "admin.dk.port"}}</th><th>{{T "admin.hs.vhost_name"}}</th><th>{{T "admin.mon.state"}}</th></tr></thead><tbody>
   {{range .Ports}}<tr>
    <td>{{if not .Added}}<input type="checkbox" name="ports" value="{{.Port}}">{{end}}</td>
    <td>{{.Port}}</td>
-   <td>{{if .Added}}<span class="tag ro">già: {{.ExistingHost}}</span>{{else}}<input name="name_{{.Port}}" placeholder="host-{{.Port}}">{{end}}</td>
-   <td>{{if .Added}}—{{else}}nuovo{{end}}</td></tr>
-  {{else}}<tr><td colspan="4" class="empty">nessuna porta aperta nell'intervallo</td></tr>{{end}}
+   <td>{{if .Added}}<span class="tag ro">{{T "admin.hs.already"}} {{.ExistingHost}}</span>{{else}}<input name="name_{{.Port}}" placeholder="host-{{.Port}}">{{end}}</td>
+   <td>{{if .Added}}—{{else}}{{T "admin.hs.new"}}{{end}}</td></tr>
+  {{else}}<tr><td colspan="4" class="empty">{{T "admin.hs.none"}}</td></tr>{{end}}
   </tbody></table>
   <div class="actions" style="justify-content:flex-start;margin-top:.8rem">
-   <label>regola <select name="rule"><option>whitelist</option><option>authenticated</option><option>public</option></select></label>
-   <button class="btn primary">Aggiungi selezionati</button>
+   <label>{{T "admin.f.rule"}} <select name="rule"><option>whitelist</option><option>authenticated</option><option>public</option></select></label>
+   <button class="btn primary">{{T "admin.hs.add_selected"}}</button>
   </div>
  </form>
- <p style="margin-top:1rem"><a class="btn" href="/admin">← torna all'amministrazione</a></p>
-</main></body></html>`))
+ <p style="margin-top:1rem"><a class="btn" href="/admin">← {{T "admin.hs.back"}}</a></p>
+</main></body></html>`)
 
 type hostPortRow struct {
 	Port         int
@@ -635,8 +640,7 @@ func (s *Server) handleHostScan(w http.ResponseWriter, r *http.Request) {
 		h, added := byPort[p]
 		rows = append(rows, hostPortRow{Port: p, Added: added, ExistingHost: h})
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = hostScanTmpl.Execute(w, struct {
+	s.renderLoc(w, r, hostScanTmpl, struct {
 		From, To int
 		Ports    []hostPortRow
 	}{From: from, To: to, Ports: rows})
@@ -1031,8 +1035,7 @@ func (s *Server) handleBackendEditForm(w http.ResponseWriter, r *http.Request) {
 		if len(b.Routes) > 0 {
 			rt = b.Routes[0]
 		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_ = adminEditTmpl.Execute(w, struct {
+		s.renderLoc(w, r, adminEditTmpl, struct {
 			ID, Name, Description, Host, URL, Path, Rule, Upstream, IPAllow string
 		}{b.ID, b.Name, b.Description, b.Host, b.URL, rt.Path, rt.Rule, rt.Upstream, strings.Join(b.IPAllow, " ")})
 		return
@@ -1195,7 +1198,7 @@ func (s *Server) handleUserAdd(w http.ResponseWriter, r *http.Request) {
 		s.afterMutation(w, r, nil) // no QR when 2FA is disabled
 		return
 	}
-	s.renderAdminQR(w, email, secret)
+	s.renderAdminQR(w, r, email, secret)
 }
 
 func (s *Server) handleUserDel(w http.ResponseWriter, r *http.Request) {
@@ -1257,7 +1260,7 @@ func (s *Server) handleUserTOTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	s.renderAdminQR(w, email, secret)
+	s.renderAdminQR(w, r, email, secret)
 }
 
 // --- helpers -----------------------------------------------------------------
@@ -1300,14 +1303,13 @@ func (s *Server) idTaken(svc models.Services, id string) bool {
 	return false
 }
 
-func (s *Server) renderAdminQR(w http.ResponseWriter, email, secret string) {
+func (s *Server) renderAdminQR(w http.ResponseWriter, r *http.Request, email, secret string) {
 	png, err := qrcode.Encode(otpauthURI(email, secret), qrcode.Medium, 256)
 	if err != nil {
 		http.Error(w, "QR error", http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = adminQRTmpl.Execute(w, struct {
+	s.renderLoc(w, r, adminQRTmpl, struct {
 		Email  string
 		Secret string
 		QR     template.URL

@@ -16,6 +16,7 @@ import (
 
 	"xaltorka/auth"
 	"xaltorka/config"
+	"xaltorka/i18n"
 	"xaltorka/models"
 )
 
@@ -25,47 +26,48 @@ import (
 // reloads the directory.
 
 const setupHead = `<!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Xal-Tor-Ka · Setup</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
 <div class="auth-wrap"><div class="auth-card`
 
-var setupCredTmpl = template.Must(template.New("cred").Parse(setupHead + `">
- <h1>⛬ Configurazione iniziale</h1>
+var setupCredTmpl = template.Must(template.New("cred").Funcs(tmplFuncs).Parse(setupHead + `">
+ <h1>⛬ {{T .Lang "setup.cred.title"}}</h1>
  {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
- <p class="hint">Profilo: <strong>{{.Email}}</strong></p>
+ <p class="hint">{{T .Lang "setup.profile"}} <strong>{{.Email}}</strong></p>
  <form method="post" action="/setup">
   <input type="hidden" name="step" value="cred">
   <input type="hidden" name="token" value="{{.Token}}">
-  <div class="field"><label>Password</label><input type="password" name="password" autocomplete="new-password" required></div>
-  <div class="field"><label>Conferma password</label><input type="password" name="password2" autocomplete="new-password" required></div>
-  <button class="btn primary">Continua</button>
- </form>
+  <div class="field"><label>{{T .Lang "field.password"}}</label><input type="password" name="password" autocomplete="new-password" required></div>
+  <div class="field"><label>{{T .Lang "setup.confirm_pw"}}</label><input type="password" name="password2" autocomplete="new-password" required></div>
+  <button class="btn primary">{{T .Lang "btn.continue"}}</button>
+ </form>{{corner .Lang}}
 </div></div></body></html>`))
 
-var setupTOTPTmpl = template.Must(template.New("totp").Parse(setupHead + ` qr">
- <h1>Attiva la 2FA</h1>
+var setupTOTPTmpl = template.Must(template.New("totp").Funcs(tmplFuncs).Parse(setupHead + ` qr">
+ <h1>{{T .Lang "setup.totp.title"}}</h1>
  {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
- <p class="hint">Scansiona il QR con l'app authenticator (o inserisci la chiave a mano).</p>
+ <p class="hint">{{T .Lang "qr.scan"}}</p>
  <p><img src="{{.QR}}" alt="QR otpauth" width="240" height="240"></p>
- <p>Chiave: <code>{{.Secret}}</code></p>
+ <p>{{T .Lang "qr.key"}}: <code>{{.Secret}}</code></p>
  <form method="post" action="/setup">
   <input type="hidden" name="step" value="confirm">
   <input type="hidden" name="token" value="{{.Token}}">
-  <div class="field"><label>Codice TOTP</label><input name="code" inputmode="numeric" autocomplete="one-time-code" required></div>
-  <button class="btn primary">Attiva e completa</button>
- </form>
+  <div class="field"><label>{{T .Lang "totp.code"}}</label><input name="code" inputmode="numeric" autocomplete="one-time-code" required></div>
+  <button class="btn primary">{{T .Lang "setup.totp.activate"}}</button>
+ </form>{{corner .Lang}}
 </div></div></body></html>`))
 
-var setupDoneTmpl = template.Must(template.New("done").Parse(setupHead + `">
- <h1>✓ Configurazione completata</h1>
- <p class="hint">Profilo <strong>{{.Email}}</strong> attivato.</p>
- <p style="margin-top:1rem"><a class="btn primary" href="/login">Vai al login</a></p>
+var setupDoneTmpl = template.Must(template.New("done").Funcs(tmplFuncs).Parse(setupHead + `">
+ <h1>✓ {{T .Lang "setup.done.title"}}</h1>
+ <p class="hint">{{T .Lang "setup.done.profile"}} <strong>{{.Email}}</strong> {{T .Lang "setup.done.activated"}}</p>
+ <p style="margin-top:1rem"><a class="btn primary" href="/login">{{T .Lang "setup.done.go_login"}}</a></p>{{corner .Lang}}
 </div></div></body></html>`))
 
 type setupCredData struct {
 	Email string
 	Token string
 	Error string
+	Lang  string
 }
 
 type setupTOTPData struct {
@@ -73,6 +75,7 @@ type setupTOTPData struct {
 	Secret string
 	QR     template.URL
 	Error  string
+	Lang   string
 }
 
 func (s *Server) handleSetupForm(w http.ResponseWriter, r *http.Request) {
@@ -81,7 +84,7 @@ func (s *Server) handleSetupForm(w http.ResponseWriter, r *http.Request) {
 		s.setupError(w)
 		return
 	}
-	renderHTML(w, setupCredTmpl, setupCredData{Email: st.Email, Token: st.Token}, http.StatusOK)
+	renderHTML(w, setupCredTmpl, setupCredData{Email: st.Email, Token: st.Token, Lang: s.lang(r)}, http.StatusOK)
 }
 
 func (s *Server) handleSetupSubmit(w http.ResponseWriter, r *http.Request) {
@@ -108,9 +111,10 @@ func (s *Server) handleSetupSubmit(w http.ResponseWriter, r *http.Request) {
 // setupStepCred validates the password, generates a TOTP secret and persists
 // both into the setup state, then shows the QR enrollment step.
 func (s *Server) setupStepCred(w http.ResponseWriter, r *http.Request, st models.SetupState) {
+	lang := s.lang(r)
 	pw := r.PostFormValue("password")
 	if pw == "" || pw != r.PostFormValue("password2") {
-		renderHTML(w, setupCredTmpl, setupCredData{Email: st.Email, Token: st.Token, Error: "le password non coincidono"}, http.StatusBadRequest)
+		renderHTML(w, setupCredTmpl, setupCredData{Email: st.Email, Token: st.Token, Error: i18n.T(lang, "setup.err.pw_mismatch"), Lang: lang}, http.StatusBadRequest)
 		return
 	}
 	hash, err := auth.HashPassword(pw)
@@ -122,7 +126,7 @@ func (s *Server) setupStepCred(w http.ResponseWriter, r *http.Request, st models
 	if s.Cfg.DisableTOTP {
 		// 2FA disabled: no enrollment, finalize right away.
 		st.TOTPSecret = ""
-		s.finalizeSetup(w, st)
+		s.finalizeSetup(w, lang, st)
 		return
 	}
 	secret, err := auth.NewTOTPSecret()
@@ -135,7 +139,7 @@ func (s *Server) setupStepCred(w http.ResponseWriter, r *http.Request, st models
 		s.setupError(w)
 		return
 	}
-	s.renderTOTPStep(w, st, "")
+	s.renderTOTPStep(w, lang, st, "")
 }
 
 // setupStepConfirm verifies the TOTP code, then finalizes the user.
@@ -144,16 +148,17 @@ func (s *Server) setupStepConfirm(w http.ResponseWriter, r *http.Request, st mod
 		s.setupError(w)
 		return
 	}
+	lang := s.lang(r)
 	if !auth.VerifyTOTP(st.TOTPSecret, r.PostFormValue("code"), time.Now()) {
-		s.renderTOTPStep(w, st, "codice non valido")
+		s.renderTOTPStep(w, lang, st, i18n.T(lang, "err.bad_code"))
 		return
 	}
-	s.finalizeSetup(w, st)
+	s.finalizeSetup(w, lang, st)
 }
 
 // finalizeSetup writes/updates the admin user from the setup state, reloads the
 // directory, removes the setup token and shows the done page.
-func (s *Server) finalizeSetup(w http.ResponseWriter, st models.SetupState) {
+func (s *Server) finalizeSetup(w http.ResponseWriter, lang string, st models.SetupState) {
 	newUser := models.User{
 		Email:        st.Email,
 		Provider:     "local",
@@ -180,10 +185,10 @@ func (s *Server) finalizeSetup(w http.ResponseWriter, st models.SetupState) {
 	}
 	s.Users.Replace(users)
 	_ = os.Remove(s.SetupPath)
-	renderHTML(w, setupDoneTmpl, struct{ Email string }{Email: st.Email}, http.StatusOK)
+	renderHTML(w, setupDoneTmpl, struct{ Email, Lang string }{Email: st.Email, Lang: lang}, http.StatusOK)
 }
 
-func (s *Server) renderTOTPStep(w http.ResponseWriter, st models.SetupState, errMsg string) {
+func (s *Server) renderTOTPStep(w http.ResponseWriter, lang string, st models.SetupState, errMsg string) {
 	uri := otpauthURI(st.Email, st.TOTPSecret)
 	png, err := qrcode.Encode(uri, qrcode.Medium, 256)
 	if err != nil {
@@ -196,6 +201,7 @@ func (s *Server) renderTOTPStep(w http.ResponseWriter, st models.SetupState, err
 		Secret: st.TOTPSecret,
 		QR:     template.URL(dataURI),
 		Error:  errMsg,
+		Lang:   lang,
 	}, http.StatusOK)
 }
 
