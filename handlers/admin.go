@@ -54,7 +54,7 @@ func adminTopbar(active string) string {
 	}
 	return `<header class="topbar"><div class="brand"><a href="/admin" style="color:inherit;text-decoration:none">⛬ Xal-Tor-Ka</a><span class="sub">Amministrazione</span><span class="ver">` + version.Version + `</span></div><nav class="topnav">` +
 		nav.String() +
-		`<a href="/listing">Dashboard</a><form class="inline" method="post" action="/logout"><button class="btn sm">Esci</button></form></nav></header>`
+		`<a href="/listing">Dashboard</a><a href="/profilo">Profilo</a><form class="inline" method="post" action="/logout"><button class="btn sm">Esci</button></form></nav></header>`
 }
 
 // renderAdminPage writes the shared chrome (head + topbar + container) around a

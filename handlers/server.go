@@ -116,6 +116,9 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /auth/{provider}/callback", s.handleOIDCCallback)
 	mux.HandleFunc("POST /logout", s.handleLogout)
 	mux.HandleFunc("GET /listing", s.handleListing)
+	mux.HandleFunc("GET /profilo", s.handleProfile)
+	mux.HandleFunc("POST /profilo/password", s.handleProfilePassword)
+	mux.HandleFunc("POST /profilo/totp", s.handleProfileTOTP)
 	mux.HandleFunc("GET /setup", s.handleSetupForm)
 	mux.HandleFunc("POST /setup", s.handleSetupSubmit)
 	mux.HandleFunc("POST /admin/reload", s.handleAdminReload)
@@ -242,6 +245,8 @@ var listingTmpl = template.Must(template.New("listing").Parse(`<!doctype html>
 <header class="topbar">
  <div class="brand">⛬ Xal-Tor-Ka<span class="sub">Servizi</span></div>
  <nav class="topnav"><span style="color:var(--muted);font-size:.9rem">{{.Email}}</span>
+  {{if .IsAdmin}}<a href="/admin">Amministrazione</a>{{end}}
+  <a href="/profilo">Profilo</a>
   <form class="inline" method="post" action="/logout"><button class="btn sm">Esci</button></form></nav>
 </header>
 <main class="container">
@@ -270,9 +275,10 @@ func (s *Server) handleListing(w http.ResponseWriter, r *http.Request) {
 	u, _ := s.Users.Get(sess.Email)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = listingTmpl.Execute(w, struct {
-		Email string
-		Tiles []tile
-	}{Email: sess.Email, Tiles: s.tilesFor(u)})
+		Email   string
+		IsAdmin bool
+		Tiles   []tile
+	}{Email: sess.Email, IsAdmin: u.Admin, Tiles: s.tilesFor(u)})
 }
 
 // tilesFor builds the dashboard tiles visible to the user: proxied backends it
