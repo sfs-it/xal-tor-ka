@@ -63,6 +63,36 @@ func TestValidateIPAllow(t *testing.T) {
 	}
 }
 
+func TestClientIP(t *testing.T) {
+	trusted := []string{"172.21.0.0/16"}
+	mk := func(remote, xrealip, xff string) string {
+		r := httptest.NewRequest(http.MethodGet, "/", nil)
+		r.RemoteAddr = remote
+		if xrealip != "" {
+			r.Header.Set("X-Real-IP", xrealip)
+		}
+		if xff != "" {
+			r.Header.Set("X-Forwarded-For", xff)
+		}
+		if ip := clientIP(r, trusted); ip != nil {
+			return ip.String()
+		}
+		return ""
+	}
+	// Untrusted direct peer: forwarded headers are ignored (spoof-proof).
+	if got := mk("203.0.113.9:5000", "10.0.0.1", "10.0.0.1"); got != "203.0.113.9" {
+		t.Errorf("untrusted peer = %q, want 203.0.113.9 (headers ignored)", got)
+	}
+	// Trusted proxy: X-Real-IP wins.
+	if got := mk("172.21.0.4:5000", "198.51.100.7", "1.2.3.4"); got != "198.51.100.7" {
+		t.Errorf("trusted peer = %q, want 198.51.100.7 (X-Real-IP)", got)
+	}
+	// Trusted proxy, no X-Real-IP: fall back to XFF leftmost.
+	if got := mk("172.21.0.4:5000", "", "198.51.100.9, 172.21.0.4"); got != "198.51.100.9" {
+		t.Errorf("trusted peer XFF = %q, want 198.51.100.9", got)
+	}
+}
+
 func TestEffectiveAdminIPsFallback(t *testing.T) {
 	s := &Server{Cfg: &models.Config{Admin: models.AdminCfg{IPWhitelist: []string{"127.0.0.1/32"}}}}
 	// No override → falls back to config.

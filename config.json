@@ -5,7 +5,7 @@
   "server": {
     "listen": "${GO_PORT:-:8080}",
     "external_url": "${GATE_URL:-http://localhost:8080}",
-    "trusted_proxies": ["127.0.0.1/32"]
+    "trusted_proxies": ["127.0.0.1/32", "::1/128", "${EDGE_CIDR:-172.16.0.0/12}"]
   },
   "tls": {
     "mode": "${TLS_MODE:-selfsigned}",

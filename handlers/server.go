@@ -393,15 +393,25 @@ func (s *Server) adminAllowed(r *http.Request) bool {
 	return ipInCIDRs(ip, s.effectiveAdminIPs())
 }
 
-// clientIP returns the real client IP, honoring X-Forwarded-For only when the
-// direct peer is a trusted proxy (BLUEPRINT §18.5).
+// clientIP returns the real client IP. Forwarded headers are honored ONLY when
+// the direct peer is a trusted proxy (BLUEPRINT §18.5). It prefers X-Real-IP,
+// which the edge NGINX sets to $remote_addr and thus cannot be spoofed by the
+// client; X-Forwarded-For (leftmost) is a fallback for upstream LB chains.
 func clientIP(r *http.Request, trusted []string) net.IP {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		host = r.RemoteAddr
 	}
 	ip := net.ParseIP(host)
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" && ipInCIDRs(ip, trusted) {
+	if !ipInCIDRs(ip, trusted) {
+		return ip // untrusted/direct peer: never trust forwarded headers
+	}
+	if xr := strings.TrimSpace(r.Header.Get("X-Real-IP")); xr != "" {
+		if cand := net.ParseIP(xr); cand != nil {
+			return cand
+		}
+	}
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 		first := strings.TrimSpace(strings.Split(xff, ",")[0])
 		if cand := net.ParseIP(first); cand != nil {
 			return cand

@@ -64,6 +64,7 @@ func writeServer(b *strings.Builder, g GenConfig, be models.Backend) {
 		"        proxy_set_header Content-Length \"\";\n"+
 		"        proxy_set_header X-Original-Host $host;\n"+
 		"        proxy_set_header X-Original-URI $request_uri;\n"+
+		"        proxy_set_header X-Real-IP $remote_addr;\n"+
 		"        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n"+
 		"    }\n\n", g.Upstream)
 

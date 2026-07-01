@@ -11,8 +11,6 @@ _(nessuna voce attiva — prossimo passo da decidere: vedi candidati in «Da far
 * [ ] **2026-06-29 —** OIDC: provare con credenziali **reali** Google/Microsoft (l'exchange/verifica id_token è già coperto da test mock-IdP; manca la prova live)
 * [ ] **2026-06-30 —** Portabilità: **field-test deploy host/LXD** (systemd + `nginx -s reload` + `PROXY_RESOLVER`/`PROXY_UPSTREAM`) — scaffolding pronto, non provato su macchina reale
 
-* [ ] **2026-07-01 —** Client-IP plumbing/hardening: `trusted_proxies` non include la subnet NGINX (EDGE_CIDR inutilizzato) → i controlli IP (admin + ip_allow) vedono l'IP di NGINX, non il client reale; inoltre `clientIP` prende l'XFF più a sinistra (spoofabile se ci si fida di NGINX). Fix proposto: usare `X-Real-IP=$remote_addr` dall'edge + trust EDGE_CIDR; coordinare ADMIN_CIDR per non auto-bloccarsi.
-
 ## Idee / Backlog
 
 * [ ] **2026-06-29 —** Selettore provider nel form crea-utente di `/admin` (oggi gli utenti OIDC si creano da CLI `user --provider <id>`)
@@ -63,3 +61,4 @@ _(nessuna voce attiva — prossimo passo da decidere: vedi candidati in «Da far
 * [x] **2026-06-30 —** Portabilità oltre Docker (knob env, default Docker invariati): `DEPLOY_MODE`, `NGINX_RELOAD_CMD` (hook reload in `proxy.Manager`), `UPSTREAM_LOCALHOST` (`hostInternalize` configurabile); unit `deploy/xaltorka.service` + `deploy/xaltorka.sudoers`, `INSTALL.md` §9. Docker verificato invariato; host/LXD da provare sul campo.
 * [x] **2026-06-30 —** Documentazione: inglese ufficiale in root (`README` per decisore + 3° paragrafo → `TECHNOTES`, `TECHNOTES`, `REQUIREMENTS`; `INSTALL`/`AUTH-PROVIDERS` tradotti in EN). Traduzioni entry (README+TECHNOTES) in 9 lingue sotto `DOCS/` (it, fr, es, de, ru, pt, zh, hi, ar) + indice `DOCS/README.md` e language switcher. Generate via subagent in parallelo.
 * [x] **2026-07-01 —** Fase 1 IP allow-list: campo `ip_allow` (CIDR) per backend con enforce fail-closed in `/validate` prima della regola (vale anche per `public`), edit/visualizza in `/admin/servizi`; whitelist IP admin globale gestibile in UI (override in `services.json`, hot reload, guard anti-lockout) via `/admin/adminips`. Validazione CIDR + test. Build/vet/race verdi.
+* [x] **2026-07-01 —** Fase 1b client-IP plumbing/hardening: `trusted_proxies` ora include `${EDGE_CIDR}` (+127.0.0.1/::1); `clientIP` preferisce `X-Real-IP` (settato dall'edge a `$remote_addr`, non spoofabile) con fallback XFF; auth location NGINX (base+generato) passa `X-Real-IP`. Ora i controlli IP (admin + `ip_allow`) vedono il **client reale**. Verificato anti-lockout: /admin via NGINX → 303 (non 403), log mostra IP client reale 172.21.0.1 ∈ ADMIN_CIDR. Test `clientIP` (prefer X-Real-IP + spoof-proof da peer non fidato).
