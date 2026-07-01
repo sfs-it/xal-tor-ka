@@ -94,6 +94,11 @@ func Validate(b *Bundle) error {
 				return fmt.Errorf("%s[%s].routes[%d].upstream: %w", scope, be.ID, j, err)
 			}
 		}
+		for j, cidr := range be.IPAllow {
+			if _, _, err := net.ParseCIDR(cidr); err != nil {
+				return fmt.Errorf("%s[%s].ip_allow[%d] %q: invalid CIDR: %w", scope, be.ID, j, cidr, err)
+			}
+		}
 		return nil
 	}
 	for i, be := range c.Backends {
@@ -116,6 +121,12 @@ func Validate(b *Bundle) error {
 		allowedIDs[l.ID] = true
 		if l.URL == "" {
 			return fmt.Errorf("services.links[%s].url is required", l.ID)
+		}
+	}
+
+	for i, cidr := range b.Services.AdminIPWhitelist {
+		if _, _, err := net.ParseCIDR(cidr); err != nil {
+			return fmt.Errorf("services.admin_ip_whitelist[%d] %q: invalid CIDR: %w", i, cidr, err)
 		}
 	}
 

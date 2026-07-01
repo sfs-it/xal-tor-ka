@@ -61,8 +61,9 @@ type Server struct {
 	// are merged on top at Reload time.
 	BaseBackends []models.Backend
 
-	mu    sync.RWMutex
-	links []models.Link // dashboard link tiles (from services.json), reloadable
+	mu       sync.RWMutex
+	links    []models.Link // dashboard link tiles (from services.json), reloadable
+	adminIPs []string      // effective admin IP whitelist (services.json override, else empty→config)
 }
 
 // Reload re-reads services.json and rebuilds the resolver (config backends +
@@ -82,6 +83,7 @@ func (s *Server) Reload() error {
 	s.Resolver.Set(merged)
 	s.mu.Lock()
 	s.links = svc.Links
+	s.adminIPs = svc.AdminIPWhitelist // empty → adminAllowed falls back to config
 	s.mu.Unlock()
 	if err := s.Proxy.Apply(merged); err != nil {
 		return err
@@ -141,7 +143,34 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /admin/user/email", s.handleUserEmail)
 	mux.HandleFunc("POST /admin/user/password", s.handleUserPassword)
 	mux.HandleFunc("POST /admin/user/admin", s.handleUserAdmin)
+	mux.HandleFunc("POST /admin/adminips", s.handleAdminIPs)
 	return mux
+}
+
+// normalizeCIDRs parses a free-form list of IPs/CIDRs (separated by spaces,
+// commas or newlines), turning bare IPs into /32 (v4) or /128 (v6). It returns
+// the normalized CIDRs and an error on the first invalid token.
+func normalizeCIDRs(raw string) ([]string, error) {
+	fields := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == ',' || r == ' ' || r == '\n' || r == '\r' || r == '\t' || r == ';'
+	})
+	out := make([]string, 0, len(fields))
+	for _, f := range fields {
+		if !strings.Contains(f, "/") {
+			if ip := net.ParseIP(f); ip != nil {
+				if ip.To4() != nil {
+					f += "/32"
+				} else {
+					f += "/128"
+				}
+			}
+		}
+		if _, _, err := net.ParseCIDR(f); err != nil {
+			return nil, fmt.Errorf("invalid IP/CIDR %q", f)
+		}
+		out = append(out, f)
+	}
+	return out, nil
 }
 
 func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
@@ -167,6 +196,17 @@ func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		w.WriteHeader(http.StatusForbidden) // default-deny
 		return
+	}
+
+	// Per-vhost IP allow-list: enforced before the rule, so it also restricts
+	// "public" services. Fail-closed: unknown/absent client IP is denied.
+	if len(be.IPAllow) > 0 {
+		ip := clientIP(r, s.Cfg.Server.TrustedProxies)
+		if ip == nil || !ipInCIDRs(ip, be.IPAllow) {
+			s.auditFail(r, "ip_denied", "host="+host)
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
 	}
 
 	switch route.Rule {
@@ -332,18 +372,25 @@ func (s *Server) auditFail(r *http.Request, event, detail string) {
 	s.Audit.Fail(ip, event, detail)
 }
 
+// effectiveAdminIPs returns the admin IP whitelist in force: the services.json
+// runtime override if set, otherwise the config/env value (ADMIN_CIDR).
+func (s *Server) effectiveAdminIPs() []string {
+	s.mu.RLock()
+	cidrs := s.adminIPs
+	s.mu.RUnlock()
+	if len(cidrs) == 0 {
+		return s.Cfg.Admin.IPWhitelist
+	}
+	return cidrs
+}
+
 // adminAllowed reports whether the request comes from an admin-whitelisted IP.
 func (s *Server) adminAllowed(r *http.Request) bool {
 	ip := clientIP(r, s.Cfg.Server.TrustedProxies)
 	if ip == nil {
 		return false
 	}
-	for _, cidr := range s.Cfg.Admin.IPWhitelist {
-		if _, n, err := net.ParseCIDR(cidr); err == nil && n.Contains(ip) {
-			return true
-		}
-	}
-	return false
+	return ipInCIDRs(ip, s.effectiveAdminIPs())
 }
 
 // clientIP returns the real client IP, honoring X-Forwarded-For only when the

@@ -100,14 +100,18 @@ type EmailCfg struct {
 // are presentation hints for the /listing dashboard (URL is the public address
 // the user clicks; if empty it is derived from Host).
 type Backend struct {
-	ID          string  `json:"id"`
-	Name        string  `json:"name,omitempty"`
-	Description string  `json:"description,omitempty"`
-	Host        string  `json:"host"`
-	URL         string  `json:"url,omitempty"`
-	Disabled    bool    `json:"disabled,omitempty"` // excluded from resolver/proxy/health
-	Routes      []Route `json:"routes"`
-	Health      Health  `json:"health"`
+	ID          string `json:"id"`
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+	Host        string `json:"host"`
+	URL         string `json:"url,omitempty"`
+	Disabled    bool   `json:"disabled,omitempty"` // excluded from resolver/proxy/health
+	// IPAllow is an optional per-vhost IP allow-list (CIDRs). When non-empty,
+	// requests whose client IP is not covered are denied (403) before the rule is
+	// evaluated — so it also restricts "public" services. Empty = no IP restriction.
+	IPAllow []string `json:"ip_allow,omitempty"`
+	Routes  []Route  `json:"routes"`
+	Health  Health   `json:"health"`
 }
 
 // Link is an external service shown as a tile in /listing but NOT reverse
@@ -127,8 +131,12 @@ type Link struct {
 // touching the env-templated infrastructure config. Backends here are merged
 // into the resolver; Links are dashboard-only tiles.
 type Services struct {
-	Backends []Backend `json:"backends"`
-	Links    []Link    `json:"links"`
+	// AdminIPWhitelist, when non-empty, overrides config.admin.ip_whitelist at
+	// runtime (editable from the admin UI, applied on hot reload). Empty = use the
+	// config/env value (ADMIN_CIDR).
+	AdminIPWhitelist []string  `json:"admin_ip_whitelist,omitempty"`
+	Backends         []Backend `json:"backends"`
+	Links            []Link    `json:"links"`
 }
 
 // Route maps a path prefix to an access rule and an upstream address.

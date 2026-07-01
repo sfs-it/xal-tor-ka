@@ -74,7 +74,18 @@ var overviewTmpl = template.Must(template.New("ov").Parse(`<h1>Amministrazione</
  <a class="card" href="/admin/docker"><div class="row"><h3>Docker</h3><span class="tag">scopri</span></div><div class="meta">container attivi e porte host</div></a>
  <a class="card" href="/admin/utenti"><div class="row"><h3>Utenti</h3><span class="tag">{{.Users}}</span></div><div class="meta">utenti e autorizzazioni</div></a>
  <a class="card" href="/admin/monitoring"><div class="row"><h3>Monitoring</h3><span class="badge up">{{.Up}}</span> <span class="badge down">{{.Down}}</span></div><div class="meta">stato dei backend</div></a>
-</div>`))
+</div>
+<section style="margin-top:1.4rem">
+ <h2>Sicurezza — IP ammessi all'area admin</h2>
+ <p class="hint">Solo questi IP/reti possono accedere a <code>/admin</code>. Sorgente attuale: <b>{{.AdminIPsSource}}</b>. Il tuo IP: <code>{{.ClientIP}}</code>.</p>
+ <div class="card">
+  <form method="post" action="/admin/adminips">
+   <div><label>IP/CIDR ammessi (spazio o virgola; IP singolo = /32)</label><input name="ip_whitelist" value="{{.AdminIPsRaw}}" placeholder="203.0.113.7/32 10.0.0.0/24"></div>
+   <p class="hint">⚠️ La nuova lista <b>deve includere il tuo IP</b>, altrimenti verresti bloccato fuori. Svuota il campo per tornare al valore di <code>config.json</code>/<code>ADMIN_CIDR</code>.</p>
+   <div class="actions" style="justify-content:flex-start"><button class="btn primary">salva</button></div>
+  </form>
+ </div>
+</section>`))
 
 var servicesTmpl = template.Must(template.New("services").Parse(`<section>
  <h2>Servizi reverse-proxy</h2>
@@ -86,6 +97,7 @@ var servicesTmpl = template.Must(template.New("services").Parse(`<section>
    <div class="meta"><a href="//{{.Host}}" target="_blank" rel="noopener">{{.Host}} ↗</a></div>
    {{if .Description}}<div class="meta">{{.Description}}</div>{{end}}
    <div class="meta">{{range .Routes}}{{.Path}} → {{.Rule}} → {{.Upstream}}<br>{{end}}</div>
+   {{if .IPAllow}}<div class="meta">🔒 IP: {{range .IPAllow}}{{.}} {{end}}</div>{{end}}
    <div class="actions">
     <a class="btn sm" href="/admin/backend/edit?id={{.ID}}">edit</a>
     <form class="inline" method="post" action="/admin/backend/toggle"><input type="hidden" name="id" value="{{.ID}}"><button class="btn sm">{{if .Disabled}}abilita{{else}}disabilita{{end}}</button></form>
@@ -101,6 +113,7 @@ var servicesTmpl = template.Must(template.New("services").Parse(`<section>
    <div><label>regola</label><select name="rule"><option>whitelist</option><option>authenticated</option><option>public</option></select></div>
    <div><label>upstream</label><input name="upstream" placeholder="http://10.0.0.5:8080"></div>
    <div><label>url pubblico</label><input name="url" placeholder="https://app.dominio.it"></div>
+   <div><label>IP allow (CIDR, opz.)</label><input name="ip_allow" placeholder="203.0.113.0/24"></div>
    <div><button class="btn primary">aggiungi</button></div>
   </div></form></div>
 </section>
@@ -225,6 +238,7 @@ var adminEditTmpl = template.Must(template.New("adminedit").Parse(`<!doctype htm
     <div><label>upstream</label><input name="upstream" value="{{.Upstream}}" required></div>
    </div>
    <div style="margin-top:.6rem"><label>descrizione</label><input name="description" value="{{.Description}}"></div>
+   <div style="margin-top:.6rem"><label>IP allow-list (CIDR, opzionale — vuoto = nessun limite)</label><input name="ip_allow" value="{{.IPAllow}}" placeholder="es. 203.0.113.0/24 10.0.0.5"></div>
    <div class="actions" style="justify-content:flex-start;margin-top:1rem">
     <button class="btn primary">salva</button><a class="btn" href="/admin/servizi">annulla</a></div>
   </form>
@@ -258,9 +272,22 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	eff := s.effectiveAdminIPs()
+	source := "config.json / ADMIN_CIDR"
+	if len(svc.AdminIPWhitelist) > 0 {
+		source = "services.json (override runtime)"
+	}
+	clientIPStr := ""
+	if ip := clientIP(r, s.Cfg.Server.TrustedProxies); ip != nil {
+		clientIPStr = ip.String()
+	}
 	s.renderAdminPage(w, "", overviewTmpl, struct {
 		Services, Links, Users, ConfigBackends, Up, Down int
-	}{len(svc.Backends), len(svc.Links), s.Users.Count(), len(s.BaseBackends), up, down})
+		AdminIPsSource, ClientIP, AdminIPsRaw            string
+	}{
+		len(svc.Backends), len(svc.Links), s.Users.Count(), len(s.BaseBackends), up, down,
+		source, clientIPStr, strings.Join(eff, " "),
+	})
 }
 
 func (s *Server) handleAdminServices(w http.ResponseWriter, r *http.Request) {
@@ -808,13 +835,19 @@ func (s *Server) handleBackendAdd(w http.ResponseWriter, r *http.Request) {
 	if path == "" {
 		path = "/"
 	}
+	ipAllow, ierr := normalizeCIDRs(r.PostFormValue("ip_allow"))
+	if ierr != nil {
+		http.Error(w, ierr.Error(), http.StatusBadRequest)
+		return
+	}
 	err := s.mutateServices(func(svc *models.Services) error {
 		if s.idTaken(*svc, id) {
 			return fmt.Errorf("id already exists")
 		}
 		svc.Backends = append(svc.Backends, models.Backend{
 			ID: id, Name: r.PostFormValue("name"), Host: host, URL: r.PostFormValue("url"),
-			Routes: []models.Route{{Path: path, Rule: rule, Upstream: upstream}},
+			IPAllow: ipAllow,
+			Routes:  []models.Route{{Path: path, Rule: rule, Upstream: upstream}},
 		})
 		return nil
 	})
@@ -889,8 +922,8 @@ func (s *Server) handleBackendEditForm(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_ = adminEditTmpl.Execute(w, struct {
-			ID, Name, Description, Host, URL, Path, Rule, Upstream string
-		}{b.ID, b.Name, b.Description, b.Host, b.URL, rt.Path, rt.Rule, rt.Upstream})
+			ID, Name, Description, Host, URL, Path, Rule, Upstream, IPAllow string
+		}{b.ID, b.Name, b.Description, b.Host, b.URL, rt.Path, rt.Rule, rt.Upstream, strings.Join(b.IPAllow, " ")})
 		return
 	}
 	http.Error(w, "backend not found", http.StatusNotFound)
@@ -919,6 +952,11 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "host required", http.StatusBadRequest)
 		return
 	}
+	ipAllow, ierr := normalizeCIDRs(r.PostFormValue("ip_allow"))
+	if ierr != nil {
+		http.Error(w, ierr.Error(), http.StatusBadRequest)
+		return
+	}
 	err := s.mutateServices(func(svc *models.Services) error {
 		for i := range svc.Backends {
 			if svc.Backends[i].ID != id {
@@ -929,6 +967,7 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 			b.Description = r.PostFormValue("description")
 			b.Host = host
 			b.URL = r.PostFormValue("url")
+			b.IPAllow = ipAllow
 			if len(b.Routes) == 0 {
 				b.Routes = []models.Route{{}}
 			}
@@ -936,6 +975,34 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 			return nil
 		}
 		return fmt.Errorf("backend not found")
+	})
+	s.afterMutation(w, r, err)
+}
+
+// handleAdminIPs updates the admin-area IP whitelist (persisted as a services.json
+// override, applied on hot reload). Anti-lockout: the resulting effective list
+// must still include the caller's IP, else the change is refused.
+func (s *Server) handleAdminIPs(w http.ResponseWriter, r *http.Request) {
+	if !s.adminGuard(w, r) {
+		return
+	}
+	cidrs, err := normalizeCIDRs(r.PostFormValue("ip_whitelist"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	effective := cidrs
+	if len(effective) == 0 {
+		effective = s.Cfg.Admin.IPWhitelist // clearing the override reverts to config
+	}
+	ip := clientIP(r, s.Cfg.Server.TrustedProxies)
+	if ip == nil || !ipInCIDRs(ip, effective) {
+		http.Error(w, "rifiutato: la nuova lista escluderebbe il tuo IP (ti bloccheresti fuori)", http.StatusBadRequest)
+		return
+	}
+	err = s.mutateServices(func(svc *models.Services) error {
+		svc.AdminIPWhitelist = cidrs // empty = revert to config on reload
+		return nil
 	})
 	s.afterMutation(w, r, err)
 }
