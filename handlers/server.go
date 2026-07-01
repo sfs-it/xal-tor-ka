@@ -116,6 +116,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /auth/{provider}/callback", s.handleOIDCCallback)
 	mux.HandleFunc("POST /logout", s.handleLogout)
 	mux.HandleFunc("GET /listing", s.handleListing)
+	mux.HandleFunc("GET /lang/{code}", s.handleSetLang)
 	mux.HandleFunc("GET /profilo", s.handleProfile)
 	mux.HandleFunc("POST /profilo/password", s.handleProfilePassword)
 	mux.HandleFunc("POST /profilo/totp", s.handleProfileTOTP)
@@ -239,23 +240,24 @@ func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-var listingTmpl = template.Must(template.New("listing").Parse(`<!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · Servizi</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
+var listingTmpl = template.Must(template.New("listing").Funcs(tmplFuncs).Parse(`<!doctype html>
+<html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Xal-Tor-Ka · {{T .Lang "listing.subtitle"}}</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
 <header class="topbar">
- <div class="brand">⛬ Xal-Tor-Ka<span class="sub">Servizi</span></div>
+ <div class="brand">⛬ Xal-Tor-Ka<span class="sub">{{T .Lang "listing.subtitle"}}</span></div>
  <nav class="topnav"><span style="color:var(--muted);font-size:.9rem">{{.Email}}</span>
-  {{if .IsAdmin}}<a href="/admin">Amministrazione</a>{{end}}
-  <a href="/profilo">Profilo</a>
-  <form class="inline" method="post" action="/logout"><button class="btn sm">Esci</button></form></nav>
+  {{if .IsAdmin}}<a href="/admin">{{T .Lang "nav.admin"}}</a>{{end}}
+  <a href="/profilo">{{T .Lang "nav.profile"}}</a>
+  ` + langSelHTML + `
+  <form class="inline" method="post" action="/logout"><button class="btn sm">{{T .Lang "btn.logout"}}</button></form></nav>
 </header>
 <main class="container">
- <h1>Servizi disponibili</h1>
+ <h1>{{T .Lang "listing.title"}}</h1>
  <div class="grid">
  {{range .Tiles}}<a class="card" href="{{.URL}}"{{if .External}} target="_blank" rel="noopener"{{end}}>
-   <div class="row"><h3>{{.Name}}</h3><span class="tag {{if .External}}ext{{end}}">{{if .External}}esterno{{else}}proxy{{end}}</span></div>
+   <div class="row"><h3>{{.Name}}</h3><span class="tag {{if .External}}ext{{end}}">{{if .External}}{{T $.Lang "tag.external"}}{{else}}{{T $.Lang "tag.proxy"}}{{end}}</span></div>
    {{if .Description}}<div class="meta">{{.Description}}</div>{{end}}</a>
- {{else}}<p class="empty">Nessun servizio disponibile per il tuo profilo.</p>{{end}}
+ {{else}}<p class="empty">{{T .Lang "listing.empty"}}</p>{{end}}
  </div>
 </main></body></html>`))
 
@@ -277,8 +279,9 @@ func (s *Server) handleListing(w http.ResponseWriter, r *http.Request) {
 	_ = listingTmpl.Execute(w, struct {
 		Email   string
 		IsAdmin bool
+		Lang    string
 		Tiles   []tile
-	}{Email: sess.Email, IsAdmin: u.Admin, Tiles: s.tilesFor(u)})
+	}{Email: sess.Email, IsAdmin: u.Admin, Lang: s.lang(r), Tiles: s.tilesFor(u)})
 }
 
 // tilesFor builds the dashboard tiles visible to the user: proxied backends it
@@ -297,7 +300,7 @@ func (s *Server) tilesFor(u models.User) []tile {
 		if url == "" {
 			url = "//" + be.Host
 		}
-		ts = append(ts, tile{Name: name, URL: url, Description: "servizio reverse-proxy", External: false})
+		ts = append(ts, tile{Name: name, URL: url, External: false})
 	}
 	for _, l := range s.currentLinks() {
 		if l.Disabled {

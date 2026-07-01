@@ -12,63 +12,66 @@ import (
 	qrcode "github.com/skip2/go-qrcode"
 
 	"xaltorka/auth"
+	"xaltorka/i18n"
 	"xaltorka/models"
 )
 
-var profileTmpl = template.Must(template.New("profile").Parse(`<!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · Profilo</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
+var profileTmpl = template.Must(template.New("profile").Funcs(tmplFuncs).Parse(`<!doctype html>
+<html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Xal-Tor-Ka · {{T .Lang "profile.subtitle"}}</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
 <header class="topbar">
- <div class="brand">⛬ Xal-Tor-Ka<span class="sub">Profilo</span></div>
- <nav class="topnav"><a href="/listing">← Servizi</a>{{if .IsAdmin}}<a href="/admin">Amministrazione</a>{{end}}
-  <form class="inline" method="post" action="/logout"><button class="btn sm">Esci</button></form></nav>
+ <div class="brand">⛬ Xal-Tor-Ka<span class="sub">{{T .Lang "profile.subtitle"}}</span></div>
+ <nav class="topnav"><a href="/listing">{{T .Lang "btn.back_services"}}</a>{{if .IsAdmin}}<a href="/admin">{{T .Lang "nav.admin"}}</a>{{end}}
+  ` + langSelHTML + `
+  <form class="inline" method="post" action="/logout"><button class="btn sm">{{T .Lang "btn.logout"}}</button></form></nav>
 </header>
 <main class="container">
- <h1>Il mio profilo</h1>
+ <h1>{{T .Lang "profile.title"}}</h1>
  {{if .Notice}}<div class="ok">{{.Notice}}</div>{{end}}
  {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
  <div class="card">
-  <div class="meta">Email: <b>{{.Email}}</b></div>
-  <div class="meta">Accesso: <b>{{.Provider}}</b>{{if .IsAdmin}} · <span class="tag">amministratore</span>{{end}}</div>
+  <div class="meta">{{T .Lang "profile.email"}}: <b>{{.Email}}</b></div>
+  <div class="meta">{{T .Lang "profile.access"}}: <b>{{.Provider}}</b>{{if .IsAdmin}} · <span class="tag">{{T .Lang "profile.admin_badge"}}</span>{{end}}</div>
  </div>
 
- <div class="card" style="margin-top:1rem"><h3>Servizi a cui accedo</h3>
-  {{if .IsAdmin}}<p class="hint">Come amministratore accedi a tutti i servizi.</p>{{end}}
+ <div class="card" style="margin-top:1rem"><h3>{{T .Lang "profile.services"}}</h3>
+  {{if .IsAdmin}}<p class="hint">{{T .Lang "profile.admin_all"}}</p>{{end}}
   <ul class="hostlist">
   {{range .Services}}<li><a href="{{.URL}}"{{if .External}} target="_blank" rel="noopener"{{end}}>{{.Name}}</a></li>
-  {{else}}<li class="hint">Nessun servizio disponibile per il tuo profilo.</li>{{end}}
+  {{else}}<li class="hint">{{T $.Lang "listing.empty"}}</li>{{end}}
   </ul>
  </div>
 
- {{if .Local}}<div class="card" style="margin-top:1rem"><h3>Cambia password</h3>
+ {{if .Local}}<div class="card" style="margin-top:1rem"><h3>{{T .Lang "profile.change_pw"}}</h3>
   <form method="post" action="/profilo/password"><div class="formgrid">
-   <div class="field"><label>Password attuale</label><input type="password" name="current" autocomplete="current-password" required></div>
-   <div class="field"><label>Nuova password</label><input type="password" name="password" autocomplete="new-password" required></div>
-   <div><button class="btn primary">aggiorna</button></div>
+   <div class="field"><label>{{T .Lang "profile.current_pw"}}</label><input type="password" name="current" autocomplete="current-password" required></div>
+   <div class="field"><label>{{T .Lang "profile.new_pw"}}</label><input type="password" name="password" autocomplete="new-password" required></div>
+   <div><button class="btn primary">{{T .Lang "btn.update"}}</button></div>
   </div></form>
  </div>{{end}}
 
- {{if .TOTP}}<div class="card" style="margin-top:1rem"><h3>Autenticazione a due fattori (2FA)</h3>
-  <p class="hint">Rigenera il segreto TOTP se hai cambiato dispositivo o perso l'app. Dovrai scansionare il nuovo QR: il prossimo accesso userà il nuovo codice.</p>
-  <form method="post" action="/profilo/totp" onsubmit="return confirm('Rigenerare il 2FA? Il vecchio codice smetterà di funzionare.')">
-   <button class="btn">rigenera 2FA</button></form>
+ {{if .TOTP}}<div class="card" style="margin-top:1rem"><h3>{{T .Lang "profile.2fa"}}</h3>
+  <p class="hint">{{T .Lang "profile.2fa_hint"}}</p>
+  <form method="post" action="/profilo/totp" onsubmit="return confirm('{{T .Lang "profile.2fa_confirm"}}')">
+   <button class="btn">{{T .Lang "profile.2fa_regen"}}</button></form>
  </div>{{end}}
 </main></body></html>`))
 
-var profileQRTmpl = template.Must(template.New("profileqr").Parse(`<!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · 2FA</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
+var profileQRTmpl = template.Must(template.New("profileqr").Funcs(tmplFuncs).Parse(`<!doctype html>
+<html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Xal-Tor-Ka · {{T .Lang "qr.new2fa"}}</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
 <div class="auth-wrap"><div class="auth-card qr">
- <h1>Nuovo 2FA</h1>
- <p class="hint">Scansiona il QR con l'app authenticator (o inserisci la chiave a mano). Il prossimo accesso userà questo codice.</p>
+ <h1>{{T .Lang "qr.new2fa"}}</h1>
+ <p class="hint">{{T .Lang "qr.scan"}}</p>
  <p><img src="{{.QR}}" alt="QR otpauth" width="240" height="240"></p>
- <p>Chiave: <code>{{.Secret}}</code></p>
- <p style="margin-top:1.2rem"><a href="/profilo">← torna al profilo</a></p>
+ <p>{{T .Lang "qr.key"}}: <code>{{.Secret}}</code></p>
+ <p style="margin-top:1.2rem"><a href="/profilo">{{T .Lang "qr.back_profile"}}</a></p>
 </div></div></body></html>`))
 
 type profileData struct {
 	Email, Provider      string
 	IsAdmin, Local, TOTP bool
+	Lang                 string
 	Services             []tile
 	Notice, Error        string
 }
@@ -89,8 +92,9 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login?next=/profilo", http.StatusSeeOther)
 		return
 	}
-	notice := map[string]string{"pw": "Password aggiornata."}[r.URL.Query().Get("ok")]
-	errMsg := map[string]string{"pw": "Password attuale errata.", "local": "Operazione disponibile solo per gli account locali."}[r.URL.Query().Get("err")]
+	lang := s.lang(r)
+	notice := map[string]string{"pw": i18n.T(lang, "profile.pw_updated")}[r.URL.Query().Get("ok")]
+	errMsg := map[string]string{"pw": i18n.T(lang, "profile.pw_wrong"), "local": i18n.T(lang, "profile.local_only")}[r.URL.Query().Get("err")]
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = profileTmpl.Execute(w, profileData{
 		Email:    u.Email,
@@ -98,6 +102,7 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 		IsAdmin:  u.Admin,
 		Local:    u.Provider == "local",
 		TOTP:     !s.Cfg.DisableTOTP,
+		Lang:     lang,
 		Services: s.tilesFor(u),
 		Notice:   notice,
 		Error:    errMsg,
@@ -182,6 +187,7 @@ func (s *Server) handleProfileTOTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = profileQRTmpl.Execute(w, struct {
 		Secret string
+		Lang   string
 		QR     template.URL
-	}{Secret: secret, QR: template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))})
+	}{Secret: secret, Lang: s.lang(r), QR: template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))})
 }

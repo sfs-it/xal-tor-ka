@@ -11,38 +11,41 @@ import (
 	"time"
 
 	"xaltorka/auth"
+	"xaltorka/i18n"
 	"xaltorka/providers"
 )
 
-var loginTmpl = template.Must(template.New("login").Parse(`<!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · Accesso</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
+var loginTmpl = template.Must(template.New("login").Funcs(tmplFuncs).Parse(`<!doctype html>
+<html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Xal-Tor-Ka · {{T .Lang "login.title"}}</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
 <div class="auth-wrap"><div class="auth-card">
- <h1>⛬ Accesso</h1>
+ <h1>⛬ {{T .Lang "login.title"}}</h1>
  {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
  <form method="post" action="/login">
   <input type="hidden" name="next" value="{{.Next}}">
-  <div class="field"><label>Email</label><input type="email" name="email" autocomplete="username" required></div>
-  <div class="field"><label>Password</label><input type="password" name="password" autocomplete="current-password" required></div>
-  <button class="btn primary">Continua</button>
+  <div class="field"><label>{{T .Lang "field.email"}}</label><input type="email" name="email" autocomplete="username" required></div>
+  <div class="field"><label>{{T .Lang "field.password"}}</label><input type="password" name="password" autocomplete="current-password" required></div>
+  <button class="btn primary">{{T .Lang "btn.continue"}}</button>
  </form>
- {{if .OIDC}}<div class="oidc"><div class="sep"><span>oppure</span></div>
-  {{range .OIDC}}<a class="btn oauth" href="/auth/{{.ID}}/start?next={{$.Next}}">Accedi con {{.Name}}</a>{{end}}
+ {{if .OIDC}}<div class="oidc"><div class="sep"><span>{{T .Lang "login.or"}}</span></div>
+  {{range .OIDC}}<a class="btn oauth" href="/auth/{{.ID}}/start?next={{$.Next}}">{{T $.Lang "login.with"}} {{.Name}}</a>{{end}}
  </div>{{end}}
  {{if .Version}}<div class="ver-foot">⛬ Xal-Tor-Ka · {{.Version}}</div>{{end}}
+ <div class="langbar">` + langSelHTML + `</div>
 </div></div></body></html>`))
 
-var totpTmpl = template.Must(template.New("totp").Parse(`<!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · 2FA</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
+var totpTmpl = template.Must(template.New("totp").Funcs(tmplFuncs).Parse(`<!doctype html>
+<html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Xal-Tor-Ka · {{T .Lang "totp.title"}}</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
 <div class="auth-wrap"><div class="auth-card">
- <h1>Verifica a due fattori</h1>
+ <h1>{{T .Lang "totp.title"}}</h1>
  {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
  <form method="post" action="/auth/totp">
   <input type="hidden" name="next" value="{{.Next}}">
-  <div class="field"><label>Codice TOTP</label><input name="code" inputmode="numeric" autocomplete="one-time-code" required></div>
-  <button class="btn primary">Verifica</button>
+  <div class="field"><label>{{T .Lang "totp.code"}}</label><input name="code" inputmode="numeric" autocomplete="one-time-code" required></div>
+  <button class="btn primary">{{T .Lang "btn.verify"}}</button>
  </form>
+ <div class="langbar">` + langSelHTML + `</div>
 </div></div></body></html>`))
 
 type formData struct {
@@ -50,15 +53,26 @@ type formData struct {
 	Error   string
 	OIDC    []oidcButton // enabled OIDC providers ("Sign in with …" buttons)
 	Version string
+	Lang    string
+}
+
+// totpData builds the 2FA page payload, translating an optional error key.
+func (s *Server) totpData(r *http.Request, next, errKey string) formData {
+	lang := s.lang(r)
+	msg := ""
+	if errKey != "" {
+		msg = i18n.T(lang, errKey)
+	}
+	return formData{Next: s.sanitizeNext(next), Error: msg, Lang: lang}
 }
 
 func (s *Server) handleLoginForm(w http.ResponseWriter, r *http.Request) {
-	renderHTML(w, loginTmpl, s.loginData(r.URL.Query().Get("next"), ""), http.StatusOK)
+	renderHTML(w, loginTmpl, s.loginData(r, r.URL.Query().Get("next"), ""), http.StatusOK)
 }
 
 func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		renderHTML(w, loginTmpl, s.loginData("/listing", "richiesta non valida"), http.StatusBadRequest)
+		renderHTML(w, loginTmpl, s.loginData(r, "/listing", "err.bad_request"), http.StatusBadRequest)
 		return
 	}
 	next := s.sanitizeNext(r.PostFormValue("next"))
@@ -68,22 +82,22 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	if _, err := s.Local.Authenticate(email, password); err != nil {
 		if !errors.Is(err, providers.ErrInvalidCredentials) {
 			// unexpected internal error: fail-closed, log nothing sensitive
-			renderHTML(w, loginTmpl, s.loginData(next, "errore interno"), http.StatusInternalServerError)
+			renderHTML(w, loginTmpl, s.loginData(r, next, "err.internal"), http.StatusInternalServerError)
 			return
 		}
 		s.auditFail(r, "login", "email="+email)
-		renderHTML(w, loginTmpl, s.loginData(next, "credenziali non valide"), http.StatusUnauthorized)
+		renderHTML(w, loginTmpl, s.loginData(r, next, "err.bad_credentials"), http.StatusUnauthorized)
 		return
 	}
 
 	sess, err := s.Sessions.Create(email, "local")
 	if err != nil {
-		renderHTML(w, loginTmpl, s.loginData(next, "errore interno"), http.StatusInternalServerError)
+		renderHTML(w, loginTmpl, s.loginData(r, next, "err.internal"), http.StatusInternalServerError)
 		return
 	}
 	s.setSession(w, sess.ID)
 	if s.Cfg.DisableTOTP {
-		// 2FA disabled: the password is enough, session immediately complete.
+		// 2FA disabled: the password is enough, session complete right away.
 		s.Sessions.Complete2FA(sess.ID)
 		http.Redirect(w, r, next, http.StatusSeeOther)
 		return
@@ -96,7 +110,7 @@ func (s *Server) handleTOTPForm(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
-	renderHTML(w, totpTmpl, formData{Next: s.sanitizeNext(r.URL.Query().Get("next"))}, http.StatusOK)
+	renderHTML(w, totpTmpl, s.totpData(r, r.URL.Query().Get("next"), ""), http.StatusOK)
 }
 
 func (s *Server) handleTOTPSubmit(w http.ResponseWriter, r *http.Request) {
@@ -106,14 +120,14 @@ func (s *Server) handleTOTPSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := r.ParseForm(); err != nil {
-		renderHTML(w, totpTmpl, formData{Next: "/listing", Error: "richiesta non valida"}, http.StatusBadRequest)
+		renderHTML(w, totpTmpl, s.totpData(r, "/listing", "err.bad_request"), http.StatusBadRequest)
 		return
 	}
 	next := s.sanitizeNext(r.PostFormValue("next"))
 	user, found := s.Users.Get(sess.Email)
 	if !found || !auth.VerifyTOTP(user.TOTPSecret, r.PostFormValue("code"), time.Now()) {
 		s.auditFail(r, "totp", "email="+sess.Email)
-		renderHTML(w, totpTmpl, formData{Next: next, Error: "codice non valido"}, http.StatusUnauthorized)
+		renderHTML(w, totpTmpl, s.totpData(r, next, "err.bad_code"), http.StatusUnauthorized)
 		return
 	}
 	s.Sessions.Complete2FA(sess.ID)
