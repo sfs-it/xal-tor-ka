@@ -153,7 +153,7 @@ func run() error {
 	}
 
 	// Health checker: probes backend /health endpoints, feeds the admin Monitoring.
-	checker := health.New(srvHandlers.Resolver.Backends,
+	checker := health.New(srvHandlers.HealthTargets,
 		health.NewAlerter(bundle.Config.Monitoring.Alerting, bundle.Secrets))
 	srvHandlers.Health = checker
 

@@ -130,6 +130,15 @@ func Validate(b *Bundle) error {
 		}
 	}
 
+	for i, m := range b.Services.Monitors {
+		if m.ID == "" {
+			return fmt.Errorf("services.monitors[%d].id is required", i)
+		}
+		if m.URL == "" {
+			return fmt.Errorf("services.monitors[%s].url is required", m.ID)
+		}
+	}
+
 	for i, u := range b.Users.Users {
 		if u.Email == "" {
 			return fmt.Errorf("users[%d].email is required", i)

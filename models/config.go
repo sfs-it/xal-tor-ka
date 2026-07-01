@@ -137,6 +137,17 @@ type Services struct {
 	AdminIPWhitelist []string  `json:"admin_ip_whitelist,omitempty"`
 	Backends         []Backend `json:"backends"`
 	Links            []Link    `json:"links"`
+	Monitors         []Monitor `json:"monitors,omitempty"`
+}
+
+// Monitor is a standalone health probe shown in the admin Monitoring page,
+// independent of the reverse-proxied backends (e.g. an external URL to watch).
+type Monitor struct {
+	ID              string `json:"id"`
+	Name            string `json:"name,omitempty"`
+	URL             string `json:"url"`
+	IntervalSeconds int    `json:"interval_seconds,omitempty"`
+	TimeoutSeconds  int    `json:"timeout_seconds,omitempty"`
 }
 
 // Route maps a path prefix to an access rule and an upstream address.

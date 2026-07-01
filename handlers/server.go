@@ -62,8 +62,36 @@ type Server struct {
 	BaseBackends []models.Backend
 
 	mu       sync.RWMutex
-	links    []models.Link // dashboard link tiles (from services.json), reloadable
-	adminIPs []string      // effective admin IP whitelist (services.json override, else empty→config)
+	links    []models.Link    // dashboard link tiles (from services.json), reloadable
+	adminIPs []string         // effective admin IP whitelist (services.json override, else empty→config)
+	monitors []models.Monitor // standalone health monitors (from services.json), reloadable
+}
+
+// HealthTargets returns the set the health checker probes: the proxied backends
+// plus the standalone monitors (as synthetic, non-proxied backends). Follows reloads.
+func (s *Server) HealthTargets() []models.Backend {
+	out := s.Resolver.Backends()
+	s.mu.RLock()
+	mons := s.monitors
+	s.mu.RUnlock()
+	for _, m := range mons {
+		iv, to := m.IntervalSeconds, m.TimeoutSeconds
+		if iv == 0 {
+			iv = 30
+		}
+		if to == 0 {
+			to = 5
+		}
+		name := m.Name
+		if name == "" {
+			name = m.ID
+		}
+		out = append(out, models.Backend{
+			ID: m.ID, Host: name,
+			Health: models.Health{URL: m.URL, IntervalSeconds: iv, TimeoutSeconds: to},
+		})
+	}
+	return out
 }
 
 // Reload re-reads services.json and rebuilds the resolver (config backends +
@@ -84,6 +112,7 @@ func (s *Server) Reload() error {
 	s.mu.Lock()
 	s.links = svc.Links
 	s.adminIPs = svc.AdminIPWhitelist // empty → adminAllowed falls back to config
+	s.monitors = svc.Monitors
 	s.mu.Unlock()
 	if err := s.Proxy.Apply(merged); err != nil {
 		return err
@@ -148,6 +177,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /admin/user/password", s.handleUserPassword)
 	mux.HandleFunc("POST /admin/user/admin", s.handleUserAdmin)
 	mux.HandleFunc("POST /admin/adminips", s.handleAdminIPs)
+	mux.HandleFunc("POST /admin/monitor/add", s.handleMonitorAdd)
+	mux.HandleFunc("POST /admin/monitor/del", s.handleMonitorDel)
 	return mux
 }
 

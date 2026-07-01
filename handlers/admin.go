@@ -23,6 +23,7 @@ import (
 	"xaltorka/config"
 	"xaltorka/dockerscan"
 	"xaltorka/health"
+	"xaltorka/i18n"
 	"xaltorka/models"
 	"xaltorka/version"
 )
@@ -32,12 +33,9 @@ import (
 // atomic persistence + snapshot + reload. The config.json backends are
 // read-only (infrastructure, env-templated).
 
-const adminDocOpen = `<!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · Admin</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>`
-
-// adminTopbar renders the shared admin header with the active nav item highlighted.
-func adminTopbar(active string) string {
+// adminTopbar renders the shared admin header (active nav highlighted) with the
+// trailing icon cluster (language popup + profile + logout) like every other bar.
+func adminTopbar(active, lang string) string {
 	items := []struct{ key, href, label string }{
 		{"servizi", "/admin/servizi", "Servizi"},
 		{"docker", "/admin/docker", "Docker"},
@@ -54,15 +52,20 @@ func adminTopbar(active string) string {
 	}
 	return `<header class="topbar"><div class="brand"><a href="/admin" style="color:inherit;text-decoration:none">⛬ Xal-Tor-Ka</a><span class="sub">Amministrazione</span><span class="ver">` + version.Version + `</span></div><nav class="topnav">` +
 		nav.String() +
-		`<a href="/listing">Dashboard</a><a href="/profilo">Profilo</a><form class="inline" method="post" action="/logout"><button class="btn sm">Esci</button></form></nav></header>`
+		`<a href="/listing">Dashboard</a>` + string(iconCluster(lang, true)) + `</nav></header>`
 }
 
 // renderAdminPage writes the shared chrome (head + topbar + container) around a
-// page-specific content template.
-func (s *Server) renderAdminPage(w http.ResponseWriter, active string, t *template.Template, data any) {
+// page-specific content template, localized for the request.
+func (s *Server) renderAdminPage(w http.ResponseWriter, r *http.Request, active string, t *template.Template, data any) {
+	lang := s.lang(r)
+	dir := ""
+	if i18n.IsRTL(lang) {
+		dir = ` dir="rtl"`
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	io.WriteString(w, adminDocOpen)
-	io.WriteString(w, adminTopbar(active))
+	fmt.Fprintf(w, `<!doctype html><html lang="%s"%s><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Xal-Tor-Ka · Admin</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>`, lang, dir)
+	io.WriteString(w, adminTopbar(active, lang))
 	io.WriteString(w, `<main class="container">`)
 	_ = t.Execute(w, data)
 	io.WriteString(w, `</main></body></html>`)
@@ -158,6 +161,15 @@ var dockerTmpl = template.Must(template.New("docker").Parse(`<section>
   {{else}}<tr><td colspan="4" class="empty">nessun container con porte pubblicate</td></tr>{{end}}
   </tbody></table>
  {{else}}<p class="hint">Scoperta Docker non attiva (variabile <code>DOCKER_PROXY</code> non impostata).</p>{{end}}
+ <h3 style="margin-top:1.4rem">Mappa porte → vhost</h3>
+ <p class="hint">Servizi già instradati verso una porta dell'host (<code>host.docker.internal</code>).</p>
+ <table><thead><tr><th>vhost</th><th>porta host</th><th>regola</th></tr></thead><tbody>
+ {{range .Ports}}<tr{{if .Disabled}} class="off"{{end}}>
+   <td><a href="//{{.Host}}" target="_blank" rel="noopener"><code>{{.Host}}</code></a></td>
+   <td><code>host.docker.internal:{{.Port}}</code></td>
+   <td><span class="tag">{{.Rule}}</span></td></tr>
+ {{else}}<tr><td colspan="3" class="empty">nessuna porta instradata</td></tr>{{end}}
+ </tbody></table>
  <h3 style="margin-top:1.4rem">Porte host (localhost)</h3>
  <p class="hint">Trova porte in ascolto sull'host (es. tunnel PuTTY/SSH verso server remoti) da esporre come vhost.</p>
  <form method="get" action="/admin/hostscan">
@@ -215,11 +227,32 @@ var userDetailTmpl = template.Must(template.New("userdetail").Parse(`<section>
 </section>`))
 
 var monitoringTmpl = template.Must(template.New("mon").Parse(`<section>
- <h2>Monitoring backend</h2>
+ <h2>Stato</h2>
  <table><thead><tr><th>id</th><th>host</th><th>stato</th><th>ultimo errore</th><th>ultimo check</th></tr></thead><tbody>
- {{range .Monitoring}}<tr><td>{{.BackendID}}</td><td><a href="//{{.Host}}" target="_blank" rel="noopener">{{.Host}} ↗</a></td><td><span class="badge {{.State}}">{{.State}}</span></td><td>{{.LastError}}</td><td>{{.LastCheck.Format "15:04:05"}}</td></tr>
+ {{range .Monitoring}}<tr><td>{{.BackendID}}</td><td><code>{{.Host}}</code></td><td><span class="badge {{.State}}">{{.State}}</span></td><td>{{.LastError}}</td><td>{{.LastCheck.Format "15:04:05"}}</td></tr>
  {{else}}<tr><td colspan="5" class="empty">nessun health check configurato/eseguito</td></tr>{{end}}
  </tbody></table>
+</section>
+<section>
+ <h2>Monitor personalizzati</h2>
+ <p class="hint">Sonde HTTP indipendenti dai backend proxati (compaiono anche nella tabella Stato).</p>
+ <table><thead><tr><th>id</th><th>nome</th><th>url</th><th>intervallo</th><th>timeout</th><th></th></tr></thead><tbody>
+ {{range .Monitors}}<tr>
+   <td>{{.ID}}</td><td>{{.Name}}</td><td><code>{{.URL}}</code></td>
+   <td>{{if .IntervalSeconds}}{{.IntervalSeconds}}{{else}}30{{end}}s</td>
+   <td>{{if .TimeoutSeconds}}{{.TimeoutSeconds}}{{else}}5{{end}}s</td>
+   <td class="rowact"><form class="inline" method="post" action="/admin/monitor/del" onsubmit="return confirm('Eliminare {{.ID}}?')"><input type="hidden" name="id" value="{{.ID}}"><button class="btn danger sm">elimina</button></form></td></tr>
+ {{else}}<tr><td colspan="6" class="empty">nessun monitor personalizzato</td></tr>{{end}}
+ </tbody></table>
+ <div class="card addcard" style="margin-top:1rem"><h3>Aggiungi monitor</h3>
+  <form method="post" action="/admin/monitor/add"><div class="formgrid">
+   <div><label>id</label><input name="id" required></div>
+   <div><label>nome</label><input name="name"></div>
+   <div><label>url health</label><input name="url" placeholder="https://host/health" required></div>
+   <div><label>intervallo (s)</label><input name="interval" value="30"></div>
+   <div><label>timeout (s)</label><input name="timeout" value="5"></div>
+   <div><button class="btn primary">aggiungi</button></div>
+  </div></form></div>
 </section>`))
 
 var adminEditTmpl = template.Must(template.New("adminedit").Parse(`<!doctype html>
@@ -288,7 +321,7 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
 	if ip := clientIP(r, s.Cfg.Server.TrustedProxies); ip != nil {
 		clientIPStr = ip.String()
 	}
-	s.renderAdminPage(w, "", overviewTmpl, struct {
+	s.renderAdminPage(w, r, "", overviewTmpl, struct {
 		Services, Links, Users, ConfigBackends, Up, Down int
 		AdminIPsSource, ClientIP, AdminIPsRaw            string
 	}{
@@ -302,7 +335,7 @@ func (s *Server) handleAdminServices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	svc, _ := config.LoadServices(s.ServicesPath)
-	s.renderAdminPage(w, "servizi", servicesTmpl, struct {
+	s.renderAdminPage(w, r, "servizi", servicesTmpl, struct {
 		ConfigBackends  []models.Backend
 		ServiceBackends []models.Backend
 		Links           []models.Link
@@ -314,10 +347,27 @@ func (s *Server) handleAdminDocker(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	svc, _ := config.LoadServices(s.ServicesPath)
-	s.renderAdminPage(w, "docker", dockerTmpl, struct {
+	var ports []portRow
+	for _, b := range svc.Backends {
+		for _, rt := range b.Routes {
+			if p := hostInternalPort(rt.Upstream); p > 0 {
+				ports = append(ports, portRow{Host: b.Host, Port: p, Rule: rt.Rule, Disabled: b.Disabled})
+			}
+		}
+	}
+	s.renderAdminPage(w, r, "docker", dockerTmpl, struct {
 		DockerEnabled bool
 		Discovered    []discoveredRow
-	}{s.DockerProxyURL != "", s.discover(r, svc)})
+		Ports         []portRow
+	}{s.DockerProxyURL != "", s.discover(r, svc), ports})
+}
+
+// portRow is one entry of the Docker "port map": a vhost routed to a host port.
+type portRow struct {
+	Host     string
+	Port     int
+	Rule     string
+	Disabled bool
 }
 
 func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request) {
@@ -327,7 +377,7 @@ func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request) {
 	svc, _ := config.LoadServices(s.ServicesPath)
 	users := s.Users.All()
 	sort.Slice(users, func(i, j int) bool { return users[i].Email < users[j].Email })
-	s.renderAdminPage(w, "utenti", usersTmpl, struct {
+	s.renderAdminPage(w, r, "utenti", usersTmpl, struct {
 		Users  []adminUserRow
 		AllIDs []string
 	}{rowsFor(users), s.allServiceIDs(svc)})
@@ -349,7 +399,7 @@ func (s *Server) handleAdminUserDetail(w http.ResponseWriter, r *http.Request) {
 	for _, b := range u.Backends {
 		checked[b] = true
 	}
-	s.renderAdminPage(w, "utenti", userDetailTmpl, struct {
+	s.renderAdminPage(w, r, "utenti", userDetailTmpl, struct {
 		Email, Provider string
 		Admin           bool
 		AllIDs          []string
@@ -366,7 +416,61 @@ func (s *Server) handleAdminMonitoring(w http.ResponseWriter, r *http.Request) {
 		monitoring = s.Health.Snapshot()
 		sort.Slice(monitoring, func(i, j int) bool { return monitoring[i].BackendID < monitoring[j].BackendID })
 	}
-	s.renderAdminPage(w, "monitoring", monitoringTmpl, struct{ Monitoring []health.Status }{monitoring})
+	svc, _ := config.LoadServices(s.ServicesPath)
+	s.renderAdminPage(w, r, "monitoring", monitoringTmpl, struct {
+		Monitoring []health.Status
+		Monitors   []models.Monitor
+	}{monitoring, svc.Monitors})
+}
+
+func (s *Server) handleMonitorAdd(w http.ResponseWriter, r *http.Request) {
+	if !s.adminGuard(w, r) {
+		return
+	}
+	id, url := r.PostFormValue("id"), r.PostFormValue("url")
+	if id == "" || url == "" {
+		http.Error(w, "id, url required", http.StatusBadRequest)
+		return
+	}
+	iv, _ := strconv.Atoi(r.PostFormValue("interval"))
+	if iv <= 0 {
+		iv = 30
+	}
+	to, _ := strconv.Atoi(r.PostFormValue("timeout"))
+	if to <= 0 {
+		to = 5
+	}
+	err := s.mutateServices(func(svc *models.Services) error {
+		for _, m := range svc.Monitors {
+			if m.ID == id {
+				return fmt.Errorf("id already exists")
+			}
+		}
+		svc.Monitors = append(svc.Monitors, models.Monitor{
+			ID: id, Name: r.PostFormValue("name"), URL: url,
+			IntervalSeconds: iv, TimeoutSeconds: to,
+		})
+		return nil
+	})
+	s.afterMutation(w, r, err)
+}
+
+func (s *Server) handleMonitorDel(w http.ResponseWriter, r *http.Request) {
+	if !s.adminGuard(w, r) {
+		return
+	}
+	id := r.PostFormValue("id")
+	err := s.mutateServices(func(svc *models.Services) error {
+		out := svc.Monitors[:0]
+		for _, m := range svc.Monitors {
+			if m.ID != id {
+				out = append(out, m)
+			}
+		}
+		svc.Monitors = out
+		return nil
+	})
+	s.afterMutation(w, r, err)
 }
 
 type discoveredRow struct {
@@ -1166,7 +1270,11 @@ func (s *Server) afterMutation(w http.ResponseWriter, r *http.Request, err error
 	}
 	dest := "/admin/servizi"
 	if ref := r.Referer(); ref != "" {
-		if u, e := url.Parse(ref); e == nil && strings.HasPrefix(u.Path, "/admin") {
+		// Return to the page the user came from, but only if it renders without a
+		// query param. The backend edit form (/admin/backend/edit?id=…) needs the
+		// id in the query, which we drop here — landing there would 404; send the
+		// user back to the services list instead.
+		if u, e := url.Parse(ref); e == nil && strings.HasPrefix(u.Path, "/admin") && u.Path != "/admin/backend/edit" {
 			dest = u.Path
 		}
 	}
