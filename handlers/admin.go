@@ -90,20 +90,24 @@ var overviewTmpl = template.Must(template.New("ov").Parse(`<h1>Amministrazione</
 var servicesTmpl = template.Must(template.New("services").Parse(`<section>
  <h2>Servizi reverse-proxy</h2>
  <p class="hint">I servizi da <code>config.json</code> sono di sola lettura (infrastruttura). Quelli aggiunti qui vivono in <code>services.json</code>.</p>
- <div class="grid">
- {{range .ConfigBackends}}<div class="card"><div class="row"><h3>{{.ID}}</h3><span class="tag ro">config</span></div>
-   <div class="meta"><a href="//{{.Host}}" target="_blank" rel="noopener">{{.Host}} ↗</a></div><div class="meta">{{range .Routes}}{{.Path}} → {{.Rule}}<br>{{end}}</div></div>{{end}}
- {{range .ServiceBackends}}<div class="card{{if .Disabled}} off{{end}}"><div class="row"><h3>{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</h3><span class="tag">proxy</span>{{if .Disabled}} <span class="tag ro">off</span>{{end}}</div>
-   <div class="meta"><a href="//{{.Host}}" target="_blank" rel="noopener">{{.Host}} ↗</a></div>
-   {{if .Description}}<div class="meta">{{.Description}}</div>{{end}}
-   <div class="meta">{{range .Routes}}{{.Path}} → {{.Rule}} → {{.Upstream}}<br>{{end}}</div>
-   {{if .IPAllow}}<div class="meta">🔒 IP: {{range .IPAllow}}{{.}} {{end}}</div>{{end}}
-   <div class="actions">
+ <table><thead><tr><th>servizio</th><th>host</th><th>regola</th><th>upstream</th><th>IP allow</th><th></th></tr></thead><tbody>
+ {{range .ConfigBackends}}<tr><td>{{.ID}} <span class="tag ro">config</span></td>
+   <td><a href="//{{.Host}}" target="_blank" rel="noopener"><code>{{.Host}}</code></a></td>
+   <td>{{range .Routes}}<span class="tag">{{.Rule}}</span> {{end}}</td>
+   <td>{{range .Routes}}<code>{{.Upstream}}</code><br>{{end}}</td><td></td><td></td></tr>{{end}}
+ {{range .ServiceBackends}}<tr{{if .Disabled}} class="off"{{end}}>
+   <td><b>{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</b>{{if .Disabled}} <span class="tag ro">off</span>{{end}}{{if .Description}}<div class="hint">{{.Description}}</div>{{end}}</td>
+   <td><a href="//{{.Host}}" target="_blank" rel="noopener"><code>{{.Host}}</code></a></td>
+   <td>{{range .Routes}}<span class="tag">{{.Rule}}</span> {{end}}</td>
+   <td>{{range .Routes}}<code>{{.Upstream}}</code><br>{{end}}</td>
+   <td>{{if .IPAllow}}🔒 {{range .IPAllow}}<code>{{.}}</code> {{end}}{{end}}</td>
+   <td class="rowact">
     <a class="btn sm" href="/admin/backend/edit?id={{.ID}}">edit</a>
     <form class="inline" method="post" action="/admin/backend/toggle"><input type="hidden" name="id" value="{{.ID}}"><button class="btn sm">{{if .Disabled}}abilita{{else}}disabilita{{end}}</button></form>
     <form class="inline" method="post" action="/admin/backend/del" onsubmit="return confirm('Eliminare {{.ID}}?')"><input type="hidden" name="id" value="{{.ID}}"><button class="btn danger sm">elimina</button></form>
-   </div></div>{{end}}
- </div>
+   </td></tr>
+ {{else}}{{end}}
+ </tbody></table>
  <div class="card addcard" style="margin-top:1rem"><h3>Aggiungi servizio proxato</h3>
   <form method="post" action="/admin/backend/add"><div class="formgrid">
    <div><label>id</label><input name="id" required></div>
@@ -119,14 +123,17 @@ var servicesTmpl = template.Must(template.New("services").Parse(`<section>
 </section>
 <section>
  <h2>Link esterni</h2><p class="hint">Riquadri nella dashboard, non proxati.</p>
- <div class="grid">
- {{range .Links}}<div class="card{{if .Disabled}} off{{end}}"><div class="row"><h3>{{.Name}}</h3><span class="tag ext">{{if .Public}}pubblico{{else}}riservato{{end}}</span>{{if .Disabled}} <span class="tag ro">off</span>{{end}}</div>
-   <div class="meta"><a href="{{.URL}}" target="_blank" rel="noopener">{{.URL}} ↗</a></div>{{if .Description}}<div class="meta">{{.Description}}</div>{{end}}
-   <div class="actions">
+ <table><thead><tr><th>nome</th><th>url</th><th>visibilità</th><th></th></tr></thead><tbody>
+ {{range .Links}}<tr{{if .Disabled}} class="off"{{end}}>
+   <td><b>{{.Name}}</b>{{if .Disabled}} <span class="tag ro">off</span>{{end}}{{if .Description}}<div class="hint">{{.Description}}</div>{{end}}</td>
+   <td><a href="{{.URL}}" target="_blank" rel="noopener"><code>{{.URL}}</code></a></td>
+   <td><span class="tag ext">{{if .Public}}pubblico{{else}}riservato{{end}}</span></td>
+   <td class="rowact">
     <form class="inline" method="post" action="/admin/link/toggle"><input type="hidden" name="id" value="{{.ID}}"><button class="btn sm">{{if .Disabled}}abilita{{else}}disabilita{{end}}</button></form>
     <form class="inline" method="post" action="/admin/link/del" onsubmit="return confirm('Eliminare {{.ID}}?')"><input type="hidden" name="id" value="{{.ID}}"><button class="btn danger sm">elimina</button></form>
-   </div></div>{{end}}
- </div>
+   </td></tr>
+ {{else}}{{end}}
+ </tbody></table>
  <div class="card addcard" style="margin-top:1rem"><h3>Aggiungi link</h3>
   <form method="post" action="/admin/link/add"><div class="formgrid">
    <div><label>id</label><input name="id" required></div>

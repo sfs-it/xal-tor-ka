@@ -101,7 +101,11 @@ table{width:100%;border-collapse:collapse;background:var(--panel);border:1px sol
 th,td{text-align:start;padding:.65rem .85rem;border-bottom:1px solid var(--line);font-size:.9rem;vertical-align:middle}
 th{background:var(--panel-2);color:var(--muted);font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em}
 tr:last-child td{border-bottom:none}
+tr.off{opacity:.5}
 td code{background:transparent;border:0;padding:0}
+td .hint{margin:.15rem 0 0}
+td.rowact{white-space:nowrap;text-align:end}
+td.rowact .btn,td.rowact form.inline{margin-inline-start:.25rem}
 
 /* Buttons ------------------------------------------------------------------ */
 .btn{font:inherit;font-weight:550;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--text);

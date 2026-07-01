@@ -10,6 +10,9 @@ _(nessuna voce attiva — prossimo passo da decidere: vedi candidati in «Da far
 * [ ] **2026-06-23 —** Alerting: verificare invio reale Telegram/email con credenziali (codice pronto, non testato)
 * [ ] **2026-06-29 —** OIDC: provare con credenziali **reali** Google/Microsoft (l'exchange/verifica id_token è già coperto da test mock-IdP; manca la prova live)
 * [ ] **2026-06-30 —** Portabilità: **field-test deploy host/LXD** (systemd + `nginx -s reload` + `PROXY_RESOLVER`/`PROXY_UPSTREAM`) — scaffolding pronto, non provato su macchina reale
+* [ ] **2026-07-01 —** Admin restyle struttura (prima della i18n admin, per non tradurre due volte): (a) **Servizi** reverse-proxy come **lista** come i link esterni, non box; (b) **Docker**: scheda riepilogo delle porte redirette → host/vhost; (c) **Monitoring configurabile** (voci/parametri: URL health, intervallo, atteso), non solo derivato dai backend
+* [ ] **2026-07-01 —** Fase 3b: i18n del pannello `/admin` + setup (9 lingue) — DOPO il restyling struttura admin
+* [ ] **2026-07-01 —** Gestione provider auth esterni (OIDC) in UI — **da ridiscutere** insieme (design)
 
 ## Idee / Backlog
 
