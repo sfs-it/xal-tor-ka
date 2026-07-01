@@ -48,7 +48,7 @@ var totpTmpl = template.Must(template.New("totp").Parse(`<!doctype html>
 type formData struct {
 	Next    string
 	Error   string
-	OIDC    []oidcButton // provider OIDC abilitati (bottoni "Accedi con …")
+	OIDC    []oidcButton // enabled OIDC providers ("Sign in with …" buttons)
 	Version string
 }
 
@@ -83,7 +83,7 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	s.setSession(w, sess.ID)
 	if s.Cfg.DisableTOTP {
-		// 2FA disattivato: la password basta, sessione subito completa.
+		// 2FA disabled: the password is enough, session immediately complete.
 		s.Sessions.Complete2FA(sess.ID)
 		http.Redirect(w, r, next, http.StatusSeeOther)
 		return

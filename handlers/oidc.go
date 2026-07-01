@@ -72,7 +72,7 @@ func (s *Server) handleOIDCStart(w http.ResponseWriter, r *http.Request) {
 	st := oidcState{State: randB64(), Nonce: randB64(), Next: next, Provider: id}
 	authURL, err := p.AuthURL(r.Context(), st.State, st.Nonce)
 	if err != nil {
-		// Discovery non riuscita (issuer irraggiungibile/errato): fail-closed.
+		// Discovery failed (issuer unreachable/wrong): fail-closed.
 		s.auditFail(r, "oidc", "provider="+id+" discovery")
 		renderHTML(w, loginTmpl, s.loginData(next, "provider non disponibile, riprova più tardi"), http.StatusBadGateway)
 		return
@@ -126,8 +126,8 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Nessun auto-provisioning: l'utente deve già esistere ed essere dichiarato
-	// per QUESTO provider (admin lo crea con provider=<id> e l'email dell'IdP).
+	// No auto-provisioning: the user must already exist and be declared
+	// for THIS provider (admin creates it with provider=<id> and the IdP email).
 	u, found := s.Users.Get(idn.Email)
 	if !found || u.Provider != id {
 		s.auditFail(r, "oidc", "provider="+id+" email="+idn.Email+" not_provisioned")
@@ -141,7 +141,7 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.setSession(w, sess.ID)
-	// L'IdP ha già autenticato l'utente (incl. eventuale MFA): sessione completa.
+	// The IdP has already authenticated the user (incl. any MFA): session complete.
 	s.Sessions.Complete2FA(sess.ID)
 	http.Redirect(w, r, st.Next, http.StatusSeeOther)
 }

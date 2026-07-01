@@ -32,7 +32,7 @@ func validBundle() *Bundle {
 
 func TestValidateOK(t *testing.T) {
 	if err := Validate(validBundle()); err != nil {
-		t.Fatalf("bundle valido rifiutato: %v", err)
+		t.Fatalf("valid bundle rejected: %v", err)
 	}
 }
 
@@ -40,7 +40,7 @@ func TestValidateBadRule(t *testing.T) {
 	b := validBundle()
 	b.Config.Backends[0].Routes[0].Rule = "nope"
 	if Validate(b) == nil {
-		t.Error("regola invalida doveva fallire")
+		t.Error("invalid rule should have failed")
 	}
 }
 
@@ -48,7 +48,7 @@ func TestValidateBadPort(t *testing.T) {
 	b := validBundle()
 	b.Config.Backends[0].Routes[0].Upstream = "http://10.0.0.1:0"
 	if Validate(b) == nil {
-		t.Error("porta 0 doveva fallire")
+		t.Error("port 0 should have failed")
 	}
 }
 
@@ -56,7 +56,7 @@ func TestValidateUnknownUserBackend(t *testing.T) {
 	b := validBundle()
 	b.Users.Users[0].Backends = []string{"ghost"}
 	if Validate(b) == nil {
-		t.Error("riferimento a backend inesistente doveva fallire")
+		t.Error("reference to nonexistent backend should have failed")
 	}
 }
 
@@ -64,7 +64,7 @@ func TestValidateAuthModeNeedsProvider(t *testing.T) {
 	b := validBundle()
 	b.Config.Providers[0].Enabled = false
 	if Validate(b) == nil {
-		t.Error("auth_mode senza provider abilitati doveva fallire")
+		t.Error("auth_mode without enabled providers should have failed")
 	}
 }
 
@@ -75,37 +75,37 @@ func TestValidateOIDCProviderOK(t *testing.T) {
 		Issuer: "https://accounts.google.com", ClientID: "cid",
 	})
 	if err := Validate(b); err != nil {
-		t.Fatalf("provider oidc valido rifiutato: %v", err)
+		t.Fatalf("valid oidc provider rejected: %v", err)
 	}
 }
 
 func TestValidateOIDCEnabledNeedsIssuer(t *testing.T) {
 	b := validBundle()
 	b.Config.Providers = append(b.Config.Providers, models.ProviderCfg{
-		ID: "google", Type: "oidc", Enabled: true, ClientID: "cid", // issuer mancante
+		ID: "google", Type: "oidc", Enabled: true, ClientID: "cid", // issuer missing
 	})
 	if Validate(b) == nil {
-		t.Error("oidc abilitato senza issuer doveva fallire")
+		t.Error("enabled oidc without issuer should have failed")
 	}
 }
 
 func TestValidateOIDCEnabledNeedsClientID(t *testing.T) {
 	b := validBundle()
 	b.Config.Providers = append(b.Config.Providers, models.ProviderCfg{
-		ID: "google", Type: "oidc", Enabled: true, Issuer: "https://accounts.google.com", // client_id mancante
+		ID: "google", Type: "oidc", Enabled: true, Issuer: "https://accounts.google.com", // client_id missing
 	})
 	if Validate(b) == nil {
-		t.Error("oidc abilitato senza client_id doveva fallire")
+		t.Error("enabled oidc without client_id should have failed")
 	}
 }
 
 func TestValidateOIDCDisabledNoRequirements(t *testing.T) {
-	// Un provider oidc disabilitato (esempio in config.json) non deve richiedere issuer/client_id.
+	// A disabled oidc provider (example in config.json) must not require issuer/client_id.
 	b := validBundle()
 	b.Config.Providers = append(b.Config.Providers, models.ProviderCfg{
 		ID: "google", Type: "oidc", Enabled: false,
 	})
 	if err := Validate(b); err != nil {
-		t.Fatalf("provider oidc disabilitato rifiutato: %v", err)
+		t.Fatalf("disabled oidc provider rejected: %v", err)
 	}
 }

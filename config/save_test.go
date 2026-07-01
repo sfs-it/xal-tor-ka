@@ -21,11 +21,11 @@ func TestPruneBackups(t *testing.T) {
 	PruneBackups(dir, "users", "json", 10)
 	list, _ := ListBackups(dir)
 	if len(list) != 10 {
-		t.Fatalf("atteso 10 snapshot dopo prune, ho %d", len(list))
+		t.Fatalf("expected 10 snapshots after prune, got %d", len(list))
 	}
-	// devono restare i 10 più recenti (indici 5..14)
+	// the 10 most recent must remain (indices 5..14)
 	if list[0] != "users-0000000005.json" {
-		t.Errorf("prune ha tenuto i file sbagliati: primo=%s", list[0])
+		t.Errorf("prune kept the wrong files: first=%s", list[0])
 	}
 }
 
@@ -53,9 +53,9 @@ func TestRestoreSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	if string(got) != want {
-		t.Errorf("contenuto ripristinato errato: %s", got)
+		t.Errorf("restored content is wrong: %s", got)
 	}
 	if filepath.Base(target) != "users.json" {
-		t.Errorf("target errato: %s", target)
+		t.Errorf("wrong target: %s", target)
 	}
 }

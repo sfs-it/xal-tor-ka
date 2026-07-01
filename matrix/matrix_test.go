@@ -30,7 +30,7 @@ func TestResolveLongestSegment(t *testing.T) {
 		{"/index.html", "public"},
 		{"/api", "authenticated"},
 		{"/api/v1/x", "authenticated"},
-		{"/apixyz", "public"}, // NON deve cadere su /api
+		{"/apixyz", "public"}, // must NOT fall back to /api
 		{"/admin", "whitelist"},
 		{"/admin/", "whitelist"},
 	}
@@ -44,7 +44,7 @@ func TestResolveLongestSegment(t *testing.T) {
 
 func TestResolveUnknownHost(t *testing.T) {
 	if _, _, ok := newR().Resolve("nope.example.com", "/"); ok {
-		t.Error("host sconosciuto deve dare ok=false")
+		t.Error("unknown host must give ok=false")
 	}
 }
 
@@ -52,9 +52,9 @@ func TestAuthorized(t *testing.T) {
 	r := newR()
 	u := models.User{Email: "a@b", Backends: []string{"site", "other"}}
 	if !r.Authorized(u, "site") {
-		t.Error("dovrebbe essere autorizzato a site")
+		t.Error("should be authorized for site")
 	}
 	if r.Authorized(u, "missing") {
-		t.Error("non dovrebbe essere autorizzato a missing")
+		t.Error("should not be authorized for missing")
 	}
 }

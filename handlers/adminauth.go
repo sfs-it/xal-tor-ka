@@ -23,10 +23,10 @@ var forbiddenAdminTmpl = template.Must(template.New("forbidden").Parse(`<!doctyp
  <p style="margin-top:.9rem"><a href="/listing">← vai alla dashboard</a></p>
 </div></div></body></html>`))
 
-// Admin authorization (BLUEPRINT §9 — modello unificato): l'amministratore è un
-// normale utente (users.json) con flag admin=true. L'accesso a /admin richiede
-// tre condizioni: IP whitelist (livello di rete) + sessione utente valida (2FA
-// completata) + flag admin. Non esiste più una password admin separata.
+// Admin authorization (BLUEPRINT §9 — unified model): the administrator is a
+// normal user (users.json) with the admin=true flag. Access to /admin requires
+// three conditions: IP whitelist (network level) + a valid user session (2FA
+// completed) + the admin flag. There is no longer a separate admin password.
 func (s *Server) adminGuard(w http.ResponseWriter, r *http.Request) bool {
 	if !s.adminAllowed(r) {
 		s.auditFail(r, "admin_ip", "")
@@ -47,7 +47,7 @@ func (s *Server) adminGuard(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "richiesta non valida", http.StatusBadRequest)
+		http.Error(w, "invalid request", http.StatusBadRequest)
 		return false
 	}
 	return true

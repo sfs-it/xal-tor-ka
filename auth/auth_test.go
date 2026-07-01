@@ -24,17 +24,17 @@ func TestPersistentStore(t *testing.T) {
 	}
 	s1.Complete2FA(sess.ID)
 
-	// nuovo store dalla stessa path → deve ricaricare la sessione
+	// new store from the same path → must reload the session
 	s2 := NewPersistentStore(time.Hour, time.Hour, path)
 	got, ok := s2.Get(sess.ID)
 	if !ok || got.Email != "u@x" || !got.TwoFADone {
-		t.Errorf("sessione non persistita/ricaricata: %+v ok=%v", got, ok)
+		t.Errorf("session not persisted/reloaded: %+v ok=%v", got, ok)
 	}
-	// dopo Delete + reload non deve più esserci
+	// after Delete + reload it must no longer be there
 	s2.Delete(sess.ID)
 	s3 := NewPersistentStore(time.Hour, time.Hour, path)
 	if _, ok := s3.Get(sess.ID); ok {
-		t.Error("sessione cancellata ancora presente dopo reload")
+		t.Error("deleted session still present after reload")
 	}
 }
 
@@ -44,10 +44,10 @@ func TestPasswordRoundtrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := VerifyPassword(h, "secret-pw"); err != nil {
-		t.Errorf("password corretta rifiutata: %v", err)
+		t.Errorf("correct password rejected: %v", err)
 	}
 	if err := VerifyPassword(h, "wrong"); err == nil {
-		t.Error("password errata accettata")
+		t.Error("wrong password accepted")
 	}
 }
 
@@ -56,14 +56,14 @@ func TestVerifyTOTP(t *testing.T) {
 	now := time.Now()
 	code := refTOTP(t, secret, now)
 	if !VerifyTOTP(secret, code, now) {
-		t.Error("codice TOTP valido rifiutato")
+		t.Error("valid TOTP code rejected")
 	}
 	bad := "999999"
 	if code == bad {
 		bad = "111111"
 	}
 	if VerifyTOTP(secret, bad, now) {
-		t.Error("codice TOTP errato accettato")
+		t.Error("wrong TOTP code accepted")
 	}
 }
 
@@ -73,7 +73,7 @@ func TestNewTOTPSecret(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(s); err != nil {
-		t.Errorf("segreto non decodificabile in base32: %v", err)
+		t.Errorf("secret not decodable as base32: %v", err)
 	}
 }
 

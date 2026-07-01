@@ -120,7 +120,7 @@ func (s *Server) setupStepCred(w http.ResponseWriter, r *http.Request, st models
 	}
 	st.PasswordHash = hash
 	if s.Cfg.DisableTOTP {
-		// 2FA disattivato: niente enrollment, completa subito.
+		// 2FA disabled: no enrollment, finalize right away.
 		st.TOTPSecret = ""
 		s.finalizeSetup(w, st)
 		return
@@ -159,7 +159,7 @@ func (s *Server) finalizeSetup(w http.ResponseWriter, st models.SetupState) {
 		Provider:     "local",
 		PasswordHash: st.PasswordHash,
 		TOTPSecret:   st.TOTPSecret,
-		Admin:        true, // il profilo creato dal setup è l'amministratore
+		Admin:        true, // the profile created by setup is the administrator
 		Backends:     []string{},
 	}
 	users := s.Users.All()
@@ -216,7 +216,7 @@ func (s *Server) validSetup(token string) (models.SetupState, bool) {
 }
 
 func (s *Server) setupError(w http.ResponseWriter) {
-	http.Error(w, "setup non disponibile: token mancante, non valido o scaduto", http.StatusForbidden)
+	http.Error(w, "setup unavailable: token missing, invalid or expired", http.StatusForbidden)
 }
 
 func otpauthURI(email, secret string) string {

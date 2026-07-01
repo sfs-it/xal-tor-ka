@@ -26,19 +26,19 @@ func TestBuildOIDC(t *testing.T) {
 
 	got := buildOIDC(cfg, sec)
 	if len(got) != 1 {
-		t.Fatalf("buildOIDC = %d provider, want 1 (solo oidc abilitati)", len(got))
+		t.Fatalf("buildOIDC = %d providers, want 1 (only enabled oidc)", len(got))
 	}
 	p, ok := got["google"]
 	if !ok {
-		t.Fatal("google non presente nel registry")
+		t.Fatal("google not present in the registry")
 	}
 	if p.ID() != "google" || p.Type() != "oidc" {
 		t.Errorf("provider = (%s,%s), want (google,oidc)", p.ID(), p.Type())
 	}
 	if _, isMS := got["microsoft"]; isMS {
-		t.Error("microsoft è disabilitato e non deve comparire")
+		t.Error("microsoft is disabled and must not appear")
 	}
 	if _, isLocal := got["local"]; isLocal {
-		t.Error("local non è oidc e non deve comparire nel registry OIDC")
+		t.Error("local is not oidc and must not appear in the OIDC registry")
 	}
 }

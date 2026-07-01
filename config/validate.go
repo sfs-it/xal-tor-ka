@@ -60,10 +60,10 @@ func Validate(b *Bundle) error {
 			enabled++
 			if p.Type == "oidc" {
 				if strings.TrimSpace(p.Issuer) == "" {
-					return fmt.Errorf("config: providers[%d] (%s): provider oidc abilitato richiede issuer", i, p.ID)
+					return fmt.Errorf("config: providers[%d] (%s): enabled oidc provider requires issuer", i, p.ID)
 				}
 				if strings.TrimSpace(p.ClientID) == "" {
-					return fmt.Errorf("config: providers[%d] (%s): provider oidc abilitato richiede client_id", i, p.ID)
+					return fmt.Errorf("config: providers[%d] (%s): enabled oidc provider requires client_id", i, p.ID)
 				}
 			}
 		}

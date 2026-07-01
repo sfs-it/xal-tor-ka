@@ -22,7 +22,7 @@ func newManager(dir, reload string) *Manager {
 
 func TestApplyWritesConfig(t *testing.T) {
 	dir := t.TempDir()
-	m := newManager(dir, "") // niente reload (default Docker)
+	m := newManager(dir, "") // no reload (Docker default)
 	if err := m.Apply([]models.Backend{}); err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
@@ -33,28 +33,28 @@ func TestApplyWritesConfig(t *testing.T) {
 
 func TestApplyReloadOK(t *testing.T) {
 	dir := t.TempDir()
-	m := newManager(dir, "true") // comando di reload che riesce
+	m := newManager(dir, "true") // reload command that succeeds
 	if err := m.Apply([]models.Backend{}); err != nil {
-		t.Fatalf("Apply con reload ok: %v", err)
+		t.Fatalf("Apply with reload ok: %v", err)
 	}
 }
 
 func TestApplyReloadFails(t *testing.T) {
 	dir := t.TempDir()
-	m := newManager(dir, "false") // comando di reload che fallisce
+	m := newManager(dir, "false") // reload command that fails
 	err := m.Apply([]models.Backend{})
 	if err == nil {
-		t.Fatal("Apply doveva propagare il fallimento del reload")
+		t.Fatal("Apply should have propagated the reload failure")
 	}
-	// Il file viene comunque scritto prima del reload (il reload è l'ultimo passo).
+	// The file is written anyway before the reload (the reload is the last step).
 	if _, statErr := os.Stat(m.OutPath); statErr != nil {
-		t.Errorf("backends.conf doveva essere scritto comunque: %v", statErr)
+		t.Errorf("backends.conf should have been written anyway: %v", statErr)
 	}
 }
 
 func TestApplyNilManager(t *testing.T) {
 	var m *Manager
 	if err := m.Apply([]models.Backend{}); err != nil {
-		t.Errorf("Apply su manager nil deve essere no-op, err=%v", err)
+		t.Errorf("Apply on a nil manager must be a no-op, err=%v", err)
 	}
 }

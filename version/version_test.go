@@ -10,6 +10,6 @@ import (
 
 func TestVersionSet(t *testing.T) {
 	if strings.TrimSpace(Version) == "" {
-		t.Fatal("version.Version non deve essere vuota")
+		t.Fatal("version.Version must not be empty")
 	}
 }

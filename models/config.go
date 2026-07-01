@@ -11,8 +11,8 @@ import "time"
 // Config is the non-secret application configuration (config.json, BLUEPRINT §7.1).
 type Config struct {
 	AuthMode     bool          `json:"auth_mode"`
-	DisableTOTP  bool          `json:"disable_totp,omitempty"` // true = solo password, niente 2FA
-	AuthLog      string        `json:"auth_log,omitempty"`     // file log fallimenti (fail2ban)
+	DisableTOTP  bool          `json:"disable_totp,omitempty"` // true = password only, no 2FA
+	AuthLog      string        `json:"auth_log,omitempty"`     // failure log file (fail2ban)
 	Server       ServerCfg     `json:"server"`
 	TLS          TLSCfg        `json:"tls"`
 	Session      SessionCfg    `json:"session"`
@@ -49,7 +49,7 @@ type ACMECfg struct {
 // SessionCfg holds session cookie and persistence settings.
 type SessionCfg struct {
 	CookieName         string `json:"cookie_name"`
-	CookieDomain       string `json:"cookie_domain,omitempty"` // es. "localhost" → SSO su *.localhost
+	CookieDomain       string `json:"cookie_domain,omitempty"` // e.g. "localhost" → SSO on *.localhost
 	TTLMinutes         int    `json:"ttl_minutes"`
 	IdleTimeoutMinutes int    `json:"idle_timeout_minutes"`
 	Store              string `json:"store"` // sqlite|memory
@@ -65,7 +65,7 @@ type AdminCfg struct {
 type ProviderCfg struct {
 	ID       string `json:"id"`
 	Type     string `json:"type"`           // oidc|local
-	Name     string `json:"name,omitempty"` // etichetta del bottone di login (default: id)
+	Name     string `json:"name,omitempty"` // login button label (default: id)
 	Enabled  bool   `json:"enabled"`
 	Issuer   string `json:"issuer,omitempty"`
 	ClientID string `json:"client_id,omitempty"`
@@ -105,7 +105,7 @@ type Backend struct {
 	Description string  `json:"description,omitempty"`
 	Host        string  `json:"host"`
 	URL         string  `json:"url,omitempty"`
-	Disabled    bool    `json:"disabled,omitempty"` // escluso da resolver/proxy/health
+	Disabled    bool    `json:"disabled,omitempty"` // excluded from resolver/proxy/health
 	Routes      []Route `json:"routes"`
 	Health      Health  `json:"health"`
 }
@@ -119,7 +119,7 @@ type Link struct {
 	URL         string `json:"url"`
 	Description string `json:"description,omitempty"`
 	Public      bool   `json:"public,omitempty"`
-	Disabled    bool   `json:"disabled,omitempty"` // nascosto dal listing
+	Disabled    bool   `json:"disabled,omitempty"` // hidden from the listing
 }
 
 // Services is the runtime-managed set of dashboard services (services.json),
@@ -187,7 +187,7 @@ type User struct {
 	Provider     string   `json:"provider"`
 	PasswordHash string   `json:"password_hash,omitempty"`
 	TOTPSecret   string   `json:"totp_secret"`
-	Admin        bool     `json:"admin,omitempty"` // accesso all'area /admin
+	Admin        bool     `json:"admin,omitempty"` // access to the /admin area
 	Backends     []string `json:"backends"`
 }
 

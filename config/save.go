@@ -199,7 +199,7 @@ func ListBackups(backupsDir string) ([]string, error) {
 func RestoreSnapshot(configDir, name string) (string, error) {
 	src := filepath.Join(configDir, "backups", name)
 	if _, err := os.Stat(src); err != nil {
-		return "", fmt.Errorf("snapshot non trovato: %s", name)
+		return "", fmt.Errorf("snapshot not found: %s", name)
 	}
 	cfg, _ := LoadConfigOnly(configDir)
 	var target string
@@ -213,7 +213,7 @@ func RestoreSnapshot(configDir, name string) (string, error) {
 	case strings.HasPrefix(name, "backends-"):
 		target = filepath.Join(configDir, "nginx", "conf.d", "backends.conf")
 	default:
-		return "", fmt.Errorf("tipo di snapshot non riconosciuto: %s", name)
+		return "", fmt.Errorf("unrecognized snapshot type: %s", name)
 	}
 	if err := copyFile(src, target); err != nil {
 		return "", err

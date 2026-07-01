@@ -188,13 +188,13 @@ func TestOIDC_Exchange_NonceMismatch(t *testing.T) {
 	p := NewOIDC("mock", "Mock", idp.issuer(), idp.clientID, "secret", "https://gate/cb", nil)
 
 	if _, err := p.Exchange(context.Background(), "any-code", "WRONG-nonce"); err == nil {
-		t.Fatal("Exchange con nonce errato doveva fallire (replay protection)")
+		t.Fatal("Exchange with wrong nonce should have failed (replay protection)")
 	}
 }
 
 func TestOIDC_Exchange_EmailFallbackPreferredUsername(t *testing.T) {
 	idp := newMockIdP(t)
-	idp.email = "" // niente claim email
+	idp.email = "" // no email claim
 	idp.extra = map[string]any{"preferred_username": "upn@example.com"}
 	p := NewOIDC("mock", "Mock", idp.issuer(), idp.clientID, "secret", "https://gate/cb", nil)
 
@@ -208,9 +208,9 @@ func TestOIDC_Exchange_EmailFallbackPreferredUsername(t *testing.T) {
 }
 
 func TestOIDC_Discovery_BadIssuer(t *testing.T) {
-	// Issuer irraggiungibile → fail-closed (errore, non panico).
+	// Unreachable issuer → fail-closed (error, not panic).
 	p := NewOIDC("mock", "Mock", "http://127.0.0.1:1/nope", "cid", "secret", "https://gate/cb", nil)
 	if _, err := p.AuthURL(context.Background(), "s", "n"); err == nil {
-		t.Fatal("discovery su issuer irraggiungibile doveva fallire")
+		t.Fatal("discovery against an unreachable issuer should have failed")
 	}
 }

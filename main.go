@@ -91,7 +91,7 @@ func run() error {
 
 	auditLog, err := audit.New(resolvePath(*configDir, bundle.Config.AuthLog, "logs/auth.log"))
 	if err != nil {
-		slog.Warn("audit log non disponibile", "err", err)
+		slog.Warn("audit log not available", "err", err)
 	}
 
 	ttl := time.Duration(bundle.Config.Session.TTLMinutes) * time.Minute
@@ -100,16 +100,16 @@ func run() error {
 	if bundle.Config.Session.Store == "memory" {
 		store = auth.NewMemoryStore(ttl, idle)
 	} else {
-		// "file" (e "sqlite", non ancora nativo) → persistenza su file JSON.
+		// "file" (and "sqlite", not yet native) → persistence to a JSON file.
 		if bundle.Config.Session.Store == "sqlite" {
-			slog.Warn("session store 'sqlite' non ancora nativo: uso persistenza su file")
+			slog.Warn("session store 'sqlite' not yet native: using file persistence")
 		}
 		sessPath := resolvePath(*configDir, bundle.Config.Session.SQLitePath, "data/sessions.json")
 		store = auth.NewPersistentStore(ttl, idle, sessPath)
 	}
 
-	// Deployment knobs (retro-compatibili: i default valgono per Docker).
-	// DEPLOY_MODE=docker|host sceglie il profilo; le due env specifiche lo sovrascrivono.
+	// Deployment knobs (backwards-compatible: the defaults apply to Docker).
+	// DEPLOY_MODE=docker|host selects the profile; the two specific env vars override it.
 	deployMode := getenv("DEPLOY_MODE", "docker")
 	defReload, defUpstreamLocal := "", "host.docker.internal"
 	if deployMode == "host" {
@@ -222,7 +222,7 @@ func buildOIDC(cfg *models.Config, sec models.Secrets) map[string]*providers.OID
 			p.ClientID, sec.Providers[p.ID].ClientSecret,
 			redirect, nil,
 		)
-		slog.Info("oidc provider abilitato", "id", p.ID, "issuer", p.Issuer, "redirect", redirect)
+		slog.Info("oidc provider enabled", "id", p.ID, "issuer", p.Issuer, "redirect", redirect)
 	}
 	return out
 }
@@ -231,9 +231,9 @@ func buildOIDC(cfg *models.Config, sec models.Secrets) map[string]*providers.OID
 // web wizard, and prints the URL to open. See BLUEPRINT §13.
 func runSetup(args []string) error {
 	fs := flag.NewFlagSet("setup", flag.ExitOnError)
-	email := fs.String("email", "", "email del profilo amministratore da creare")
-	dir := fs.String("config", ".", "directory di configurazione")
-	ttl := fs.Duration("ttl", 30*time.Minute, "validità del token di setup")
+	email := fs.String("email", "", "email of the administrator profile to create")
+	dir := fs.String("config", ".", "configuration directory")
+	ttl := fs.Duration("ttl", 30*time.Minute, "validity of the setup token")
 	_ = fs.Parse(args)
 
 	cfg, err := config.LoadConfigOnly(*dir)
@@ -243,12 +243,12 @@ func runSetup(args []string) error {
 
 	em := strings.TrimSpace(*email)
 	if em == "" {
-		fmt.Print("Email profilo admin: ")
+		fmt.Print("Admin profile email: ")
 		line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
 		em = strings.TrimSpace(line)
 	}
 	if em == "" {
-		return errors.New("email mancante")
+		return errors.New("missing email")
 	}
 
 	tok, err := randomToken()
@@ -266,8 +266,8 @@ func runSetup(args []string) error {
 		base = "http://localhost" + cfg.Server.Listen
 	}
 	d := *ttl
-	fmt.Println("Profilo di setup creato per:", em)
-	fmt.Println("Apri questo URL per completare l'onboarding (scade tra " + d.String() + "):")
+	fmt.Println("Setup profile created for:", em)
+	fmt.Println("Open this URL to complete onboarding (expires in " + d.String() + "):")
 	fmt.Println("  " + base + "/setup?token=" + tok)
 	return nil
 }
@@ -275,14 +275,14 @@ func runSetup(args []string) error {
 // runBackups lists the available snapshots.
 func runBackups(args []string) error {
 	fs := flag.NewFlagSet("backups", flag.ExitOnError)
-	dir := fs.String("config", ".", "directory di configurazione")
+	dir := fs.String("config", ".", "configuration directory")
 	_ = fs.Parse(args)
 	names, err := config.ListBackups(filepath.Join(*dir, "backups"))
 	if err != nil {
 		return err
 	}
 	if len(names) == 0 {
-		fmt.Println("(nessuno snapshot)")
+		fmt.Println("(no snapshots)")
 		return nil
 	}
 	for _, n := range names {
@@ -294,35 +294,35 @@ func runBackups(args []string) error {
 // runRestore restores a snapshot back to its target file.
 func runRestore(args []string) error {
 	fs := flag.NewFlagSet("restore", flag.ExitOnError)
-	dir := fs.String("config", ".", "directory di configurazione")
-	snap := fs.String("snapshot", "", "nome dello snapshot (vedi: xaltorka backups)")
+	dir := fs.String("config", ".", "configuration directory")
+	snap := fs.String("snapshot", "", "snapshot name (see: xaltorka backups)")
 	_ = fs.Parse(args)
 	if *snap == "" {
-		return errors.New("indica --snapshot=<nome> (elenco con: xaltorka backups)")
+		return errors.New("specify --snapshot=<name> (list with: xaltorka backups)")
 	}
 	target, err := config.RestoreSnapshot(*dir, *snap)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Ripristinato %s → %s. Applica con riavvio del servizio (o reload per users/services).\n", *snap, target)
+	fmt.Printf("Restored %s → %s. Apply by restarting the service (or reload for users/services).\n", *snap, target)
 	return nil
 }
 
 // runUser creates or updates a user in users.json: sets password and/or the
 // admin flag. Recovery/bootstrap from CLI:
 //
-//	xaltorka user --email a@b --password segreto --admin   # crea/promuove admin
+//	xaltorka user --email a@b --password secret --admin   # create/promote admin
 func runUser(args []string) error {
 	fs := flag.NewFlagSet("user", flag.ExitOnError)
-	dir := fs.String("config", ".", "directory di configurazione")
-	email := fs.String("email", "", "email dell'utente")
-	pw := fs.String("password", "", "imposta la password (solo provider local)")
-	prov := fs.String("provider", "local", "provider di autenticazione: local|<id oidc> (es. google, microsoft)")
-	admin := fs.Bool("admin", false, "concedi il flag admin")
-	noAdmin := fs.Bool("no-admin", false, "revoca il flag admin")
+	dir := fs.String("config", ".", "configuration directory")
+	email := fs.String("email", "", "user email")
+	pw := fs.String("password", "", "set the password (local provider only)")
+	prov := fs.String("provider", "local", "authentication provider: local|<oidc id> (e.g. google, microsoft)")
+	admin := fs.Bool("admin", false, "grant the admin flag")
+	noAdmin := fs.Bool("no-admin", false, "revoke the admin flag")
 	_ = fs.Parse(args)
 	if *email == "" {
-		return errors.New("user richiede --email")
+		return errors.New("user requires --email")
 	}
 	provSet := false
 	fs.Visit(func(f *flag.Flag) {
@@ -349,7 +349,7 @@ func runUser(args []string) error {
 	}
 	if idx < 0 {
 		if *prov == "local" && *pw == "" {
-			return errors.New("nuovo utente local: serve --password (per OIDC usa --provider <id>)")
+			return errors.New("new local user: --password is required (for OIDC use --provider <id>)")
 		}
 		users.Users = append(users.Users, models.User{Email: *email, Provider: *prov, Backends: []string{}})
 		idx = len(users.Users) - 1
@@ -374,22 +374,22 @@ func runUser(args []string) error {
 	if err := config.SaveUsers(usersPath, filepath.Join(*dir, "backups"), users); err != nil {
 		return err
 	}
-	fmt.Printf("Utente %q aggiornato (provider=%s, admin=%t). Riavvia il servizio per applicare.\n", u.Email, u.Provider, u.Admin)
+	fmt.Printf("User %q updated (provider=%s, admin=%t). Restart the service to apply.\n", u.Email, u.Provider, u.Admin)
 	return nil
 }
 
 // runAddLink appends an external link tile to services.json (dashboard-only).
 func runAddLink(args []string) error {
 	fs := flag.NewFlagSet("add-link", flag.ExitOnError)
-	dir := fs.String("config", ".", "directory di configurazione")
-	id := fs.String("id", "", "id univoco del servizio")
-	name := fs.String("name", "", "nome mostrato nel listing")
-	link := fs.String("url", "", "URL esterno del servizio")
-	desc := fs.String("desc", "", "descrizione opzionale")
-	public := fs.Bool("public", false, "visibile a tutti gli utenti autenticati")
+	dir := fs.String("config", ".", "configuration directory")
+	id := fs.String("id", "", "unique service id")
+	name := fs.String("name", "", "name shown in the listing")
+	link := fs.String("url", "", "external service URL")
+	desc := fs.String("desc", "", "optional description")
+	public := fs.Bool("public", false, "visible to all authenticated users")
 	_ = fs.Parse(args)
 	if *id == "" || *name == "" || *link == "" {
-		return errors.New("add-link richiede --id, --name e --url")
+		return errors.New("add-link requires --id, --name and --url")
 	}
 
 	servicesPath, backupsDir, err := servicePaths(*dir)
@@ -401,30 +401,30 @@ func runAddLink(args []string) error {
 		return err
 	}
 	if serviceIDExists(svc, *id) {
-		return fmt.Errorf("id %q già presente in services.json", *id)
+		return fmt.Errorf("id %q already present in services.json", *id)
 	}
 	svc.Links = append(svc.Links, models.Link{ID: *id, Name: *name, URL: *link, Description: *desc, Public: *public})
 	if err := config.SaveServices(servicesPath, backupsDir, svc); err != nil {
 		return err
 	}
-	fmt.Printf("Link '%s' aggiunto. Applica con: curl -X POST http://localhost/admin/reload (o riavvia).\n", *id)
+	fmt.Printf("Link '%s' added. Apply with: curl -X POST http://localhost/admin/reload (or restart).\n", *id)
 	return nil
 }
 
 // runAddBackend appends a reverse-proxied service to services.json.
 func runAddBackend(args []string) error {
 	fs := flag.NewFlagSet("add-backend", flag.ExitOnError)
-	dir := fs.String("config", ".", "directory di configurazione")
-	id := fs.String("id", "", "id univoco del backend")
-	name := fs.String("name", "", "nome mostrato nel listing")
-	host := fs.String("host", "", "hostname pubblico instradato")
-	upstream := fs.String("upstream", "", "upstream interno, es. http://10.0.0.5:8080")
+	dir := fs.String("config", ".", "configuration directory")
+	id := fs.String("id", "", "unique backend id")
+	name := fs.String("name", "", "name shown in the listing")
+	host := fs.String("host", "", "public routed hostname")
+	upstream := fs.String("upstream", "", "internal upstream, e.g. http://10.0.0.5:8080")
 	rule := fs.String("rule", "whitelist", "public|authenticated|whitelist")
-	publicURL := fs.String("url", "", "URL pubblico per il tile (default: //host)")
-	path := fs.String("path", "/", "prefisso di percorso")
+	publicURL := fs.String("url", "", "public URL for the tile (default: //host)")
+	path := fs.String("path", "/", "path prefix")
 	_ = fs.Parse(args)
 	if *id == "" || *host == "" || *upstream == "" {
-		return errors.New("add-backend richiede --id, --host e --upstream")
+		return errors.New("add-backend requires --id, --host and --upstream")
 	}
 
 	servicesPath, backupsDir, err := servicePaths(*dir)
@@ -436,7 +436,7 @@ func runAddBackend(args []string) error {
 		return err
 	}
 	if serviceIDExists(svc, *id) {
-		return fmt.Errorf("id %q già presente in services.json", *id)
+		return fmt.Errorf("id %q already present in services.json", *id)
 	}
 	svc.Backends = append(svc.Backends, models.Backend{
 		ID:     *id,
@@ -448,7 +448,7 @@ func runAddBackend(args []string) error {
 	if err := config.SaveServices(servicesPath, backupsDir, svc); err != nil {
 		return err
 	}
-	fmt.Printf("Backend '%s' (%s%s → %s) aggiunto. Applica con un riavvio del servizio.\n", *id, *host, *path, *upstream)
+	fmt.Printf("Backend '%s' (%s%s → %s) added. Apply by restarting the service.\n", *id, *host, *path, *upstream)
 	return nil
 }
 

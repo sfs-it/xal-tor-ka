@@ -72,7 +72,7 @@ func (s *Server) Reload() error {
 	if err != nil {
 		return err
 	}
-	// Solo i backend abilitati entrano nel resolver/proxy/health.
+	// Only enabled backends enter the resolver/proxy/health.
 	merged := append([]models.Backend{}, s.BaseBackends...)
 	for _, b := range svc.Backends {
 		if !b.Disabled {
@@ -266,7 +266,7 @@ func (s *Server) tilesFor(u models.User) []tile {
 
 func (s *Server) canSeeBackend(u models.User, be models.Backend) bool {
 	if u.Admin {
-		return true // gli admin vedono e raggiungono tutto
+		return true // admins see and reach everything
 	}
 	for _, rt := range be.Routes {
 		if rt.Rule == "public" || rt.Rule == "authenticated" {
@@ -305,7 +305,7 @@ func (s *Server) setSession(w http.ResponseWriter, id string) {
 		Name:     s.Cfg.Session.CookieName,
 		Value:    id,
 		Path:     "/",
-		Domain:   s.Cfg.Session.CookieDomain, // vuoto = host-only; "localhost" = SSO su *.localhost
+		Domain:   s.Cfg.Session.CookieDomain, // empty = host-only; "localhost" = SSO across *.localhost
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Secure:   strings.HasPrefix(s.Cfg.Server.ExternalURL, "https"),

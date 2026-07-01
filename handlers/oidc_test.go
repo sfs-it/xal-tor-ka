@@ -17,24 +17,24 @@ import (
 func TestRandB64(t *testing.T) {
 	a, b := randB64(), randB64()
 	if a == "" || b == "" {
-		t.Fatal("randB64 ha prodotto stringa vuota")
+		t.Fatal("randB64 produced an empty string")
 	}
 	if a == b {
-		t.Error("randB64 dovrebbe produrre valori diversi")
+		t.Error("randB64 should produce different values")
 	}
 	if _, err := base64.RawURLEncoding.DecodeString(a); err != nil {
-		t.Errorf("randB64 non è base64url valido: %v", err)
+		t.Errorf("randB64 is not valid base64url: %v", err)
 	}
 }
 
 func TestCookieSecure(t *testing.T) {
 	https := &Server{Cfg: &models.Config{Server: models.ServerCfg{ExternalURL: "https://gate.x"}}}
 	if !https.cookieSecure() {
-		t.Error("external_url https → cookieSecure deve essere true")
+		t.Error("external_url https → cookieSecure must be true")
 	}
 	httpOnly := &Server{Cfg: &models.Config{Server: models.ServerCfg{ExternalURL: "http://localhost"}}}
 	if httpOnly.cookieSecure() {
-		t.Error("external_url http → cookieSecure deve essere false")
+		t.Error("external_url http → cookieSecure must be false")
 	}
 }
 
@@ -48,13 +48,13 @@ func TestOIDCStateRoundTrip(t *testing.T) {
 
 	got, ok := s.readOIDCState(r)
 	if !ok {
-		t.Fatal("readOIDCState: atteso ok=true")
+		t.Fatal("readOIDCState: expected ok=true")
 	}
 	if got != st {
 		t.Errorf("readOIDCState = %+v, want %+v", got, st)
 	}
 
-	// clearOIDCState deve emettere un cookie scaduto (MaxAge<0).
+	// clearOIDCState must emit an expired cookie (MaxAge<0).
 	w := httptest.NewRecorder()
 	s.clearOIDCState(w)
 	found := false
@@ -62,12 +62,12 @@ func TestOIDCStateRoundTrip(t *testing.T) {
 		if c.Name == oidcStateCookie {
 			found = true
 			if c.MaxAge >= 0 {
-				t.Errorf("clearOIDCState MaxAge = %d, deve essere <0", c.MaxAge)
+				t.Errorf("clearOIDCState MaxAge = %d, must be <0", c.MaxAge)
 			}
 		}
 	}
 	if !found {
-		t.Error("clearOIDCState non ha emesso il cookie di stato")
+		t.Error("clearOIDCState did not emit the state cookie")
 	}
 }
 
@@ -86,7 +86,7 @@ func TestReadOIDCStateInvalid(t *testing.T) {
 				r.AddCookie(&http.Cookie{Name: oidcStateCookie, Value: val})
 			}
 			if _, ok := s.readOIDCState(r); ok {
-				t.Error("readOIDCState doveva fallire (ok=false)")
+				t.Error("readOIDCState should have failed (ok=false)")
 			}
 		})
 	}
@@ -100,13 +100,13 @@ func TestOIDCButtons(t *testing.T) {
 			{ID: "microsoft", Type: "oidc", Name: "Microsoft", Enabled: true},
 		}},
 		OIDC: map[string]*providers.OIDC{
-			// Solo google è "abilitato" lato registry (microsoft assente → niente bottone).
+			// Only google is "enabled" on the registry side (microsoft absent → no button).
 			"google": providers.NewOIDC("google", "Google", "https://accounts.google.com", "cid", "sec", "https://gate/cb", nil),
 		},
 	}
 	btns := s.oidcButtons()
 	if len(btns) != 1 {
-		t.Fatalf("oidcButtons = %d, want 1 (solo i provider nel registry)", len(btns))
+		t.Fatalf("oidcButtons = %d, want 1 (only the providers in the registry)", len(btns))
 	}
 	if btns[0].ID != "google" || btns[0].Name != "Google" {
 		t.Errorf("button = %+v, want {google Google}", btns[0])

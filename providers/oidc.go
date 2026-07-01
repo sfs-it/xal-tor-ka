@@ -126,7 +126,7 @@ func (o *OIDC) Exchange(ctx context.Context, code, nonce string) (Identity, erro
 	}
 	email := claims.Email
 	if email == "" {
-		email = claims.PreferredUsername // Microsoft spesso mette l'email qui
+		email = claims.PreferredUsername // Microsoft often puts the email here
 	}
 	if email == "" {
 		return Identity{}, errors.New("oidc: id_token has no email/preferred_username claim")

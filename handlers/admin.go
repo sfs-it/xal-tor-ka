@@ -27,10 +27,10 @@ import (
 	"xaltorka/version"
 )
 
-// Admin panel (BLUEPRINT §9). IP-whitelisted. Gestisce i servizi runtime
-// (services.json: backend extra + link) e gli utenti (users.json), con
-// persistenza atomica + snapshot + reload. I backend di config.json sono
-// read-only (infrastruttura, env-templated).
+// Admin panel (BLUEPRINT §9). IP-whitelisted. Manages the runtime services
+// (services.json: extra backends + links) and the users (users.json), with
+// atomic persistence + snapshot + reload. The config.json backends are
+// read-only (infrastructure, env-templated).
 
 const adminDocOpen = `<!doctype html>
 <html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -405,7 +405,7 @@ func (s *Server) handleDiscoverAdd(w http.ResponseWriter, r *http.Request) {
 	port, _ := strconv.Atoi(r.PostFormValue("port"))
 	rule := r.PostFormValue("rule")
 	if name == "" || port <= 0 || port > 65535 {
-		http.Error(w, "container/porta non validi", http.StatusBadRequest)
+		http.Error(w, "invalid container/port", http.StatusBadRequest)
 		return
 	}
 	if rule != "public" && rule != "authenticated" && rule != "whitelist" {
@@ -415,7 +415,7 @@ func (s *Server) handleDiscoverAdd(w http.ResponseWriter, r *http.Request) {
 	upstream := fmt.Sprintf("http://host.docker.internal:%d", port)
 	err := s.mutateServices(func(svc *models.Services) error {
 		if s.idTaken(*svc, name) {
-			return fmt.Errorf("id %q già esistente", name)
+			return fmt.Errorf("id %q already exists", name)
 		}
 		svc.Backends = append(svc.Backends, models.Backend{
 			ID: name, Name: name, Host: host, URL: "//" + host,
@@ -525,7 +525,7 @@ func (s *Server) handleHostScanAdd(w http.ResponseWriter, r *http.Request) {
 				name = fmt.Sprintf("host-%d", port)
 			}
 			if s.idTaken(*svc, name) {
-				continue // salta duplicati senza fallire l'intero batch
+				continue // skip duplicates without failing the whole batch
 			}
 			host := name + ".localhost"
 			upstream := fmt.Sprintf("http://host.docker.internal:%d", port)
@@ -548,13 +548,13 @@ func (s *Server) handleUserEmail(w http.ResponseWriter, r *http.Request) {
 	old := r.PostFormValue("old")
 	neu := strings.TrimSpace(r.PostFormValue("email"))
 	if neu == "" {
-		http.Error(w, "email obbligatoria", http.StatusBadRequest)
+		http.Error(w, "email required", http.StatusBadRequest)
 		return
 	}
 	err := s.mutateUsers(func(users *[]models.User) error {
 		for _, u := range *users {
 			if u.Email == neu && neu != old {
-				return fmt.Errorf("email %q già in uso", neu)
+				return fmt.Errorf("email %q already in use", neu)
 			}
 		}
 		for i := range *users {
@@ -563,7 +563,7 @@ func (s *Server) handleUserEmail(w http.ResponseWriter, r *http.Request) {
 				return nil
 			}
 		}
-		return fmt.Errorf("utente non trovato")
+		return fmt.Errorf("user not found")
 	})
 	s.afterMutation(w, r, err)
 }
@@ -576,12 +576,12 @@ func (s *Server) handleUserPassword(w http.ResponseWriter, r *http.Request) {
 	email := r.PostFormValue("email")
 	pw := r.PostFormValue("password")
 	if pw == "" {
-		http.Error(w, "password obbligatoria", http.StatusBadRequest)
+		http.Error(w, "password required", http.StatusBadRequest)
 		return
 	}
 	hash, err := auth.HashPassword(pw)
 	if err != nil {
-		http.Error(w, "errore interno", http.StatusInternalServerError)
+		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 	err = s.mutateUsers(func(users *[]models.User) error {
@@ -591,7 +591,7 @@ func (s *Server) handleUserPassword(w http.ResponseWriter, r *http.Request) {
 				return nil
 			}
 		}
-		return fmt.Errorf("utente non trovato")
+		return fmt.Errorf("user not found")
 	})
 	s.afterMutation(w, r, err)
 }
@@ -604,7 +604,7 @@ func (s *Server) handleUserPassword(w http.ResponseWriter, r *http.Request) {
 func (s *Server) hostInternalize(upstream string) string {
 	target := s.UpstreamLocalhost
 	if target == "" {
-		return upstream // rewrite disabilitato (deploy host senza traduzione)
+		return upstream // rewrite disabled (host deploy without translation)
 	}
 	i := strings.Index(upstream, "://")
 	if i < 0 {
@@ -705,10 +705,10 @@ func (s *Server) handleUserAdmin(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if target < 0 {
-			return fmt.Errorf("utente non trovato")
+			return fmt.Errorf("user not found")
 		}
 		if (*users)[target].Admin && admins <= 1 {
-			return fmt.Errorf("deve restare almeno un amministratore")
+			return fmt.Errorf("at least one administrator must remain")
 		}
 		(*users)[target].Admin = !(*users)[target].Admin
 		return nil
@@ -757,12 +757,12 @@ func (s *Server) handleLinkAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	id, name, url := r.PostFormValue("id"), r.PostFormValue("name"), r.PostFormValue("url")
 	if id == "" || name == "" || url == "" {
-		http.Error(w, "id, name, url obbligatori", http.StatusBadRequest)
+		http.Error(w, "id, name, url required", http.StatusBadRequest)
 		return
 	}
 	err := s.mutateServices(func(svc *models.Services) error {
 		if s.idTaken(*svc, id) {
-			return fmt.Errorf("id già esistente")
+			return fmt.Errorf("id already exists")
 		}
 		svc.Links = append(svc.Links, models.Link{ID: id, Name: name, URL: url,
 			Description: r.PostFormValue("desc"), Public: r.PostFormValue("public") != ""})
@@ -797,11 +797,11 @@ func (s *Server) handleBackendAdd(w http.ResponseWriter, r *http.Request) {
 	upstream := s.hostInternalize(r.PostFormValue("upstream"))
 	rule := r.PostFormValue("rule")
 	if id == "" || host == "" || upstream == "" {
-		http.Error(w, "id, host, upstream obbligatori", http.StatusBadRequest)
+		http.Error(w, "id, host, upstream required", http.StatusBadRequest)
 		return
 	}
 	if rule != "public" && rule != "authenticated" && rule != "whitelist" {
-		http.Error(w, "regola non valida", http.StatusBadRequest)
+		http.Error(w, "invalid rule", http.StatusBadRequest)
 		return
 	}
 	path := r.PostFormValue("path")
@@ -810,7 +810,7 @@ func (s *Server) handleBackendAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	err := s.mutateServices(func(svc *models.Services) error {
 		if s.idTaken(*svc, id) {
-			return fmt.Errorf("id già esistente")
+			return fmt.Errorf("id already exists")
 		}
 		svc.Backends = append(svc.Backends, models.Backend{
 			ID: id, Name: r.PostFormValue("name"), Host: host, URL: r.PostFormValue("url"),
@@ -851,7 +851,7 @@ func (s *Server) handleBackendToggle(w http.ResponseWriter, r *http.Request) {
 				return nil
 			}
 		}
-		return fmt.Errorf("backend non trovato")
+		return fmt.Errorf("backend not found")
 	})
 	s.afterMutation(w, r, err)
 }
@@ -868,7 +868,7 @@ func (s *Server) handleLinkToggle(w http.ResponseWriter, r *http.Request) {
 				return nil
 			}
 		}
-		return fmt.Errorf("link non trovato")
+		return fmt.Errorf("link not found")
 	})
 	s.afterMutation(w, r, err)
 }
@@ -893,7 +893,7 @@ func (s *Server) handleBackendEditForm(w http.ResponseWriter, r *http.Request) {
 		}{b.ID, b.Name, b.Description, b.Host, b.URL, rt.Path, rt.Rule, rt.Upstream})
 		return
 	}
-	http.Error(w, "backend non trovato", http.StatusNotFound)
+	http.Error(w, "backend not found", http.StatusNotFound)
 }
 
 func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
@@ -916,7 +916,7 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 	}
 	host := r.PostFormValue("host")
 	if host == "" {
-		http.Error(w, "host obbligatorio", http.StatusBadRequest)
+		http.Error(w, "host required", http.StatusBadRequest)
 		return
 	}
 	err := s.mutateServices(func(svc *models.Services) error {
@@ -935,7 +935,7 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 			b.Routes[0] = models.Route{Path: path, Rule: rule, Upstream: upstream}
 			return nil
 		}
-		return fmt.Errorf("backend non trovato")
+		return fmt.Errorf("backend not found")
 	})
 	s.afterMutation(w, r, err)
 }
@@ -951,11 +951,11 @@ func validateUpstream(upstream string) error {
 	}
 	host, port, err := net.SplitHostPort(s)
 	if err != nil || host == "" {
-		return fmt.Errorf("upstream non valido (atteso http://host:porta)")
+		return fmt.Errorf("invalid upstream (expected http://host:port)")
 	}
 	n, err := strconv.Atoi(port)
 	if err != nil || n < 1 || n > 65535 {
-		return fmt.Errorf("porta upstream non valida")
+		return fmt.Errorf("invalid upstream port")
 	}
 	return nil
 }
@@ -980,19 +980,19 @@ func (s *Server) handleUserAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	email, pw := r.PostFormValue("email"), r.PostFormValue("password")
 	if email == "" || pw == "" {
-		http.Error(w, "email e password obbligatorie", http.StatusBadRequest)
+		http.Error(w, "email and password required", http.StatusBadRequest)
 		return
 	}
 	hash, err := auth.HashPassword(pw)
 	if err != nil {
-		http.Error(w, "errore interno", http.StatusInternalServerError)
+		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 	secret := ""
 	if !s.Cfg.DisableTOTP {
 		secret, err = auth.NewTOTPSecret()
 		if err != nil {
-			http.Error(w, "errore interno", http.StatusInternalServerError)
+			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -1000,7 +1000,7 @@ func (s *Server) handleUserAdd(w http.ResponseWriter, r *http.Request) {
 	err = s.mutateUsers(func(users *[]models.User) error {
 		for _, u := range *users {
 			if u.Email == email {
-				return fmt.Errorf("utente già esistente")
+				return fmt.Errorf("user already exists")
 			}
 		}
 		*users = append(*users, models.User{
@@ -1014,7 +1014,7 @@ func (s *Server) handleUserAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.Cfg.DisableTOTP {
-		s.afterMutation(w, r, nil) // niente QR quando il 2FA è disattivato
+		s.afterMutation(w, r, nil) // no QR when 2FA is disabled
 		return
 	}
 	s.renderAdminQR(w, email, secret)
@@ -1051,7 +1051,7 @@ func (s *Server) handleUserAuthz(w http.ResponseWriter, r *http.Request) {
 				return nil
 			}
 		}
-		return fmt.Errorf("utente non trovato")
+		return fmt.Errorf("user not found")
 	})
 	s.afterMutation(w, r, err)
 }
@@ -1063,7 +1063,7 @@ func (s *Server) handleUserTOTP(w http.ResponseWriter, r *http.Request) {
 	email := r.PostFormValue("email")
 	secret, err := auth.NewTOTPSecret()
 	if err != nil {
-		http.Error(w, "errore interno", http.StatusInternalServerError)
+		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 	err = s.mutateUsers(func(users *[]models.User) error {
@@ -1073,7 +1073,7 @@ func (s *Server) handleUserTOTP(w http.ResponseWriter, r *http.Request) {
 				return nil
 			}
 		}
-		return fmt.Errorf("utente non trovato")
+		return fmt.Errorf("user not found")
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -1121,7 +1121,7 @@ func (s *Server) idTaken(svc models.Services, id string) bool {
 func (s *Server) renderAdminQR(w http.ResponseWriter, email, secret string) {
 	png, err := qrcode.Encode(otpauthURI(email, secret), qrcode.Medium, 256)
 	if err != nil {
-		http.Error(w, "errore QR", http.StatusInternalServerError)
+		http.Error(w, "QR error", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

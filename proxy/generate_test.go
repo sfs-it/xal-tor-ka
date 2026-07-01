@@ -41,14 +41,14 @@ func TestGenerate(t *testing.T) {
 	}
 	for _, m := range must {
 		if !strings.Contains(out, m) {
-			t.Errorf("output non contiene %q\n---\n%s", m, out)
+			t.Errorf("output does not contain %q\n---\n%s", m, out)
 		}
 	}
 
-	// La route public NON deve avere auth_request: isoliamo il blocco "location /".
+	// The public route must NOT have auth_request: isolate the "location /" block.
 	pub := blockAfter(out, "location / {")
 	if strings.Contains(pub, "auth_request") {
-		t.Errorf("la route public non deve avere auth_request:\n%s", pub)
+		t.Errorf("the public route must not have auth_request:\n%s", pub)
 	}
 }
 
@@ -58,7 +58,7 @@ func TestGenerateSkipsEmpty(t *testing.T) {
 		{ID: "noroutes", Host: "h.example.com"},
 	})
 	if strings.Contains(out, "server {") {
-		t.Errorf("backend senza host o senza route non devono generare server{}:\n%s", out)
+		t.Errorf("backends without host or routes must not generate server{}:\n%s", out)
 	}
 }
 
