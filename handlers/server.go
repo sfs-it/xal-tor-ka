@@ -18,6 +18,7 @@ import (
 
 	"xaltorka/audit"
 	"xaltorka/auth"
+	"xaltorka/certmgr"
 	"xaltorka/config"
 	"xaltorka/health"
 	"xaltorka/i18n"
@@ -36,10 +37,11 @@ type Server struct {
 	Resolver *matrix.Resolver
 	Local    *providers.Local
 	// OIDC holds the enabled OpenID Connect providers, keyed by id (may be empty).
-	OIDC   map[string]*providers.OIDC
-	Proxy  *proxy.Manager  // generates the NGINX backends config (may be nil)
-	Health *health.Checker // backend health monitoring (may be nil)
-	Audit  *audit.Logger   // fail2ban-friendly auth-failure log (may be nil)
+	OIDC    map[string]*providers.OIDC
+	Proxy   *proxy.Manager   // generates the NGINX backends config (may be nil)
+	Health  *health.Checker  // backend health monitoring (may be nil)
+	Audit   *audit.Logger    // fail2ban-friendly auth-failure log (may be nil)
+	CertMgr *certmgr.Manager // TLS certificate manager (self-signed/ACME; may be nil)
 
 	// Filesystem paths for persistence (set by main).
 	UsersPath    string
@@ -222,6 +224,12 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /admin/provider/del", s.handleProviderDel)
 	mux.HandleFunc("POST /admin/provider/toggle", s.handleProviderToggle)
 	mux.HandleFunc("POST /admin/provider/test", s.handleProviderTest)
+	mux.HandleFunc("GET /admin/tls", s.handleAdminTLS)
+	mux.HandleFunc("POST /admin/tls/issue", s.handleTLSIssue)
+	mux.HandleFunc("POST /admin/tls/renew", s.handleTLSRenew)
+	mux.HandleFunc("POST /admin/tls/del", s.handleTLSDelete)
+	mux.HandleFunc("GET /admin/tls/ca.crt", s.handleTLSCA)
+	mux.HandleFunc("GET /.well-known/acme-challenge/{token}", s.handleACMEChallenge)
 	return mux
 }
 

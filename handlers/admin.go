@@ -42,6 +42,7 @@ func adminTopbar(active, lang string) string {
 		{"providers", "/admin/providers", "admin.providers"},
 		{"utenti", "/admin/utenti", "admin.users"},
 		{"monitoring", "/admin/monitoring", "admin.monitoring"},
+		{"tls", "/admin/tls", "admin.tls"},
 	}
 	var nav strings.Builder
 	for _, i := range items {

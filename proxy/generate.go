@@ -25,6 +25,12 @@ type GenConfig struct {
 	// request time (docker embedded DNS = 127.0.0.11). When set, proxy_pass uses
 	// a variable so NGINX won't fail to (re)load if a backend is temporarily down.
 	Resolver string
+	// CertDir is the directory (as NGINX sees it) holding per-host certificates
+	// named <host>.crt / <host>.key. When HasCert reports a cert for a host, an
+	// HTTPS listener referencing those files is emitted alongside the HTTP one.
+	CertDir string
+	// HasCert reports whether a TLS certificate exists for a host (nil = no TLS).
+	HasCert func(host string) bool
 }
 
 // Generate renders one server{} block per backend host. Backends with no host
@@ -49,13 +55,30 @@ func Generate(g GenConfig, backends []models.Backend) string {
 func writeServer(b *strings.Builder, g GenConfig, be models.Backend) {
 	fmt.Fprintf(b, "server {\n")
 	b.WriteString("    listen 80;\n")
+	tls := g.HasCert != nil && g.CertDir != "" && g.HasCert(be.Host)
+	if tls {
+		dir := strings.TrimRight(g.CertDir, "/")
+		b.WriteString("    listen 443 ssl;\n")
+		fmt.Fprintf(b, "    ssl_certificate %s/%s.crt;\n", dir, be.Host)
+		fmt.Fprintf(b, "    ssl_certificate_key %s/%s.key;\n", dir, be.Host)
+	}
 	fmt.Fprintf(b, "    server_name %s;\n", be.Host)
 	if g.Resolver != "" {
 		fmt.Fprintf(b, "    resolver %s valid=10s ipv6=off;\n", g.Resolver)
 	}
 	b.WriteString("    add_header X-Frame-Options \"SAMEORIGIN\" always;\n")
 	b.WriteString("    add_header X-Content-Type-Options \"nosniff\" always;\n")
-	b.WriteString("    add_header X-XSS-Protection \"0\" always;\n\n")
+	b.WriteString("    add_header X-XSS-Protection \"0\" always;\n")
+	if tls {
+		b.WriteString("    add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;\n")
+	}
+	b.WriteString("\n")
+
+	// ACME HTTP-01 challenge (always on :80), proxied to the auth service which
+	// serves the key authorizations during certificate issuance/renewal.
+	fmt.Fprintf(b, "    location /.well-known/acme-challenge/ {\n"+
+		"        proxy_pass http://%s;\n"+
+		"    }\n\n", g.Upstream)
 
 	fmt.Fprintf(b, "    location = /__auth {\n"+
 		"        internal;\n"+

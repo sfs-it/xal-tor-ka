@@ -30,6 +30,7 @@ import (
 
 	"xaltorka/audit"
 	"xaltorka/auth"
+	"xaltorka/certmgr"
 	"xaltorka/config"
 	"xaltorka/handlers"
 	"xaltorka/health"
@@ -148,6 +149,21 @@ func run() error {
 			},
 		},
 	}
+	// TLS certificate manager: internal CA / self-signed + ACME HTTP-01. Certs are
+	// written to <configdir>/certs (shared with the NGINX container) and referenced
+	// in the generated vhosts. Wire cert-awareness into the proxy generator BEFORE
+	// the first Reload so HTTPS listeners are emitted from the start.
+	certMgr := &certmgr.Manager{
+		Dir:          filepath.Join(*configDir, "certs"),
+		NginxDir:     getenv("NGINX_CERT_DIR", "/etc/nginx/certs"),
+		Email:        bundle.Config.TLS.ACME.Email,
+		DirectoryURL: getenv("ACME_DIRECTORY_URL", ""),
+	}
+	certMgr.Reload = func() error { return srvHandlers.Reload() }
+	srvHandlers.CertMgr = certMgr
+	srvHandlers.Proxy.Gen.CertDir = certMgr.NginxDir
+	srvHandlers.Proxy.Gen.HasCert = certMgr.HasCert
+
 	// Merge services.json (extra backends + link tiles) into the resolver.
 	if err := srvHandlers.Reload(); err != nil {
 		slog.Warn("services reload failed", "err", err)
@@ -181,6 +197,17 @@ func run() error {
 	defer stop()
 
 	go checker.Start(ctx)
+
+	// Renew ACME certs approaching expiry (self-signed ones are left as-is).
+	go certMgr.StartRenewal(ctx, func() []string {
+		var hs []string
+		for _, b := range srvHandlers.Resolver.Backends() {
+			if b.Host != "" {
+				hs = append(hs, b.Host)
+			}
+		}
+		return hs
+	}, 30*24*time.Hour)
 
 	errCh := make(chan error, 1)
 	go func() {
