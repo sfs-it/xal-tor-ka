@@ -102,6 +102,7 @@
   "admin.act.disable": "disable",
   "admin.act.delete": "delete",
   "admin.confirm_del": "Delete this entry?",
+  "admin.rule.help": "public: open to everyone. authenticated: users with a valid session (2FA). whitelist: only explicitly authorized users (implies authentication); administrators always have access (override).",
   "admin.f.id": "id",
   "admin.f.name": "name",
   "admin.f.host": "host",

@@ -13,20 +13,16 @@
   "field.email": "ईमेल",
   "field.password": "पासवर्ड",
   "lang.label": "भाषा",
-
   "login.title": "साइन इन करें",
   "login.or": "या",
   "login.with": "इसके साथ साइन इन करें",
-
   "totp.title": "दो-कारक सत्यापन",
   "totp.code": "TOTP कोड",
-
   "listing.subtitle": "सेवाएँ",
   "listing.title": "उपलब्ध सेवाएँ",
   "listing.empty": "आपकी प्रोफ़ाइल के लिए कोई सेवा उपलब्ध नहीं है।",
   "tag.external": "बाहरी",
   "tag.proxy": "प्रॉक्सी",
-
   "profile.subtitle": "प्रोफ़ाइल",
   "profile.title": "मेरी प्रोफ़ाइल",
   "profile.email": "ईमेल",
@@ -44,19 +40,16 @@
   "profile.pw_updated": "पासवर्ड अपडेट हो गया।",
   "profile.pw_wrong": "वर्तमान पासवर्ड गलत है।",
   "profile.local_only": "केवल स्थानीय खातों के लिए उपलब्ध।",
-
   "qr.new2fa": "नया 2FA",
   "qr.scan": "अपने प्रमाणक ऐप से QR स्कैन करें (या कुंजी मैन्युअल रूप से दर्ज करें)। आपका अगला साइन-इन इस कोड का उपयोग करेगा।",
   "qr.key": "कुंजी",
   "qr.back_profile": "← प्रोफ़ाइल पर वापस जाएँ",
-
   "blocked.title": "प्रतिबंधित क्षेत्र",
   "blocked.not_admin": "यह खाता प्रशासक नहीं है।",
   "blocked.you_are": "आपने साइन इन किया है",
   "blocked.need_admin": "प्रशासन क्षेत्र के लिए admin फ़्लैग वाले खाते की आवश्यकता है।",
   "blocked.logout_switch": "लॉग आउट करें और खाता बदलें",
   "blocked.to_dashboard": "← डैशबोर्ड पर जाएँ",
-
   "err.bad_request": "अमान्य अनुरोध",
   "err.bad_credentials": "अमान्य प्रमाण-पत्र",
   "err.internal": "आंतरिक त्रुटि",
@@ -67,7 +60,6 @@
   "err.csrf": "anti-CSRF जाँच विफल",
   "err.auth_failed": "प्रमाणीकरण विफल",
   "err.not_provisioned": "उपयोगकर्ता सक्षम नहीं है",
-
   "admin.title": "प्रशासन",
   "admin.subtitle": "प्रशासन",
   "admin.services": "सेवाएँ",
@@ -85,7 +77,6 @@
   "admin.sec.your_ip": "आपका IP:",
   "admin.sec.field": "अनुमत IP/CIDR (स्पेस या कॉमा; एकल IP = /32)",
   "admin.sec.warn": "नई सूची में आपका IP शामिल होना चाहिए, अन्यथा आप स्वयं को बाहर कर देंगे। config.json/ADMIN_CIDR पर वापस जाने के लिए फ़ील्ड खाली करें।",
-
   "admin.svc.h2": "रिवर्स-प्रॉक्सी सेवाएँ",
   "admin.svc.hint": "config.json की सेवाएँ केवल-पढ़ने योग्य हैं (इन्फ्रास्ट्रक्चर)। यहाँ जोड़ी गई सेवाएँ services.json में रहती हैं।",
   "admin.svc.add": "प्रॉक्सी सेवा जोड़ें",
@@ -118,7 +109,6 @@
   "admin.links.add": "लिंक जोड़ें",
   "admin.vis.public": "सार्वजनिक",
   "admin.vis.private": "आरक्षित",
-
   "admin.dk.h2": "Docker कंटेनर खोजें",
   "admin.dk.hint": "प्रकाशित पोर्ट वाले चल रहे कंटेनर। «जोड़ें» एक vhost <name>.localhost → host.docker.internal:<port> बनाता है।",
   "admin.dk.container": "कंटेनर",
@@ -136,7 +126,6 @@
   "admin.dk.from": "से",
   "admin.dk.to": "तक",
   "admin.dk.scan": "स्कैन करें",
-
   "admin.usr.email": "ईमेल",
   "admin.usr.enabled_hosts": "सक्षम होस्ट",
   "admin.usr.all_admin": "सभी (admin)",
@@ -156,7 +145,6 @@
   "admin.usr.admin_all_note": "यह उपयोगकर्ता प्रशासक है: वह सभी सेवाओं तक पहुँचता है, व्हाइटलिस्ट लागू नहीं होती।",
   "admin.usr.no_services": "कोई सेवा कॉन्फ़िगर नहीं की गई",
   "admin.usr.save_authz": "अनुमतियाँ सहेजें",
-
   "admin.mon.status": "स्थिति",
   "admin.mon.state": "अवस्था",
   "admin.mon.last_error": "अंतिम त्रुटि",
@@ -171,17 +159,14 @@
   "admin.mon.health_url": "health url",
   "admin.mon.interval_s": "अंतराल (s)",
   "admin.mon.timeout_s": "टाइमआउट (s)",
-
   "admin.edit.title": "सेवा संपादित करें",
   "admin.edit.h1": "संपादित करें",
   "admin.edit.id_ro": "id (केवल-पढ़ने योग्य)",
   "admin.edit.ipallow": "IP अनुमति-सूची (CIDR, वैकल्पिक — खाली = कोई सीमा नहीं)",
   "admin.cancel": "रद्द करें",
-
   "admin.qr.title": "इसके लिए 2FA",
   "admin.qr.hint": "उपयोगकर्ता से QR को उनके प्रमाणक ऐप से स्कैन करवाएँ, या कुंजी साझा करें।",
   "admin.qr.back": "उपयोगकर्ताओं पर वापस जाएँ",
-
   "admin.hs.subtitle": "होस्ट पोर्ट",
   "admin.hs.h1": "होस्ट पर सुन रहे पोर्ट",
   "admin.hs.hint": "host.docker.internal के माध्यम से पहुँच योग्य पोर्ट (जैसे PuTTY/SSH टनल, होस्ट सेवाएँ)। पोर्ट चिह्नित करें और उन्हें एक साथ जोड़ें; खाली नाम → host-<port>।",
@@ -191,7 +176,6 @@
   "admin.hs.none": "सीमा में कोई खुला पोर्ट नहीं",
   "admin.hs.add_selected": "चयनित जोड़ें",
   "admin.hs.back": "प्रशासन पर वापस जाएँ",
-
   "setup.cred.title": "प्रारंभिक सेटअप",
   "setup.profile": "प्रोफ़ाइल:",
   "setup.confirm_pw": "पासवर्ड की पुष्टि करें",
@@ -201,5 +185,6 @@
   "setup.done.profile": "प्रोफ़ाइल",
   "setup.done.activated": "सक्रिय किया गया।",
   "setup.done.go_login": "लॉगिन पर जाएँ",
-  "setup.err.pw_mismatch": "पासवर्ड मेल नहीं खाते"
+  "setup.err.pw_mismatch": "पासवर्ड मेल नहीं खाते",
+  "admin.rule.help": "public: सभी के लिए खुला। authenticated: वैध सत्र वाले उपयोगकर्ता (2FA)। whitelist: केवल स्पष्ट रूप से अधिकृत उपयोगकर्ता (प्रमाणीकरण अनिवार्य); व्यवस्थापकों की पहुँच हमेशा रहती है (override)।"
 }

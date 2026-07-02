@@ -13,20 +13,16 @@
   "field.email": "Email",
   "field.password": "Пароль",
   "lang.label": "Язык",
-
   "login.title": "Вход",
   "login.or": "или",
   "login.with": "Войти через",
-
   "totp.title": "Двухфакторная проверка",
   "totp.code": "Код TOTP",
-
   "listing.subtitle": "Сервисы",
   "listing.title": "Доступные сервисы",
   "listing.empty": "Нет доступных сервисов для вашего профиля.",
   "tag.external": "внешний",
   "tag.proxy": "прокси",
-
   "profile.subtitle": "Профиль",
   "profile.title": "Мой профиль",
   "profile.email": "Email",
@@ -44,19 +40,16 @@
   "profile.pw_updated": "Пароль обновлён.",
   "profile.pw_wrong": "Текущий пароль неверен.",
   "profile.local_only": "Доступно только для локальных учётных записей.",
-
   "qr.new2fa": "Новый 2FA",
   "qr.scan": "Отсканируйте QR приложением-аутентификатором (или введите ключ вручную). Следующий вход будет использовать этот код.",
   "qr.key": "Ключ",
   "qr.back_profile": "← назад к профилю",
-
   "blocked.title": "Ограниченная зона",
   "blocked.not_admin": "Эта учётная запись не является администратором.",
   "blocked.you_are": "Вы вошли как",
   "blocked.need_admin": "Зона администрирования требует учётной записи с флагом admin.",
   "blocked.logout_switch": "Выйти и сменить учётную запись",
   "blocked.to_dashboard": "← перейти к панели",
-
   "err.bad_request": "неверный запрос",
   "err.bad_credentials": "неверные учётные данные",
   "err.internal": "внутренняя ошибка",
@@ -67,7 +60,6 @@
   "err.csrf": "проверка анти-CSRF не пройдена",
   "err.auth_failed": "ошибка аутентификации",
   "err.not_provisioned": "пользователь не активирован",
-
   "admin.title": "Администрирование",
   "admin.subtitle": "Администрирование",
   "admin.services": "Сервисы",
@@ -85,7 +77,6 @@
   "admin.sec.your_ip": "Ваш IP:",
   "admin.sec.field": "Разрешённые IP/CIDR (пробел или запятая; одиночный IP = /32)",
   "admin.sec.warn": "Новый список должен включать ваш IP, иначе вы заблокируете себе доступ. Очистите поле, чтобы вернуться к config.json/ADMIN_CIDR.",
-
   "admin.svc.h2": "Сервисы реверс-прокси",
   "admin.svc.hint": "Сервисы из config.json доступны только для чтения (инфраструктура). Добавленные здесь хранятся в services.json.",
   "admin.svc.add": "Добавить проксируемый сервис",
@@ -118,7 +109,6 @@
   "admin.links.add": "Добавить ссылку",
   "admin.vis.public": "публичный",
   "admin.vis.private": "зарезервированный",
-
   "admin.dk.h2": "Обнаружение контейнеров Docker",
   "admin.dk.hint": "Работающие контейнеры с опубликованными портами. «Добавить» создаёт vhost <name>.localhost → host.docker.internal:<port>.",
   "admin.dk.container": "контейнер",
@@ -136,7 +126,6 @@
   "admin.dk.from": "с",
   "admin.dk.to": "по",
   "admin.dk.scan": "сканировать",
-
   "admin.usr.email": "email",
   "admin.usr.enabled_hosts": "разрешённые хосты",
   "admin.usr.all_admin": "все (admin)",
@@ -156,7 +145,6 @@
   "admin.usr.admin_all_note": "Этот пользователь — администратор: он имеет доступ ко всем сервисам, белый список не применяется.",
   "admin.usr.no_services": "нет настроенных сервисов",
   "admin.usr.save_authz": "сохранить авторизации",
-
   "admin.mon.status": "Состояние",
   "admin.mon.state": "статус",
   "admin.mon.last_error": "последняя ошибка",
@@ -171,17 +159,14 @@
   "admin.mon.health_url": "url проверки",
   "admin.mon.interval_s": "интервал (с)",
   "admin.mon.timeout_s": "таймаут (с)",
-
   "admin.edit.title": "Изменить сервис",
   "admin.edit.h1": "Изменить",
   "admin.edit.id_ro": "id (только чтение)",
   "admin.edit.ipallow": "список разрешённых IP (CIDR, необязательно — пусто = без ограничений)",
   "admin.cancel": "отмена",
-
   "admin.qr.title": "2FA для",
   "admin.qr.hint": "Попросите пользователя отсканировать QR приложением-аутентификатором или передайте ему ключ.",
   "admin.qr.back": "назад к пользователям",
-
   "admin.hs.subtitle": "Порты хоста",
   "admin.hs.h1": "Порты, прослушиваемые на хосте",
   "admin.hs.hint": "Порты, доступные через host.docker.internal (например, туннели PuTTY/SSH, сервисы хоста). Отметьте порты и добавьте их массово; пустое имя → host-<port>.",
@@ -191,7 +176,6 @@
   "admin.hs.none": "нет открытых портов в диапазоне",
   "admin.hs.add_selected": "Добавить выбранные",
   "admin.hs.back": "назад к администрированию",
-
   "setup.cred.title": "Первоначальная настройка",
   "setup.profile": "Профиль:",
   "setup.confirm_pw": "Подтвердите пароль",
@@ -201,5 +185,6 @@
   "setup.done.profile": "Профиль",
   "setup.done.activated": "активирован.",
   "setup.done.go_login": "Перейти ко входу",
-  "setup.err.pw_mismatch": "пароли не совпадают"
+  "setup.err.pw_mismatch": "пароли не совпадают",
+  "admin.rule.help": "public: доступно всем. authenticated: пользователи с действующей сессией (2FA). whitelist: только явно авторизованные пользователи (подразумевает аутентификацию); администраторы всегда имеют доступ (override)."
 }

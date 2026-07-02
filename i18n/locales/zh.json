@@ -13,20 +13,16 @@
   "field.email": "电子邮箱",
   "field.password": "密码",
   "lang.label": "语言",
-
   "login.title": "登录",
   "login.or": "或",
   "login.with": "使用以下方式登录",
-
   "totp.title": "两步验证",
   "totp.code": "TOTP 验证码",
-
   "listing.subtitle": "服务",
   "listing.title": "可用服务",
   "listing.empty": "您的账户暂无可用服务。",
   "tag.external": "外部",
   "tag.proxy": "代理",
-
   "profile.subtitle": "个人资料",
   "profile.title": "我的资料",
   "profile.email": "电子邮箱",
@@ -44,19 +40,16 @@
   "profile.pw_updated": "密码已更新。",
   "profile.pw_wrong": "当前密码不正确。",
   "profile.local_only": "仅本地账户可用。",
-
   "qr.new2fa": "新的 2FA",
   "qr.scan": "使用验证器应用扫描 QR 码（或手动输入密钥）。下次登录使用此验证码。",
   "qr.key": "密钥",
   "qr.back_profile": "← 返回个人资料",
-
   "blocked.title": "受限区域",
   "blocked.not_admin": "此账户不是管理员。",
   "blocked.you_are": "您已登录为",
   "blocked.need_admin": "管理区域需要具有管理员标志的账户。",
   "blocked.logout_switch": "登出并切换账户",
   "blocked.to_dashboard": "← 前往仪表板",
-
   "err.bad_request": "无效请求",
   "err.bad_credentials": "凭据无效",
   "err.internal": "内部错误",
@@ -67,7 +60,6 @@
   "err.csrf": "CSRF 校验失败",
   "err.auth_failed": "身份验证失败",
   "err.not_provisioned": "用户未启用",
-
   "admin.title": "管理",
   "admin.subtitle": "管理",
   "admin.services": "服务",
@@ -85,7 +77,6 @@
   "admin.sec.your_ip": "您的 IP：",
   "admin.sec.field": "允许的 IP/CIDR（空格或逗号分隔；单个 IP = /32）",
   "admin.sec.warn": "新列表必须包含您的 IP，否则您将无法访问。清空该字段以恢复为 config.json/ADMIN_CIDR。",
-
   "admin.svc.h2": "反向代理服务",
   "admin.svc.hint": "来自 config.json 的服务为只读（基础设施）。在此处添加的服务保存在 services.json 中。",
   "admin.svc.add": "添加代理服务",
@@ -118,7 +109,6 @@
   "admin.links.add": "添加链接",
   "admin.vis.public": "公开",
   "admin.vis.private": "保留",
-
   "admin.dk.h2": "发现 Docker 容器",
   "admin.dk.hint": "已发布端口的运行中容器。«添加» 会创建一个 vhost <name>.localhost → host.docker.internal:<port>。",
   "admin.dk.container": "容器",
@@ -136,7 +126,6 @@
   "admin.dk.from": "从",
   "admin.dk.to": "到",
   "admin.dk.scan": "扫描",
-
   "admin.usr.email": "电子邮箱",
   "admin.usr.enabled_hosts": "已启用主机",
   "admin.usr.all_admin": "全部（管理员）",
@@ -156,7 +145,6 @@
   "admin.usr.admin_all_note": "此用户为管理员：可访问所有服务，白名单不适用。",
   "admin.usr.no_services": "未配置服务",
   "admin.usr.save_authz": "保存授权",
-
   "admin.mon.status": "状态",
   "admin.mon.state": "状态",
   "admin.mon.last_error": "上次错误",
@@ -171,17 +159,14 @@
   "admin.mon.health_url": "健康检查网址",
   "admin.mon.interval_s": "间隔（秒）",
   "admin.mon.timeout_s": "超时（秒）",
-
   "admin.edit.title": "编辑服务",
   "admin.edit.h1": "编辑",
   "admin.edit.id_ro": "id（只读）",
   "admin.edit.ipallow": "IP 允许列表（CIDR，可选 — 留空 = 无限制）",
   "admin.cancel": "取消",
-
   "admin.qr.title": "2FA 用于",
   "admin.qr.hint": "让用户使用其验证器应用扫描 QR 码，或共享密钥。",
   "admin.qr.back": "返回用户",
-
   "admin.hs.subtitle": "主机端口",
   "admin.hs.h1": "主机上监听的端口",
   "admin.hs.hint": "可通过 host.docker.internal 访问的端口（例如 PuTTY/SSH 隧道、主机服务）。勾选端口并批量添加；名称留空 → host-<port>。",
@@ -191,7 +176,6 @@
   "admin.hs.none": "该范围内无开放端口",
   "admin.hs.add_selected": "添加所选",
   "admin.hs.back": "返回管理",
-
   "setup.cred.title": "初始设置",
   "setup.profile": "账户：",
   "setup.confirm_pw": "确认密码",
@@ -201,5 +185,6 @@
   "setup.done.profile": "账户",
   "setup.done.activated": "已激活。",
   "setup.done.go_login": "前往登录",
-  "setup.err.pw_mismatch": "两次输入的密码不一致"
+  "setup.err.pw_mismatch": "两次输入的密码不一致",
+  "admin.rule.help": "public：对所有人开放。authenticated：拥有有效会话的用户（2FA）。whitelist：仅限明确授权的用户（隐含需要认证）；管理员始终可以访问（override）。"
 }

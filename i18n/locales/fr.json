@@ -13,20 +13,16 @@
   "field.email": "E-mail",
   "field.password": "Mot de passe",
   "lang.label": "Langue",
-
   "login.title": "Se connecter",
   "login.or": "ou",
   "login.with": "Se connecter avec",
-
   "totp.title": "Vérification à deux facteurs",
   "totp.code": "Code TOTP",
-
   "listing.subtitle": "Services",
   "listing.title": "Services disponibles",
   "listing.empty": "Aucun service disponible pour votre profil.",
   "tag.external": "externe",
   "tag.proxy": "proxy",
-
   "profile.subtitle": "Profil",
   "profile.title": "Mon profil",
   "profile.email": "E-mail",
@@ -44,19 +40,16 @@
   "profile.pw_updated": "Mot de passe mis à jour.",
   "profile.pw_wrong": "Le mot de passe actuel est incorrect.",
   "profile.local_only": "Disponible uniquement pour les comptes locaux.",
-
   "qr.new2fa": "Nouvelle 2FA",
   "qr.scan": "Scannez le QR avec votre application d'authentification (ou saisissez la clé manuellement). Votre prochaine connexion utilisera ce code.",
   "qr.key": "Clé",
   "qr.back_profile": "← retour au profil",
-
   "blocked.title": "Zone restreinte",
   "blocked.not_admin": "Ce compte n'est pas administrateur.",
   "blocked.you_are": "Vous êtes connecté en tant que",
   "blocked.need_admin": "La zone d'administration requiert un compte avec l'attribut admin.",
   "blocked.logout_switch": "Se déconnecter et changer de compte",
   "blocked.to_dashboard": "← aller au tableau de bord",
-
   "err.bad_request": "requête invalide",
   "err.bad_credentials": "identifiants invalides",
   "err.internal": "erreur interne",
@@ -67,7 +60,6 @@
   "err.csrf": "échec de la vérification anti-CSRF",
   "err.auth_failed": "échec de l'authentification",
   "err.not_provisioned": "utilisateur non activé",
-
   "admin.title": "Administration",
   "admin.subtitle": "Administration",
   "admin.services": "Services",
@@ -85,7 +77,6 @@
   "admin.sec.your_ip": "Votre IP :",
   "admin.sec.field": "IP/CIDR autorisés (espace ou virgule ; IP unique = /32)",
   "admin.sec.warn": "La nouvelle liste doit inclure votre IP, sinon vous vous bloqueriez l'accès. Videz le champ pour revenir à config.json/ADMIN_CIDR.",
-
   "admin.svc.h2": "Services reverse-proxy",
   "admin.svc.hint": "Les services de config.json sont en lecture seule (infrastructure). Ceux ajoutés ici vivent dans services.json.",
   "admin.svc.add": "Ajouter un service proxifié",
@@ -118,7 +109,6 @@
   "admin.links.add": "Ajouter un lien",
   "admin.vis.public": "public",
   "admin.vis.private": "réservé",
-
   "admin.dk.h2": "Découvrir les conteneurs Docker",
   "admin.dk.hint": "Conteneurs en cours d'exécution avec ports publiés. «Ajouter» crée un vhost <name>.localhost → host.docker.internal:<port>.",
   "admin.dk.container": "conteneur",
@@ -136,7 +126,6 @@
   "admin.dk.from": "de",
   "admin.dk.to": "à",
   "admin.dk.scan": "scanner",
-
   "admin.usr.email": "e-mail",
   "admin.usr.enabled_hosts": "hôtes activés",
   "admin.usr.all_admin": "tous (admin)",
@@ -156,7 +145,6 @@
   "admin.usr.admin_all_note": "Cet utilisateur est administrateur : il accède à tous les services, la whitelist ne s'applique pas.",
   "admin.usr.no_services": "aucun service configuré",
   "admin.usr.save_authz": "enregistrer les autorisations",
-
   "admin.mon.status": "État",
   "admin.mon.state": "état",
   "admin.mon.last_error": "dernière erreur",
@@ -171,17 +159,14 @@
   "admin.mon.health_url": "url de health",
   "admin.mon.interval_s": "intervalle (s)",
   "admin.mon.timeout_s": "délai d'attente (s)",
-
   "admin.edit.title": "Modifier le service",
   "admin.edit.h1": "Modifier",
   "admin.edit.id_ro": "id (lecture seule)",
   "admin.edit.ipallow": "liste d'IP autorisées (CIDR, optionnel — vide = sans limite)",
   "admin.cancel": "annuler",
-
   "admin.qr.title": "2FA pour",
   "admin.qr.hint": "Faites scanner le QR par l'utilisateur avec son application d'authentification, ou partagez la clé.",
   "admin.qr.back": "retour aux utilisateurs",
-
   "admin.hs.subtitle": "Ports hôte",
   "admin.hs.h1": "Ports en écoute sur l'hôte",
   "admin.hs.hint": "Ports accessibles via host.docker.internal (par ex. tunnels PuTTY/SSH, services de l'hôte). Cochez les ports et ajoutez-les en masse ; nom vide → host-<port>.",
@@ -191,7 +176,6 @@
   "admin.hs.none": "aucun port ouvert dans la plage",
   "admin.hs.add_selected": "Ajouter la sélection",
   "admin.hs.back": "retour à l'administration",
-
   "setup.cred.title": "Configuration initiale",
   "setup.profile": "Profil :",
   "setup.confirm_pw": "Confirmer le mot de passe",
@@ -201,5 +185,6 @@
   "setup.done.profile": "Profil",
   "setup.done.activated": "activé.",
   "setup.done.go_login": "Aller à la connexion",
-  "setup.err.pw_mismatch": "les mots de passe ne correspondent pas"
+  "setup.err.pw_mismatch": "les mots de passe ne correspondent pas",
+  "admin.rule.help": "public : ouvert à tous. authenticated : utilisateurs avec une session valide (2FA). whitelist : uniquement les utilisateurs explicitement autorisés (implique l'authentification) ; les administrateurs ont toujours accès (override)."
 }

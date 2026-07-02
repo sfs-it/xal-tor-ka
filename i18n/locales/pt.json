@@ -13,20 +13,16 @@
   "field.email": "Email",
   "field.password": "Palavra-passe",
   "lang.label": "Idioma",
-
   "login.title": "Iniciar sessão",
   "login.or": "ou",
   "login.with": "Iniciar sessão com",
-
   "totp.title": "Verificação de dois fatores",
   "totp.code": "Código TOTP",
-
   "listing.subtitle": "Serviços",
   "listing.title": "Serviços disponíveis",
   "listing.empty": "Nenhum serviço disponível para o seu perfil.",
   "tag.external": "externo",
   "tag.proxy": "proxy",
-
   "profile.subtitle": "Perfil",
   "profile.title": "O meu perfil",
   "profile.email": "Email",
@@ -44,19 +40,16 @@
   "profile.pw_updated": "Palavra-passe atualizada.",
   "profile.pw_wrong": "A palavra-passe atual está incorreta.",
   "profile.local_only": "Disponível apenas para contas locais.",
-
   "qr.new2fa": "Novo 2FA",
   "qr.scan": "Leia o QR com a sua aplicação de autenticação (ou introduza a chave manualmente). O próximo início de sessão usa este código.",
   "qr.key": "Chave",
   "qr.back_profile": "← voltar ao perfil",
-
   "blocked.title": "Área restrita",
   "blocked.not_admin": "Esta conta não é administrador.",
   "blocked.you_are": "Tem sessão iniciada como",
   "blocked.need_admin": "A área de administração requer uma conta com a flag de admin.",
   "blocked.logout_switch": "Terminar sessão e mudar de conta",
   "blocked.to_dashboard": "← ir para o painel",
-
   "err.bad_request": "pedido inválido",
   "err.bad_credentials": "credenciais inválidas",
   "err.internal": "erro interno",
@@ -67,7 +60,6 @@
   "err.csrf": "falha na verificação anti-CSRF",
   "err.auth_failed": "falha na autenticação",
   "err.not_provisioned": "utilizador não ativado",
-
   "admin.title": "Administração",
   "admin.subtitle": "Administração",
   "admin.services": "Serviços",
@@ -85,7 +77,6 @@
   "admin.sec.your_ip": "O seu IP:",
   "admin.sec.field": "IPs/CIDRs autorizados (espaço ou vírgula; IP único = /32)",
   "admin.sec.warn": "A nova lista deve incluir o seu IP, caso contrário ficaria bloqueado. Esvazie o campo para reverter para config.json/ADMIN_CIDR.",
-
   "admin.svc.h2": "Serviços de reverse-proxy",
   "admin.svc.hint": "Os serviços de config.json são só de leitura (infraestrutura). Os adicionados aqui ficam em services.json.",
   "admin.svc.add": "Adicionar serviço com proxy",
@@ -118,7 +109,6 @@
   "admin.links.add": "Adicionar ligação",
   "admin.vis.public": "público",
   "admin.vis.private": "reservado",
-
   "admin.dk.h2": "Descobrir contentores Docker",
   "admin.dk.hint": "Contentores em execução com portas publicadas. «Adicionar» cria um vhost <name>.localhost → host.docker.internal:<port>.",
   "admin.dk.container": "contentor",
@@ -136,7 +126,6 @@
   "admin.dk.from": "de",
   "admin.dk.to": "a",
   "admin.dk.scan": "analisar",
-
   "admin.usr.email": "email",
   "admin.usr.enabled_hosts": "hosts ativados",
   "admin.usr.all_admin": "todos (admin)",
@@ -156,7 +145,6 @@
   "admin.usr.admin_all_note": "Este utilizador é administrador: acede a todos os serviços, a whitelist não se aplica.",
   "admin.usr.no_services": "nenhum serviço configurado",
   "admin.usr.save_authz": "guardar autorizações",
-
   "admin.mon.status": "Estado",
   "admin.mon.state": "estado",
   "admin.mon.last_error": "último erro",
@@ -171,17 +159,14 @@
   "admin.mon.health_url": "url de saúde",
   "admin.mon.interval_s": "intervalo (s)",
   "admin.mon.timeout_s": "tempo limite (s)",
-
   "admin.edit.title": "Editar serviço",
   "admin.edit.h1": "Editar",
   "admin.edit.id_ro": "id (só de leitura)",
   "admin.edit.ipallow": "lista de IPs autorizados (CIDR, opcional — vazio = sem limite)",
   "admin.cancel": "cancelar",
-
   "admin.qr.title": "2FA para",
   "admin.qr.hint": "Peça ao utilizador para ler o QR com a sua aplicação de autenticação, ou partilhe a chave.",
   "admin.qr.back": "voltar aos utilizadores",
-
   "admin.hs.subtitle": "Portas do host",
   "admin.hs.h1": "Portas à escuta no host",
   "admin.hs.hint": "Portas acessíveis via host.docker.internal (ex. túneis PuTTY/SSH, serviços do host). Marque as portas e adicione-as em bloco; nome vazio → host-<port>.",
@@ -191,7 +176,6 @@
   "admin.hs.none": "nenhuma porta aberta no intervalo",
   "admin.hs.add_selected": "Adicionar selecionadas",
   "admin.hs.back": "voltar à administração",
-
   "setup.cred.title": "Configuração inicial",
   "setup.profile": "Perfil:",
   "setup.confirm_pw": "Confirmar palavra-passe",
@@ -201,5 +185,6 @@
   "setup.done.profile": "Perfil",
   "setup.done.activated": "ativado.",
   "setup.done.go_login": "Ir para o início de sessão",
-  "setup.err.pw_mismatch": "as palavras-passe não coincidem"
+  "setup.err.pw_mismatch": "as palavras-passe não coincidem",
+  "admin.rule.help": "public: aberto a todos. authenticated: utilizadores com sessão válida (2FA). whitelist: apenas utilizadores explicitamente autorizados (implica autenticação); os administradores têm sempre acesso (override)."
 }

@@ -13,20 +13,16 @@
   "field.email": "البريد الإلكتروني",
   "field.password": "كلمة المرور",
   "lang.label": "اللغة",
-
   "login.title": "تسجيل الدخول",
   "login.or": "أو",
   "login.with": "تسجيل الدخول باستخدام",
-
   "totp.title": "التحقّق بخطوتين",
   "totp.code": "رمز TOTP",
-
   "listing.subtitle": "الخدمات",
   "listing.title": "الخدمات المتاحة",
   "listing.empty": "لا توجد خدمات متاحة لملفك الشخصي.",
   "tag.external": "خارجي",
   "tag.proxy": "وكيل",
-
   "profile.subtitle": "الملف الشخصي",
   "profile.title": "ملفي الشخصي",
   "profile.email": "البريد الإلكتروني",
@@ -44,19 +40,16 @@
   "profile.pw_updated": "تم تحديث كلمة المرور.",
   "profile.pw_wrong": "كلمة المرور الحالية غير صحيحة.",
   "profile.local_only": "متاح فقط للحسابات المحلية.",
-
   "qr.new2fa": "2FA جديد",
   "qr.scan": "امسح رمز QR بتطبيق المصادقة لديك (أو أدخل المفتاح يدوياً). سيستخدم تسجيل دخولك التالي هذا الرمز.",
   "qr.key": "المفتاح",
   "qr.back_profile": "← العودة إلى الملف الشخصي",
-
   "blocked.title": "منطقة مقيّدة",
   "blocked.not_admin": "هذا الحساب ليس مسؤولاً.",
   "blocked.you_are": "أنت مسجّل الدخول باسم",
   "blocked.need_admin": "تتطلّب منطقة الإدارة حساباً يحمل صلاحية المسؤول.",
   "blocked.logout_switch": "تسجيل الخروج وتبديل الحساب",
   "blocked.to_dashboard": "← الانتقال إلى لوحة التحكم",
-
   "err.bad_request": "طلب غير صالح",
   "err.bad_credentials": "بيانات اعتماد غير صالحة",
   "err.internal": "خطأ داخلي",
@@ -67,7 +60,6 @@
   "err.csrf": "فشل التحقّق ضد CSRF",
   "err.auth_failed": "فشلت المصادقة",
   "err.not_provisioned": "المستخدم غير مُفعّل",
-
   "admin.title": "الإدارة",
   "admin.subtitle": "الإدارة",
   "admin.services": "الخدمات",
@@ -85,7 +77,6 @@
   "admin.sec.your_ip": "عنوان IP الخاص بك:",
   "admin.sec.field": "عناوين IP/CIDR المسموح بها (مسافة أو فاصلة؛ IP مفرد = /32)",
   "admin.sec.warn": "يجب أن تتضمّن القائمة الجديدة عنوان IP الخاص بك، وإلا فستحجب نفسك. أفرغ الحقل للعودة إلى config.json/ADMIN_CIDR.",
-
   "admin.svc.h2": "خدمات الوكيل العكسي",
   "admin.svc.hint": "الخدمات من config.json للقراءة فقط (بنية تحتية). أمّا المضافة هنا فتوجد في services.json.",
   "admin.svc.add": "إضافة خدمة عبر الوكيل",
@@ -118,7 +109,6 @@
   "admin.links.add": "إضافة رابط",
   "admin.vis.public": "عام",
   "admin.vis.private": "محجوز",
-
   "admin.dk.h2": "اكتشاف حاويات Docker",
   "admin.dk.hint": "الحاويات قيد التشغيل ذات المنافذ المنشورة. «إضافة» تنشئ vhost بالشكل <name>.localhost ← host.docker.internal:<port>.",
   "admin.dk.container": "الحاوية",
@@ -136,7 +126,6 @@
   "admin.dk.from": "من",
   "admin.dk.to": "إلى",
   "admin.dk.scan": "فحص",
-
   "admin.usr.email": "البريد الإلكتروني",
   "admin.usr.enabled_hosts": "المضيفون المُفعّلون",
   "admin.usr.all_admin": "الكل (مسؤول)",
@@ -156,7 +145,6 @@
   "admin.usr.admin_all_note": "هذا المستخدم مسؤول: يصل إلى جميع الخدمات، ولا تنطبق القائمة البيضاء.",
   "admin.usr.no_services": "لا توجد خدمة مُهيّأة",
   "admin.usr.save_authz": "حفظ الصلاحيات",
-
   "admin.mon.status": "الحالة",
   "admin.mon.state": "الوضع",
   "admin.mon.last_error": "آخر خطأ",
@@ -171,17 +159,14 @@
   "admin.mon.health_url": "رابط الصحّة",
   "admin.mon.interval_s": "الفاصل الزمني (ث)",
   "admin.mon.timeout_s": "المهلة (ث)",
-
   "admin.edit.title": "تحرير الخدمة",
   "admin.edit.h1": "تحرير",
   "admin.edit.id_ro": "المعرّف (للقراءة فقط)",
   "admin.edit.ipallow": "قائمة IP المسموح بها (CIDR، اختياري — فارغ = بلا حدّ)",
   "admin.cancel": "إلغاء",
-
   "admin.qr.title": "2FA لـ",
   "admin.qr.hint": "اطلب من المستخدم مسح رمز QR بتطبيق المصادقة لديه، أو شارك المفتاح.",
   "admin.qr.back": "العودة إلى المستخدمين",
-
   "admin.hs.subtitle": "منافذ المضيف",
   "admin.hs.h1": "المنافذ المستمعة على المضيف",
   "admin.hs.hint": "المنافذ التي يمكن الوصول إليها عبر host.docker.internal (مثل أنفاق PuTTY/SSH وخدمات المضيف). حدّد المنافذ وأضِفها دفعة واحدة؛ اسم فارغ ← host-<port>.",
@@ -191,7 +176,6 @@
   "admin.hs.none": "لا يوجد منفذ مفتوح في النطاق",
   "admin.hs.add_selected": "إضافة المحدّد",
   "admin.hs.back": "العودة إلى الإدارة",
-
   "setup.cred.title": "الإعداد الأولي",
   "setup.profile": "الملف الشخصي:",
   "setup.confirm_pw": "تأكيد كلمة المرور",
@@ -201,5 +185,6 @@
   "setup.done.profile": "الملف الشخصي",
   "setup.done.activated": "مُفعّل.",
   "setup.done.go_login": "الانتقال إلى تسجيل الدخول",
-  "setup.err.pw_mismatch": "كلمتا المرور غير متطابقتين"
+  "setup.err.pw_mismatch": "كلمتا المرور غير متطابقتين",
+  "admin.rule.help": "public: متاح للجميع. authenticated: المستخدمون بجلسة صالحة (2FA). whitelist: المستخدمون المصرّح لهم صراحةً فقط (يستلزم المصادقة)؛ للمسؤولين دائمًا صلاحية الوصول (override)."
 }

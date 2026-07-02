@@ -13,20 +13,16 @@
   "field.email": "Email",
   "field.password": "Password",
   "lang.label": "Lingua",
-
   "login.title": "Accedi",
   "login.or": "oppure",
   "login.with": "Accedi con",
-
   "totp.title": "Verifica in due passaggi",
   "totp.code": "Codice TOTP",
-
   "listing.subtitle": "Servizi",
   "listing.title": "Servizi disponibili",
   "listing.empty": "Nessun servizio disponibile per il tuo profilo.",
   "tag.external": "esterno",
   "tag.proxy": "proxy",
-
   "profile.subtitle": "Profilo",
   "profile.title": "Il mio profilo",
   "profile.email": "Email",
@@ -44,19 +40,16 @@
   "profile.pw_updated": "Password aggiornata.",
   "profile.pw_wrong": "La password attuale non è corretta.",
   "profile.local_only": "Disponibile solo per gli account locali.",
-
   "qr.new2fa": "Nuova 2FA",
   "qr.scan": "Scansiona il QR con la tua app di autenticazione (o inserisci la chiave manualmente). Il prossimo accesso userà questo codice.",
   "qr.key": "Chiave",
   "qr.back_profile": "← torna al profilo",
-
   "blocked.title": "Area riservata",
   "blocked.not_admin": "Questo account non è un amministratore.",
   "blocked.you_are": "Hai effettuato l'accesso come",
   "blocked.need_admin": "L'area di amministrazione richiede un account con il flag admin.",
   "blocked.logout_switch": "Esci e cambia account",
   "blocked.to_dashboard": "← vai alla dashboard",
-
   "err.bad_request": "richiesta non valida",
   "err.bad_credentials": "credenziali non valide",
   "err.internal": "errore interno",
@@ -67,7 +60,6 @@
   "err.csrf": "controllo anti-CSRF fallito",
   "err.auth_failed": "autenticazione fallita",
   "err.not_provisioned": "utente non abilitato",
-
   "admin.title": "Amministrazione",
   "admin.subtitle": "Amministrazione",
   "admin.services": "Servizi",
@@ -85,7 +77,6 @@
   "admin.sec.your_ip": "Il tuo IP:",
   "admin.sec.field": "IP/CIDR autorizzati (spazio o virgola; IP singolo = /32)",
   "admin.sec.warn": "La nuova lista deve includere il tuo IP, altrimenti ti chiuderesti fuori. Svuota il campo per tornare a config.json/ADMIN_CIDR.",
-
   "admin.svc.h2": "Servizi reverse-proxy",
   "admin.svc.hint": "I servizi da config.json sono in sola lettura (infrastruttura). Quelli aggiunti qui vivono in services.json.",
   "admin.svc.add": "Aggiungi servizio proxato",
@@ -118,7 +109,6 @@
   "admin.links.add": "Aggiungi link",
   "admin.vis.public": "pubblico",
   "admin.vis.private": "riservato",
-
   "admin.dk.h2": "Scopri container Docker",
   "admin.dk.hint": "Container in esecuzione con porte pubblicate. «Aggiungi» crea un vhost <name>.localhost → host.docker.internal:<port>.",
   "admin.dk.container": "container",
@@ -136,7 +126,6 @@
   "admin.dk.from": "da",
   "admin.dk.to": "a",
   "admin.dk.scan": "scansiona",
-
   "admin.usr.email": "email",
   "admin.usr.enabled_hosts": "host abilitati",
   "admin.usr.all_admin": "tutti (admin)",
@@ -156,7 +145,6 @@
   "admin.usr.admin_all_note": "Questo utente è un amministratore: accede a tutti i servizi, la whitelist non si applica.",
   "admin.usr.no_services": "nessun servizio configurato",
   "admin.usr.save_authz": "salva autorizzazioni",
-
   "admin.mon.status": "Stato",
   "admin.mon.state": "stato",
   "admin.mon.last_error": "ultimo errore",
@@ -171,17 +159,14 @@
   "admin.mon.health_url": "url health",
   "admin.mon.interval_s": "intervallo (s)",
   "admin.mon.timeout_s": "timeout (s)",
-
   "admin.edit.title": "Modifica servizio",
   "admin.edit.h1": "Modifica",
   "admin.edit.id_ro": "id (sola lettura)",
   "admin.edit.ipallow": "lista IP consentiti (CIDR, opzionale — vuoto = nessun limite)",
   "admin.cancel": "annulla",
-
   "admin.qr.title": "2FA per",
   "admin.qr.hint": "Fai scansionare all'utente il QR con la sua app di autenticazione, oppure condividi la chiave.",
   "admin.qr.back": "torna agli utenti",
-
   "admin.hs.subtitle": "Porte host",
   "admin.hs.h1": "Porte in ascolto sull'host",
   "admin.hs.hint": "Porte raggiungibili tramite host.docker.internal (es. tunnel PuTTY/SSH, servizi host). Spunta le porte e aggiungile in blocco; nome vuoto → host-<port>.",
@@ -191,7 +176,6 @@
   "admin.hs.none": "nessuna porta aperta nell'intervallo",
   "admin.hs.add_selected": "Aggiungi selezionati",
   "admin.hs.back": "torna all'amministrazione",
-
   "setup.cred.title": "Configurazione iniziale",
   "setup.profile": "Profilo:",
   "setup.confirm_pw": "Conferma password",
@@ -201,5 +185,6 @@
   "setup.done.profile": "Profilo",
   "setup.done.activated": "attivato.",
   "setup.done.go_login": "Vai al login",
-  "setup.err.pw_mismatch": "le password non coincidono"
+  "setup.err.pw_mismatch": "le password non coincidono",
+  "admin.rule.help": "public: aperto a tutti. authenticated: utenti con sessione valida (2FA). whitelist: solo utenti esplicitamente autorizzati (implica l'autenticazione); gli amministratori accedono sempre (override)."
 }

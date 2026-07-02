@@ -127,7 +127,7 @@ var servicesTmpl = locParse("services", `<section>
    <div><label>{{T "admin.f.url"}}</label><input name="url" placeholder="https://app.dominio.it"></div>
    <div><label>{{T "admin.f.ipallow"}}</label><input name="ip_allow" placeholder="203.0.113.0/24"></div>
    <div><button class="btn primary">{{T "btn.add"}}</button></div>
-  </div></form></div>
+  </div><p class="hint">{{T "admin.rule.help"}}</p></form></div>
 </section>
 <section>
  <h2>{{T "admin.links.h2"}}</h2><p class="hint">{{T "admin.links.hint"}}</p>
@@ -282,6 +282,7 @@ var adminEditTmpl = locParse("adminedit", `<!doctype html>
      <option {{if eq .Rule "public"}}selected{{end}}>public</option></select></div>
     <div><label>{{T "admin.f.upstream"}}</label><input name="upstream" value="{{.Upstream}}" required></div>
    </div>
+   <p class="hint">{{T "admin.rule.help"}}</p>
    <div style="margin-top:.6rem"><label>{{T "admin.f.desc"}}</label><input name="description" value="{{.Description}}"></div>
    <div style="margin-top:.6rem"><label>{{T "admin.edit.ipallow"}}</label><input name="ip_allow" value="{{.IPAllow}}" placeholder="es. 203.0.113.0/24 10.0.0.5"></div>
    <div class="actions" style="justify-content:flex-start;margin-top:1rem">
