@@ -6,6 +6,7 @@ package main
 import (
 	"testing"
 
+	"xaltorka/handlers"
 	"xaltorka/models"
 )
 
@@ -24,7 +25,7 @@ func TestBuildOIDC(t *testing.T) {
 		"google": {ClientSecret: "secret"},
 	}}
 
-	got := buildOIDC(cfg, sec)
+	got := handlers.BuildOIDC(cfg.Providers, sec, cfg.Server.ExternalURL)
 	if len(got) != 1 {
 		t.Fatalf("buildOIDC = %d providers, want 1 (only enabled oidc)", len(got))
 	}

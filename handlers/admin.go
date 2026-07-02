@@ -39,6 +39,7 @@ func adminTopbar(active, lang string) string {
 	items := []struct{ key, href, k string }{
 		{"servizi", "/admin/servizi", "admin.services"},
 		{"docker", "/admin/docker", "admin.docker"},
+		{"providers", "/admin/providers", "admin.providers"},
 		{"utenti", "/admin/utenti", "admin.users"},
 		{"monitoring", "/admin/monitoring", "admin.monitoring"},
 	}

@@ -36,8 +36,8 @@ type oidcButton struct {
 // oidcButtons lists the enabled OIDC providers (in config order) for the login page.
 func (s *Server) oidcButtons() []oidcButton {
 	var bs []oidcButton
-	for _, p := range s.Cfg.Providers {
-		if pr, ok := s.OIDC[p.ID]; ok {
+	for _, p := range s.currentProviders() {
+		if pr, ok := s.oidcFor(p.ID); ok {
 			bs = append(bs, oidcButton{ID: pr.ID(), Name: pr.Name()})
 		}
 	}
@@ -69,7 +69,7 @@ func randB64() string {
 // stores them in a short-lived cookie and redirects the browser to the IdP.
 func (s *Server) handleOIDCStart(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("provider")
-	p, ok := s.OIDC[id]
+	p, ok := s.oidcFor(id)
 	if !ok {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
@@ -100,7 +100,7 @@ func (s *Server) handleOIDCStart(w http.ResponseWriter, r *http.Request) {
 // code, maps the verified email to a provisioned user and opens a session.
 func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("provider")
-	p, ok := s.OIDC[id]
+	p, ok := s.oidcFor(id)
 	if !ok {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return

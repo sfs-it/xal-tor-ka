@@ -61,11 +61,15 @@ type Server struct {
 	// BaseBackends are the static config.json backends; services.json backends
 	// are merged on top at Reload time.
 	BaseBackends []models.Backend
+	// BaseProviders are the static config.json auth providers; services.json
+	// providers are merged on top (by id) at Reload time.
+	BaseProviders []models.ProviderCfg
 
-	mu       sync.RWMutex
-	links    []models.Link    // dashboard link tiles (from services.json), reloadable
-	adminIPs []string         // effective admin IP whitelist (services.json override, else empty→config)
-	monitors []models.Monitor // standalone health monitors (from services.json), reloadable
+	mu        sync.RWMutex
+	links     []models.Link        // dashboard link tiles (from services.json), reloadable
+	adminIPs  []string             // effective admin IP whitelist (services.json override, else empty→config)
+	monitors  []models.Monitor     // standalone health monitors (from services.json), reloadable
+	providers []models.ProviderCfg // effective auth providers (config + services), reloadable
 }
 
 // HealthTargets returns the set the health checker probes: the proxied backends
@@ -110,15 +114,46 @@ func (s *Server) Reload() error {
 		}
 	}
 	s.Resolver.Set(merged)
+
+	// Rebuild the effective provider set (config base + services runtime, merged by
+	// id) and the OIDC client map, hot-swapped under the lock — no restart needed.
+	provs := mergeProviders(s.BaseProviders, svc.Providers)
+	sec, _ := config.LoadSecretsRaw(s.SecretsPath)
+	oidc := BuildOIDC(provs, sec, s.Cfg.Server.ExternalURL)
+
 	s.mu.Lock()
 	s.links = svc.Links
 	s.adminIPs = svc.AdminIPWhitelist // empty → adminAllowed falls back to config
 	s.monitors = svc.Monitors
+	s.providers = provs
+	s.OIDC = oidc
 	s.mu.Unlock()
 	if err := s.Proxy.Apply(merged); err != nil {
 		return err
 	}
 	return nil
+}
+
+// oidcFor returns the built OIDC client for a provider id, under the read lock.
+func (s *Server) oidcFor(id string) (*providers.OIDC, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	p, ok := s.OIDC[id]
+	return p, ok
+}
+
+// currentProviders returns a copy of the effective provider set. Before the first
+// Reload (or if it failed) it falls back to the static config providers.
+func (s *Server) currentProviders() []models.ProviderCfg {
+	s.mu.RLock()
+	p := s.providers
+	s.mu.RUnlock()
+	if p == nil {
+		return s.BaseProviders
+	}
+	cp := make([]models.ProviderCfg, len(p))
+	copy(cp, p)
+	return cp
 }
 
 func (s *Server) currentLinks() []models.Link {
@@ -180,6 +215,13 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /admin/adminips", s.handleAdminIPs)
 	mux.HandleFunc("POST /admin/monitor/add", s.handleMonitorAdd)
 	mux.HandleFunc("POST /admin/monitor/del", s.handleMonitorDel)
+	mux.HandleFunc("GET /admin/providers", s.handleAdminProviders)
+	mux.HandleFunc("GET /admin/provider/edit", s.handleProviderEditForm)
+	mux.HandleFunc("POST /admin/provider/add", s.handleProviderAdd)
+	mux.HandleFunc("POST /admin/provider/edit", s.handleProviderEdit)
+	mux.HandleFunc("POST /admin/provider/del", s.handleProviderDel)
+	mux.HandleFunc("POST /admin/provider/toggle", s.handleProviderToggle)
+	mux.HandleFunc("POST /admin/provider/test", s.handleProviderTest)
 	return mux
 }
 

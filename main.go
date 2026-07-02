@@ -125,7 +125,7 @@ func run() error {
 		Sessions:          store,
 		Resolver:          matrix.NewResolver(&bundle.Config),
 		Local:             providers.NewLocal(dir),
-		OIDC:              buildOIDC(&bundle.Config, bundle.Secrets),
+		OIDC:              handlers.BuildOIDC(bundle.Config.Providers, bundle.Secrets, bundle.Config.Server.ExternalURL),
 		UpstreamLocalhost: upstreamLocal,
 		UsersPath:         resolvePath(*configDir, bundle.Config.UsersFile, "users.json"),
 		BackupsDir:        filepath.Join(*configDir, "backups"),
@@ -133,6 +133,7 @@ func run() error {
 		ServicesPath:      resolvePath(*configDir, bundle.Config.ServicesFile, "services.json"),
 		SecretsPath:       resolvePath(*configDir, bundle.Config.SecretsFile, "secrets.json"),
 		BaseBackends:      bundle.Config.Backends,
+		BaseProviders:     bundle.Config.Providers,
 		DockerProxyURL:    getenv("DOCKER_PROXY", ""),
 		DockerExclude:     splitCSV(getenv("DISCOVER_EXCLUDE", "xaltorka,docker-socket-proxy")),
 		Audit:             auditLog,
@@ -203,28 +204,6 @@ func run() error {
 	}
 	slog.Info("server stopped")
 	return nil
-}
-
-// buildOIDC constructs the enabled OIDC providers from config + secrets. The
-// redirect URL is derived from server.external_url and must match what is
-// registered with each IdP: <external_url>/auth/<id>/callback. Discovery is lazy,
-// so an unreachable issuer here does not block startup.
-func buildOIDC(cfg *models.Config, sec models.Secrets) map[string]*providers.OIDC {
-	out := map[string]*providers.OIDC{}
-	base := strings.TrimRight(cfg.Server.ExternalURL, "/")
-	for _, p := range cfg.Providers {
-		if p.Type != "oidc" || !p.Enabled {
-			continue
-		}
-		redirect := base + "/auth/" + p.ID + "/callback"
-		out[p.ID] = providers.NewOIDC(
-			p.ID, p.Name, p.Issuer,
-			p.ClientID, sec.Providers[p.ID].ClientSecret,
-			redirect, nil,
-		)
-		slog.Info("oidc provider enabled", "id", p.ID, "issuer", p.Issuer, "redirect", redirect)
-	}
-	return out
 }
 
 // runSetup creates the one-time setup profile (token + email) consumed by the

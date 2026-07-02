@@ -94,11 +94,11 @@ func TestReadOIDCStateInvalid(t *testing.T) {
 
 func TestOIDCButtons(t *testing.T) {
 	s := &Server{
-		Cfg: &models.Config{Providers: []models.ProviderCfg{
+		BaseProviders: []models.ProviderCfg{
 			{ID: "local", Type: "local", Enabled: true},
 			{ID: "google", Type: "oidc", Name: "Google", Enabled: true},
 			{ID: "microsoft", Type: "oidc", Name: "Microsoft", Enabled: true},
-		}},
+		},
 		OIDC: map[string]*providers.OIDC{
 			// Only google is "enabled" on the registry side (microsoft absent → no button).
 			"google": providers.NewOIDC("google", "Google", "https://accounts.google.com", "cid", "sec", "https://gate/cb", nil),

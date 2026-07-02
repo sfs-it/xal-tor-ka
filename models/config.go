@@ -138,6 +138,10 @@ type Services struct {
 	Backends         []Backend `json:"backends"`
 	Links            []Link    `json:"links"`
 	Monitors         []Monitor `json:"monitors,omitempty"`
+	// Providers are runtime-managed authentication providers (admin UI), merged
+	// on top of config.json providers by id. Non-secret fields only; the OIDC
+	// client_secret stays in secrets.json (keyed by provider id).
+	Providers []ProviderCfg `json:"providers,omitempty"`
 }
 
 // Monitor is a standalone health probe shown in the admin Monitoring page,
