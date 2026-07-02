@@ -104,7 +104,7 @@ var servicesTmpl = locParse("services", `<section>
  {{range .ConfigBackends}}<tr><td>{{.ID}} <span class="tag ro">config</span></td>
    <td><a href="//{{.Host}}" target="_blank" rel="noopener"><code>{{.Host}}</code></a></td>
    <td>{{range .Routes}}<span class="tag">{{.Rule}}</span> {{end}}</td>
-   <td>{{range .Routes}}<code>{{.Upstream}}</code><br>{{end}}</td><td></td><td></td></tr>{{end}}
+   <td>{{range .Routes}}<code>{{.Upstream}}</code><br>{{end}}</td><td></td><td class="rowact"><a class="btn sm" href="/admin/tls#h-{{.Host}}">{{T "admin.tls.manage"}}</a></td></tr>{{end}}
  {{range .ServiceBackends}}<tr{{if .Disabled}} class="off"{{end}}>
    <td><b>{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</b>{{if .Disabled}} <span class="tag ro">off</span>{{end}}{{if .Description}}<div class="hint">{{.Description}}</div>{{end}}</td>
    <td><a href="//{{.Host}}" target="_blank" rel="noopener"><code>{{.Host}}</code></a></td>
@@ -113,6 +113,7 @@ var servicesTmpl = locParse("services", `<section>
    <td>{{if .IPAllow}}🔒 {{range .IPAllow}}<code>{{.}}</code> {{end}}{{end}}</td>
    <td class="rowact">
     <a class="btn sm" href="/admin/backend/edit?id={{.ID}}">{{T "admin.act.edit"}}</a>
+    <a class="btn sm" href="/admin/tls#h-{{.Host}}">{{T "admin.tls.manage"}}</a>
     <form class="inline" method="post" action="/admin/backend/toggle"><input type="hidden" name="id" value="{{.ID}}"><button class="btn sm">{{if .Disabled}}{{T "admin.act.enable"}}{{else}}{{T "admin.act.disable"}}{{end}}</button></form>
     <form class="inline" method="post" action="/admin/backend/del" onsubmit="return confirm('{{T "admin.confirm_del"}}')"><input type="hidden" name="id" value="{{.ID}}"><button class="btn danger sm">{{T "admin.act.delete"}}</button></form>
    </td></tr>
@@ -281,7 +282,7 @@ var adminEditTmpl = locParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{if .Nam
     <tr><th>{{T "admin.col.ipallow"}}</th><td><input name="ip_allow" value="{{.IPAllow}}" placeholder="203.0.113.0/24 10.0.0.5"></td><td class="fhelp">{{T "admin.edit.help.ipallow"}}</td></tr>
    </tbody></table>
    <div class="actions" style="margin-top:1rem">
-    <button class="btn primary">{{T "btn.save"}}</button><a class="btn" href="/admin/servizi">{{T "admin.cancel"}}</a></div>
+    <button class="btn primary">{{T "btn.save"}}</button><a class="btn" href="/admin/tls#h-{{.Host}}">{{T "admin.tls.manage"}}</a><a class="btn" href="/admin/servizi">{{T "admin.cancel"}}</a></div>
   </form>
  </div>`)
 

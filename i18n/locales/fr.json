@@ -117,6 +117,7 @@
   "admin.monitoring": "Supervision",
   "admin.tls": "TLS",
   "admin.tls.h2": "Certificats",
+  "admin.tls.manage": "Gérer SSL",
   "admin.tls.hint": "Émettez et renouvelez les certificats TLS des hôtes servis. Let's Encrypt (ACME) exige que l'hôte résolve publiquement vers cette passerelle avec le port 80 accessible ; utilisez la CA interne pour les hôtes LAN/dev sans DNS public.",
   "admin.tls.col.source": "source",
   "admin.tls.col.expiry": "expiration",

@@ -68,6 +68,9 @@ func main() {
 		case "restore":
 			exitOnErr(runRestore(os.Args[2:]))
 			return
+		case "cert":
+			exitOnErr(runCert(os.Args[2:]))
+			return
 		}
 	}
 	if err := run(); err != nil {
@@ -231,6 +234,107 @@ func run() error {
 	}
 	slog.Info("server stopped")
 	return nil
+}
+
+// runCert issues, renews or lists TLS certificates from the CLI: ACME/Let's
+// Encrypt via the webroot HTTP-01 challenge, or the internal self-signed CA.
+// It needs the stack running (NGINX serves the webroot + the vhost); it writes
+// the certificate and regenerates the NGINX config so the HTTPS vhost appears
+// (the NGINX poller reloads). No admin session or HTTPS bootstrap needed.
+//
+//	xaltorka cert issue <host> [--self-signed]
+//	xaltorka cert renew <host>
+//	xaltorka cert list
+func runCert(args []string) error {
+	fs := flag.NewFlagSet("cert", flag.ExitOnError)
+	dir := fs.String("config", ".", "configuration directory")
+	selfSigned := fs.Bool("self-signed", false, "issue via the internal CA instead of ACME")
+	_ = fs.Parse(args)
+	rest := fs.Args()
+	if len(rest) < 1 {
+		return errors.New("usage: cert <issue|renew|list> [host] [--self-signed]")
+	}
+	bundle, err := config.Load(*dir)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	defReload := ""
+	if getenv("DEPLOY_MODE", "docker") == "host" {
+		defReload = "nginx -s reload"
+	}
+	nginxCertDir := getenv("NGINX_CERT_DIR", "/etc/nginx/certs")
+	pm := &proxy.Manager{
+		OutPath:    filepath.Join(*dir, "nginx", "conf.d", "backends.conf"),
+		BackupsDir: filepath.Join(*dir, "backups"),
+		ReloadCmd:  getenv("NGINX_RELOAD_CMD", defReload),
+		Gen: proxy.GenConfig{
+			Upstream: getenv("PROXY_UPSTREAM", "xaltorka:8080"),
+			Resolver: getenv("PROXY_RESOLVER", "127.0.0.11"),
+			CertDir:  nginxCertDir,
+		},
+	}
+	cm := &certmgr.Manager{
+		Dir:          filepath.Join(*dir, "certs"),
+		NginxDir:     nginxCertDir,
+		Email:        bundle.Config.TLS.ACME.Email,
+		DirectoryURL: getenv("ACME_DIRECTORY_URL", ""),
+	}
+	pm.Gen.HasCert = cm.HasCert
+	// served backends (config + enabled services) → used to regenerate the vhosts.
+	served := func() []models.Backend {
+		merged := append([]models.Backend{}, bundle.Config.Backends...)
+		if svc, err := config.LoadServices(resolvePath(*dir, bundle.Config.ServicesFile, "services.json")); err == nil {
+			for _, b := range svc.Backends {
+				if !b.Disabled {
+					merged = append(merged, b)
+				}
+			}
+		}
+		return merged
+	}
+	cm.Reload = func() error { return pm.Apply(served()) }
+
+	switch rest[0] {
+	case "issue", "renew":
+		if len(rest) < 2 {
+			return errors.New("cert issue/renew requires a <host>")
+		}
+		host := rest[1]
+		if *selfSigned {
+			if err := cm.IssueSelfSigned(host); err != nil {
+				return err
+			}
+			fmt.Println("self-signed certificate issued for", host)
+			return nil
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+		defer cancel()
+		if err := cm.IssueACME(ctx, host); err != nil {
+			return fmt.Errorf("acme issue %s: %w", host, err)
+		}
+		fmt.Println("certificate issued for", host)
+		return nil
+	case "list":
+		seen := map[string]bool{}
+		var hosts []string
+		for _, b := range served() {
+			if b.Host != "" && !seen[b.Host] {
+				seen[b.Host] = true
+				hosts = append(hosts, b.Host)
+			}
+		}
+		for _, in := range cm.List(hosts) {
+			src, exp := "-", "-"
+			if in.Source != certmgr.SourceNone {
+				src = string(in.Source)
+				exp = in.NotAfter.Format("2006-01-02")
+			}
+			fmt.Printf("%-30s %-12s %s\n", in.Host, src, exp)
+		}
+		return nil
+	default:
+		return fmt.Errorf("unknown cert subcommand %q (use issue|renew|list)", rest[0])
+	}
 }
 
 // runSetup creates the one-time setup profile (token + email) consumed by the

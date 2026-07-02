@@ -117,6 +117,7 @@
   "admin.monitoring": "Мониторинг",
   "admin.tls": "TLS",
   "admin.tls.h2": "Сертификаты",
+  "admin.tls.manage": "Управление SSL",
   "admin.tls.hint": "Выпускайте и обновляйте TLS-сертификаты для обслуживаемых хостов. Let's Encrypt (ACME) требует, чтобы хост публично разрешался в этот шлюз и порт 80 был доступен; для хостов LAN/dev без публичного DNS используйте внутренний CA.",
   "admin.tls.col.source": "источник",
   "admin.tls.col.expiry": "истекает",

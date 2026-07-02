@@ -117,6 +117,7 @@
   "admin.monitoring": "निगरानी",
   "admin.tls": "TLS",
   "admin.tls.h2": "प्रमाणपत्र",
+  "admin.tls.manage": "SSL प्रबंधन",
   "admin.tls.hint": "सेवित होस्ट के लिए TLS प्रमाणपत्र जारी और नवीनीकृत करें। Let's Encrypt (ACME) के लिए होस्ट का इस गेटवे पर सार्वजनिक रूप से रिज़ॉल्व होना और पोर्ट 80 पहुँच-योग्य होना आवश्यक है; बिना सार्वजनिक DNS वाले LAN/dev होस्ट के लिए आंतरिक CA उपयोग करें।",
   "admin.tls.col.source": "स्रोत",
   "admin.tls.col.expiry": "समाप्ति",

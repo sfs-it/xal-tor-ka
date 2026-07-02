@@ -39,3 +39,9 @@
 /CHANGELOG.md
 /HISTORY.md
 /PHONETALK=chat=Xal-Tor-Ka.zip
+
+# SSH key dedicata ai test sulla VPS (mai versionata)
+/.ssh-vps/
+
+# Backup tirati giù dalla VPS (mai versionati)
+/.vps-backups/

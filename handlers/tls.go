@@ -50,7 +50,7 @@ var tlsTmpl = locParse("tls", `<section>
  <p class="hint">{{T "admin.tls.hint"}}</p>
  {{if .HasMsg}}<div class="{{if .MsgOK}}ok{{else}}err{{end}}">{{T (print "admin.tls." .Msg)}}</div>{{end}}
  <table><thead><tr><th>{{T "admin.col.host"}}</th><th>{{T "admin.tls.col.source"}}</th><th>{{T "admin.tls.col.expiry"}}</th><th>{{T "admin.tls.col.status"}}</th><th></th></tr></thead><tbody>
- {{range .Rows}}<tr>
+ {{range .Rows}}<tr id="h-{{.Host}}">
   <td><code>{{.Host}}</code></td>
   <td>{{if eq (printf "%s" .Source) "acme"}}{{T "admin.tls.src.acme"}}{{else if eq (printf "%s" .Source) "selfsigned"}}{{T "admin.tls.src.selfsigned"}}{{else}}—{{end}}</td>
   <td>{{if .Has}}{{.Expiry}}{{else}}—{{end}}</td>
@@ -172,16 +172,6 @@ func (s *Server) handleTLSCA(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/x-x509-ca-cert")
 	w.Header().Set("Content-Disposition", `attachment; filename="xaltorka-ca.crt"`)
 	_, _ = w.Write(pem)
-}
-
-// handleACMEChallenge serves ACME HTTP-01 key authorizations (NGINX proxies
-// /.well-known/acme-challenge/ here on port 80).
-func (s *Server) handleACMEChallenge(w http.ResponseWriter, r *http.Request) {
-	if s.CertMgr == nil {
-		http.NotFound(w, r)
-		return
-	}
-	s.CertMgr.HTTP01Handler().ServeHTTP(w, r)
 }
 
 func (s *Server) tlsRedirect(w http.ResponseWriter, r *http.Request, msg string, ok bool) {

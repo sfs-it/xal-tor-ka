@@ -117,6 +117,7 @@
   "admin.monitoring": "Monitorização",
   "admin.tls": "TLS",
   "admin.tls.h2": "Certificados",
+  "admin.tls.manage": "Gerir SSL",
   "admin.tls.hint": "Emita e renove os certificados TLS dos hosts servidos. O Let's Encrypt (ACME) exige que o host resolva publicamente para este gateway com a porta 80 acessível; use a CA interna para hosts LAN/dev sem DNS público.",
   "admin.tls.col.source": "origem",
   "admin.tls.col.expiry": "validade",

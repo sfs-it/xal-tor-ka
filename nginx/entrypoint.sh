@@ -10,7 +10,11 @@ set -eu
 nginx -g 'daemon off;' &
 NGINX_PID=$!
 
-confhash() { cat /etc/nginx/conf.d/*.conf 2>/dev/null | md5sum | cut -d' ' -f1; }
+# Hash conf.d AND the per-host certificates: a cert (re)issue/renewal replaces
+# <host>.crt without changing conf.d, so certs must be watched too or NGINX would
+# keep serving the old certificate. The .well-known challenge files live in a
+# subdir and are not matched by *.crt, so issuance doesn't cause reload churn.
+confhash() { { cat /etc/nginx/conf.d/*.conf; cat /etc/nginx/certs/*.crt; } 2>/dev/null | md5sum | cut -d' ' -f1; }
 
 last="$(confhash)"
 (

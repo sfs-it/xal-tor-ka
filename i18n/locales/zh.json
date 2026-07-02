@@ -117,6 +117,7 @@
   "admin.monitoring": "监控",
   "admin.tls": "TLS",
   "admin.tls.h2": "证书",
+  "admin.tls.manage": "管理 SSL",
   "admin.tls.hint": "为所服务的主机签发和续期 TLS 证书。Let's Encrypt（ACME）要求主机可公开解析到本网关且 80 端口可达；对没有公共 DNS 的 LAN/开发主机请使用内部 CA。",
   "admin.tls.col.source": "来源",
   "admin.tls.col.expiry": "到期",

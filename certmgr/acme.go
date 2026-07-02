@@ -13,10 +13,8 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"golang.org/x/crypto/acme"
@@ -112,16 +110,18 @@ func (m *Manager) IssueACME(ctx context.Context, host string) error {
 		if err != nil {
 			return err
 		}
-		m.setChallenge(chal.Token, resp)
+		if err := m.writeChallenge(chal.Token, resp); err != nil {
+			return fmt.Errorf("write challenge: %w", err)
+		}
 		if _, err := client.Accept(ctx, chal); err != nil {
-			m.delChallenge(chal.Token)
+			m.removeChallenge(chal.Token)
 			return fmt.Errorf("accept challenge: %w", err)
 		}
 		if _, err := client.WaitAuthorization(ctx, authzURL); err != nil {
-			m.delChallenge(chal.Token)
+			m.removeChallenge(chal.Token)
 			return fmt.Errorf("wait authorization: %w", err)
 		}
-		m.delChallenge(chal.Token)
+		m.removeChallenge(chal.Token)
 	}
 
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -151,36 +151,24 @@ func (m *Manager) IssueACME(ctx context.Context, host string) error {
 	return m.writePair(host, chain, keyPEM)
 }
 
-func (m *Manager) setChallenge(token, keyAuth string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.challenges == nil {
-		m.challenges = map[string]string{}
+// challengeDir is the webroot subdir NGINX serves /.well-known/acme-challenge/
+// from (root = the cert dir). Issuance writes token files here; the running
+// service is not involved in serving them, so the `cert` CLI can issue too.
+func (m *Manager) challengeDir() string {
+	return filepath.Join(m.Dir, ".well-known", "acme-challenge")
+}
+
+// writeChallenge writes the HTTP-01 key authorization to a token file served
+// statically by NGINX.
+func (m *Manager) writeChallenge(token, keyAuth string) error {
+	if err := os.MkdirAll(m.challengeDir(), 0o755); err != nil {
+		return err
 	}
-	m.challenges[token] = keyAuth
+	return writeFileAtomic(filepath.Join(m.challengeDir(), token), []byte(keyAuth), 0o644)
 }
 
-func (m *Manager) delChallenge(token string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	delete(m.challenges, token)
-}
-
-// HTTP01Handler serves the ACME HTTP-01 key authorizations. Mount it at
-// /.well-known/acme-challenge/ (NGINX proxies that path here on port 80).
-func (m *Manager) HTTP01Handler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token := strings.TrimPrefix(r.URL.Path, "/.well-known/acme-challenge/")
-		m.mu.Lock()
-		ka := m.challenges[token]
-		m.mu.Unlock()
-		if ka == "" {
-			http.NotFound(w, r)
-			return
-		}
-		w.Header().Set("Content-Type", "text/plain")
-		_, _ = w.Write([]byte(ka))
-	})
+func (m *Manager) removeChallenge(token string) {
+	_ = os.Remove(filepath.Join(m.challengeDir(), token))
 }
 
 // StartRenewal periodically renews ACME certs that are within `within` of expiry.

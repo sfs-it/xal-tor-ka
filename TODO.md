@@ -6,18 +6,16 @@ _(nessuna voce attiva — prossimo passo da decidere: vedi candidati in «Da far
 
 ## Da fare
 
-* [ ] **2026-06-20 —** TLS `selfsigned` autogenerato + `GET /setup/ca.crt` (§3.1)
 * [ ] **2026-06-23 —** Alerting: verificare invio reale Telegram/email con credenziali (codice pronto, non testato)
 * [ ] **2026-06-29 —** OIDC: provare con credenziali **reali** Google/Microsoft (l'exchange/verifica id_token è già coperto da test mock-IdP; manca la prova live)
 * [ ] **2026-06-30 —** Portabilità: **field-test deploy host/LXD** (systemd + `nginx -s reload` + `PROXY_RESOLVER`/`PROXY_UPSTREAM`) — scaffolding pronto, non provato su macchina reale
-* [ ] **2026-07-01 —** Gestione provider auth esterni (OIDC) in UI — **da ridiscutere** insieme (design)
 
 ## Idee / Backlog
 
 * [ ] **2026-06-29 —** Selettore provider nel form crea-utente di `/admin` (oggi gli utenti OIDC si creano da CLI `user --provider <id>`)
 * [ ] **2026-06-29 —** OIDC multi-tenant Microsoft (`common`): validazione issuer custom per il placeholder `{tenantid}`
 
-* [ ] **2026-06-20 —** TLS path `acme` (ACME DNS-01 su zona PowerDNS) — rimandato al deploy (BLUEPRINT §18.4)
+* [ ] **2026-06-20 —** TLS path `acme` **DNS-01 su PowerDNS** (wildcard) — alternativa allo HTTP-01 già implementato; utile per wildcard e host senza :80 pubblica. Lo scaffolding config (`pdns_api_url`, `PDNSAPIKey`) resta.
 * [ ] **2026-06-20 —** Wildcard host `*.dominio` nella matrice (BLUEPRINT §5/§18.4)
 * [ ] **2026-06-20 —** Promuovere il modulo GO provvisorio di MYRULES a `IA_POLICY/01_DEV/Primitive/0X_GO.md`
 * [ ] **2026-06-20 —** Control app mobile come sotto-progetto autonomo (`dev ionic_react`)
@@ -66,3 +64,7 @@ _(nessuna voce attiva — prossimo passo da decidere: vedi candidati in «Da far
 * [x] **2026-07-01 —** Fase 2 `/listing`: link «Amministrazione» per admin + bottone «Profilo» per tutti → pagina self-service `/profilo` (email/provider/ruolo, servizi accessibili, **cambio password** con verifica di quella attuale per account locali, **rigenera 2FA** con nuovo QR). Rotte `GET /profilo`, `POST /profilo/password|totp`. Build/vet/test verdi; endpoint verificati (303→login senza sessione).
 * [x] **2026-07-01 —** Admin restyle struttura: Servizi/link come tabelle, Docker «mappa porte → vhost», Monitoring configurabile (monitor custom `services.json` sondati dal checker), icon-cluster in `/admin`, fix redirect post-save. Pushato.
 * [x] **2026-07-01 —** Fase 3b i18n pannello admin + setup: tutti i template admin (overview/servizi/docker/utenti/dettaglio/monitoring/edit/QR/hostscan) e il wizard setup convertiti a `{{T}}` (locFuncs/locParse), etichette topbar tradotte, catalogo esteso a 187 chiavi e 9 traduzioni rigenerate. Tutta la UI ora in 10 lingue. Pushato (e7a3b07).
+* [x] **2026-07-02 —** Pagina QR/2FA su nav admin condivisa (`renderAdminPage`), come edit/host-scan; rimosso `renderLoc` morto.
+* [x] **2026-07-02 —** Gestione provider OIDC in UI (`/admin/providers`): CRUD runtime in `services.json` (merge sui provider di `config.json`), `client_secret` write-only in `secrets.json`, hot-swap di `s.OIDC` sotto `RWMutex` in `Reload()` (no restart), endpoint `test` (discovery), i18n 10 lingue. `config.json` providers read-only in UI.
+* [x] **2026-07-02 —** TLS `selfsigned`/CA interna + download CA (`/admin/tls/ca.crt`) — package `certmgr` (ECDSA CA + emissione per-host stdlib), UI `/admin/tls`, generazione `listen 443 ssl` condizionale nei vhost, compose 443 + volume `./certs` su nginx. Unit-tested. (Sostituisce l'idea `/setup/ca.crt`.)
+* [x] **2026-07-02 —** TLS `acme` **HTTP-01** (Let's Encrypt via `x/crypto/acme`): handler `/.well-known/acme-challenge/`, emissione+scrittura cert in `./certs`, goroutine di rinnovo (30gg) legata al ctx. Code-complete; la prova live richiede deploy pubblico (host→gate, :80). DNS-01/PowerDNS resta come alternativa a backlog.

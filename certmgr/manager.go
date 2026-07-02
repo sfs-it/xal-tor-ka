@@ -20,7 +20,6 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 )
 
@@ -58,9 +57,6 @@ type Manager struct {
 	DirectoryURL string
 	// Reload is invoked after a cert is written so NGINX picks it up (may be nil).
 	Reload func() error
-
-	mu         sync.Mutex
-	challenges map[string]string // HTTP-01 token → key authorization
 }
 
 func (m *Manager) certPath(host string) string { return filepath.Join(m.Dir, host+".crt") }

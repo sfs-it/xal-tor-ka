@@ -229,7 +229,6 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /admin/tls/renew", s.handleTLSRenew)
 	mux.HandleFunc("POST /admin/tls/del", s.handleTLSDelete)
 	mux.HandleFunc("GET /admin/tls/ca.crt", s.handleTLSCA)
-	mux.HandleFunc("GET /.well-known/acme-challenge/{token}", s.handleACMEChallenge)
 	return mux
 }
 

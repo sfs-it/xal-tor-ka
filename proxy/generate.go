@@ -74,11 +74,18 @@ func writeServer(b *strings.Builder, g GenConfig, be models.Backend) {
 	}
 	b.WriteString("\n")
 
-	// ACME HTTP-01 challenge (always on :80), proxied to the auth service which
-	// serves the key authorizations during certificate issuance/renewal.
+	// ACME HTTP-01 challenge (always on :80), served as static files from the
+	// shared cert dir (webroot): the issuer — the running service OR the `cert`
+	// CLI — writes <certdir>/.well-known/acme-challenge/<token>, so issuance is
+	// decoupled from the auth service process (no admin session needed).
+	acmeRoot := strings.TrimRight(g.CertDir, "/")
+	if acmeRoot == "" {
+		acmeRoot = "/etc/nginx/certs"
+	}
 	fmt.Fprintf(b, "    location /.well-known/acme-challenge/ {\n"+
-		"        proxy_pass http://%s;\n"+
-		"    }\n\n", g.Upstream)
+		"        default_type text/plain;\n"+
+		"        root %s;\n"+
+		"    }\n\n", acmeRoot)
 
 	fmt.Fprintf(b, "    location = /__auth {\n"+
 		"        internal;\n"+
