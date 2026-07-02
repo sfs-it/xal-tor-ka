@@ -283,16 +283,13 @@ var adminEditTmpl = locParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{if .Nam
   </form>
  </div>`)
 
-var adminQRTmpl = locParse("adminqr", `<!doctype html>
-<html lang="{{curlang}}"{{if rtl}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · 2FA</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
-<div class="auth-wrap"><div class="auth-card qr">
- <h1>{{T "admin.qr.title"}} {{.Email}}</h1>
- <p class="hint">{{T "admin.qr.hint"}}</p>
- <p><img src="{{.QR}}" alt="QR otpauth" width="240" height="240"></p>
- <p>{{T "qr.key"}}: <code>{{.Secret}}</code></p>
- <p style="margin-top:1.2rem"><a href="/admin/utenti">← {{T "admin.qr.back"}}</a></p>
-</div></div></body></html>`)
+var adminQRTmpl = locParse("adminqr", `<h1>{{T "admin.qr.title"}} {{.Email}}</h1>
+ <div class="card qr" style="text-align:center">
+  <p class="hint">{{T "admin.qr.hint"}}</p>
+  <p><img src="{{.QR}}" alt="QR otpauth" width="240" height="240"></p>
+  <p>{{T "qr.key"}}: <code>{{.Secret}}</code></p>
+ </div>
+ <p style="margin-top:1rem"><a class="btn" href="/admin/utenti">← {{T "admin.qr.back"}}</a></p>`)
 
 // handleAdmin is the overview page with summary tiles linking to the sections.
 func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
@@ -1295,7 +1292,7 @@ func (s *Server) renderAdminQR(w http.ResponseWriter, r *http.Request, email, se
 		http.Error(w, i18n.T(s.lang(r), "err.qr"), http.StatusInternalServerError)
 		return
 	}
-	s.renderLoc(w, r, adminQRTmpl, struct {
+	s.renderAdminPage(w, r, "utenti", adminQRTmpl, struct {
 		Email  string
 		Secret string
 		QR     template.URL

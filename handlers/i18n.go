@@ -93,18 +93,6 @@ func locParse(name, body string) *template.Template {
 	return template.Must(template.New(name).Funcs(locFuncs(i18n.Default)).Parse(body))
 }
 
-// renderLoc clones a locParse template, binds the request language and executes it.
-func (s *Server) renderLoc(w http.ResponseWriter, r *http.Request, t *template.Template, data any) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	ct, err := t.Clone()
-	if err != nil {
-		_ = t.Execute(w, data)
-		return
-	}
-	ct.Funcs(locFuncs(s.lang(r)))
-	_ = ct.Execute(w, data)
-}
-
 // lang resolves the request's UI language: the xtk_lang cookie wins, else the
 // Accept-Language header, else English.
 func (s *Server) lang(r *http.Request) string {
