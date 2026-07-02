@@ -1,4 +1,4 @@
-# ⛬ Xal-Tor-Ka · `beta0.1`
+# ⛬ Xal-Tor-Ka · `beta0.2`
 
 *Traducción del documento oficial en inglés; en caso de cualquier discrepancia, prevalece la versión en inglés.*
 
@@ -47,7 +47,7 @@ frente a intentos de fuerza bruta y realiza copias de seguridad de su propia con
 
 ## Estado
 
-**`beta0.1`** — una versión previa a la 1.0. El núcleo está construido y funcionando;
+**`beta0.2`** — una versión previa a la 1.0. El núcleo está construido y funcionando;
 algunas funciones avanzadas se están puliendo (consulta [`TODO.md`](../../TODO.md)).
 
 ## Documentación

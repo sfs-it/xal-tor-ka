@@ -232,7 +232,7 @@ Steps (Debian/Ubuntu or inside an LXD container with NGINX installed):
 # 1) build the static binary (on the build machine) and copy it to the target
 make build                      # -> ./xaltorka (CGO off, static)
 sudo install -m 0755 xaltorka /usr/local/bin/xaltorka
-xaltorka version                # -> beta0.1
+xaltorka version                # -> beta0.2
 
 # 2) create a service user and a configuration folder
 sudo useradd --system --home /opt/xaltorka --shell /usr/sbin/nologin xaltorka

@@ -2,7 +2,8 @@
 
 BIN := xaltorka
 COMPOSE := docker compose
-VERSION := beta0.1
+# Single source of truth: version/version.go. Derived here for `make version`.
+VERSION := $(shell sed -n 's/.*Version = "\(.*\)".*/\1/p' version/version.go)
 
 .PHONY: help bootstrap run build fmt vet tidy test clean \
         up down logs rebuild ps setup admin version
@@ -18,8 +19,8 @@ bootstrap: ## Crea secrets.json/users.json dai .example se mancanti
 run: bootstrap ## Avvia il server in locale (go run)
 	go run . -config .
 
-build: ## Compila il binario statico (immagine minima)
-	CGO_ENABLED=0 go build -ldflags="-s -w -X xaltorka/version.Version=$(VERSION)" -o $(BIN) .
+build: ## Compila il binario statico (immagine minima) — versione da version/version.go
+	CGO_ENABLED=0 go build -ldflags="-s -w" -o $(BIN) .
 
 version: ## Mostra la versione corrente
 	@echo $(VERSION)

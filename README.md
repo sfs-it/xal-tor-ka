@@ -1,4 +1,4 @@
-# ⛬ Xal-Tor-Ka · `beta0.1`
+# ⛬ Xal-Tor-Ka · `beta0.2`
 
 > 🌍 **Languages:** **English (official)** ·
 > [Italiano](DOCS/it/README.md) · [Français](DOCS/fr/README.md) ·
@@ -49,7 +49,7 @@ defends itself against brute-force attempts, and backs up its own configuration.
 
 ## Status
 
-**`beta0.1`** — a pre-1.0 release. The core is built and working; some advanced
+**`beta0.2`** — a pre-1.0 release. The core is built and working; some advanced
 features are being polished (see [`TODO.md`](TODO.md)).
 
 ## Documentation

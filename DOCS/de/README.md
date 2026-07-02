@@ -1,4 +1,4 @@
-# ⛬ Xal-Tor-Ka · `beta0.1`
+# ⛬ Xal-Tor-Ka · `beta0.2`
 
 > 🌍 **Sprachen:** **Englisch (offiziell)** ([englische README](../../README.md)) ·
 > [alle Sprachen](../README.md)
@@ -52,7 +52,7 @@ eigene Konfiguration.
 
 ## Status
 
-**`beta0.1`** — eine Vorabversion vor 1.0. Der Kern ist gebaut und funktioniert;
+**`beta0.2`** — eine Vorabversion vor 1.0. Der Kern ist gebaut und funktioniert;
 einige fortgeschrittene Funktionen werden noch verfeinert (siehe
 [`TODO.md`](../../TODO.md)).
 
