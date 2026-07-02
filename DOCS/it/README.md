@@ -1,4 +1,4 @@
-# ⛬ Xal-Tor-Ka · `beta0.2`
+# ⛬ Xal-Tor-Ka · `beta0.3`
 
 > 🌍 **Lingua:** **English (ufficiale)** → [../../README.md](../../README.md) ·
 > tutte le lingue / all languages → [../README.md](../README.md)
@@ -47,7 +47,7 @@ forza bruta e fa il backup della propria configurazione.
 
 ## Stato
 
-**`beta0.2`** — una release pre-1.0. Il nucleo è costruito e funzionante; alcune
+**`beta0.3`** — una release pre-1.0. Il nucleo è costruito e funzionante; alcune
 funzionalità avanzate sono in fase di rifinitura (vedi [`TODO.md`](../../TODO.md)).
 
 ## Documentazione

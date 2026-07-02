@@ -1,4 +1,4 @@
-# ⛬ Xal-Tor-Ka · `beta0.2`
+# ⛬ Xal-Tor-Ka · `beta0.3`
 
 > 🌍 **Idiomas:** [README oficial em inglês](../../README.md) ·
 > [todos os idiomas](../README.md)
@@ -48,7 +48,7 @@ acessos, defende-se contra tentativas de força bruta e faz backup da própria c
 
 ## Status
 
-**`beta0.2`** — uma versão pré-1.0. O núcleo está construído e funcionando; alguns
+**`beta0.3`** — uma versão pré-1.0. O núcleo está construído e funcionando; alguns
 recursos avançados ainda estão sendo refinados (veja [`TODO.md`](../../TODO.md)).
 
 ## Documentação
