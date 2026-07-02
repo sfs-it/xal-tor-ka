@@ -81,7 +81,7 @@ type setupTOTPData struct {
 func (s *Server) handleSetupForm(w http.ResponseWriter, r *http.Request) {
 	st, ok := s.validSetup(r.URL.Query().Get("token"))
 	if !ok {
-		s.setupError(w)
+		s.setupError(w, s.lang(r))
 		return
 	}
 	renderHTML(w, setupCredTmpl, setupCredData{Email: st.Email, Token: st.Token, Lang: s.lang(r)}, http.StatusOK)
@@ -89,12 +89,12 @@ func (s *Server) handleSetupForm(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleSetupSubmit(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		s.setupError(w)
+		s.setupError(w, s.lang(r))
 		return
 	}
 	st, ok := s.validSetup(r.PostFormValue("token"))
 	if !ok {
-		s.setupError(w)
+		s.setupError(w, s.lang(r))
 		return
 	}
 
@@ -104,7 +104,7 @@ func (s *Server) handleSetupSubmit(w http.ResponseWriter, r *http.Request) {
 	case "confirm":
 		s.setupStepConfirm(w, r, st)
 	default:
-		s.setupError(w)
+		s.setupError(w, s.lang(r))
 	}
 }
 
@@ -119,7 +119,7 @@ func (s *Server) setupStepCred(w http.ResponseWriter, r *http.Request, st models
 	}
 	hash, err := auth.HashPassword(pw)
 	if err != nil {
-		s.setupError(w)
+		s.setupError(w, s.lang(r))
 		return
 	}
 	st.PasswordHash = hash
@@ -131,12 +131,12 @@ func (s *Server) setupStepCred(w http.ResponseWriter, r *http.Request, st models
 	}
 	secret, err := auth.NewTOTPSecret()
 	if err != nil {
-		s.setupError(w)
+		s.setupError(w, s.lang(r))
 		return
 	}
 	st.TOTPSecret = secret
 	if err := config.SaveSetup(s.SetupPath, st); err != nil {
-		s.setupError(w)
+		s.setupError(w, s.lang(r))
 		return
 	}
 	s.renderTOTPStep(w, lang, st, "")
@@ -145,7 +145,7 @@ func (s *Server) setupStepCred(w http.ResponseWriter, r *http.Request, st models
 // setupStepConfirm verifies the TOTP code, then finalizes the user.
 func (s *Server) setupStepConfirm(w http.ResponseWriter, r *http.Request, st models.SetupState) {
 	if st.TOTPSecret == "" || st.PasswordHash == "" {
-		s.setupError(w)
+		s.setupError(w, s.lang(r))
 		return
 	}
 	lang := s.lang(r)
@@ -180,7 +180,7 @@ func (s *Server) finalizeSetup(w http.ResponseWriter, lang string, st models.Set
 		users = append(users, newUser)
 	}
 	if err := config.SaveUsers(s.UsersPath, s.BackupsDir, models.Users{Users: users}); err != nil {
-		s.setupError(w)
+		s.setupError(w, lang)
 		return
 	}
 	s.Users.Replace(users)
@@ -192,7 +192,7 @@ func (s *Server) renderTOTPStep(w http.ResponseWriter, lang string, st models.Se
 	uri := otpauthURI(st.Email, st.TOTPSecret)
 	png, err := qrcode.Encode(uri, qrcode.Medium, 256)
 	if err != nil {
-		s.setupError(w)
+		s.setupError(w, lang)
 		return
 	}
 	dataURI := "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
@@ -221,8 +221,8 @@ func (s *Server) validSetup(token string) (models.SetupState, bool) {
 	return st, true
 }
 
-func (s *Server) setupError(w http.ResponseWriter) {
-	http.Error(w, "setup unavailable: token missing, invalid or expired", http.StatusForbidden)
+func (s *Server) setupError(w http.ResponseWriter, lang string) {
+	http.Error(w, i18n.T(lang, "err.setup_unavailable"), http.StatusForbidden)
 }
 
 func otpauthURI(email, secret string) string {

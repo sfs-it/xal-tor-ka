@@ -135,7 +135,7 @@ func (s *Server) handleProfilePassword(w http.ResponseWriter, r *http.Request) {
 	}
 	hash, err := auth.HashPassword(newpw)
 	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		http.Error(w, i18n.T(s.lang(r), "err.internal"), http.StatusInternalServerError)
 		return
 	}
 	err = s.mutateUsers(func(users *[]models.User) error {
@@ -148,7 +148,7 @@ func (s *Server) handleProfilePassword(w http.ResponseWriter, r *http.Request) {
 		return fmt.Errorf("user not found")
 	})
 	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		http.Error(w, i18n.T(s.lang(r), "err.internal"), http.StatusInternalServerError)
 		return
 	}
 	http.Redirect(w, r, "/profilo?ok=pw", http.StatusSeeOther)
@@ -162,7 +162,7 @@ func (s *Server) handleProfileTOTP(w http.ResponseWriter, r *http.Request) {
 	}
 	secret, err := auth.NewTOTPSecret()
 	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		http.Error(w, i18n.T(s.lang(r), "err.internal"), http.StatusInternalServerError)
 		return
 	}
 	err = s.mutateUsers(func(users *[]models.User) error {
@@ -175,12 +175,12 @@ func (s *Server) handleProfileTOTP(w http.ResponseWriter, r *http.Request) {
 		return fmt.Errorf("user not found")
 	})
 	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		http.Error(w, i18n.T(s.lang(r), "err.internal"), http.StatusInternalServerError)
 		return
 	}
 	png, err := qrcode.Encode(otpauthURI(u.Email, secret), qrcode.Medium, 256)
 	if err != nil {
-		http.Error(w, "QR error", http.StatusInternalServerError)
+		http.Error(w, i18n.T(s.lang(r), "err.qr"), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

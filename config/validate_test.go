@@ -114,7 +114,7 @@ func TestValidateBadBackendIPAllow(t *testing.T) {
 	b := validBundle()
 	b.Config.Backends[0].IPAllow = []string{"not-a-cidr"}
 	if Validate(b) == nil {
-		t.Error("ip_allow con CIDR invalido doveva fallire")
+		t.Error("ip_allow with invalid CIDR should have failed")
 	}
 }
 
@@ -122,7 +122,7 @@ func TestValidateGoodBackendIPAllow(t *testing.T) {
 	b := validBundle()
 	b.Config.Backends[0].IPAllow = []string{"10.0.0.0/24", "203.0.113.7/32"}
 	if err := Validate(b); err != nil {
-		t.Fatalf("ip_allow valido rifiutato: %v", err)
+		t.Fatalf("valid ip_allow rejected: %v", err)
 	}
 }
 
@@ -130,6 +130,6 @@ func TestValidateBadAdminIPWhitelist(t *testing.T) {
 	b := validBundle()
 	b.Services.AdminIPWhitelist = []string{"999.999.0.0/16"}
 	if Validate(b) == nil {
-		t.Error("admin_ip_whitelist con CIDR invalido doveva fallire")
+		t.Error("admin_ip_whitelist with invalid CIDR should have failed")
 	}
 }

@@ -20,6 +20,7 @@ import (
 	"xaltorka/auth"
 	"xaltorka/config"
 	"xaltorka/health"
+	"xaltorka/i18n"
 	"xaltorka/matrix"
 	"xaltorka/models"
 	"xaltorka/providers"
@@ -360,7 +361,7 @@ func (s *Server) handleAdminReload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.Reload(); err != nil {
-		http.Error(w, "reload failed", http.StatusInternalServerError)
+		http.Error(w, i18n.T(s.lang(r), "err.reload_failed"), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

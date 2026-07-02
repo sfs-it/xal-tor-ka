@@ -7,6 +7,8 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+
+	"xaltorka/i18n"
 )
 
 // forbiddenAdminTmpl is shown to a logged-in NON-admin user hitting /admin: it
@@ -30,7 +32,7 @@ var forbiddenAdminTmpl = template.Must(template.New("forbidden").Funcs(tmplFuncs
 func (s *Server) adminGuard(w http.ResponseWriter, r *http.Request) bool {
 	if !s.adminAllowed(r) {
 		s.auditFail(r, "admin_ip", "")
-		http.Error(w, "forbidden", http.StatusForbidden)
+		http.Error(w, i18n.T(s.lang(r), "err.forbidden"), http.StatusForbidden)
 		return false
 	}
 	sess, ok := s.session(r)
@@ -47,7 +49,7 @@ func (s *Server) adminGuard(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid request", http.StatusBadRequest)
+		http.Error(w, i18n.T(s.lang(r), "err.bad_request"), http.StatusBadRequest)
 		return false
 	}
 	return true

@@ -90,7 +90,7 @@ var overviewTmpl = locParse("ov", `<h1>{{T "admin.title"}}</h1>
   <form method="post" action="/admin/adminips">
    <div><label>{{T "admin.sec.field"}}</label><input name="ip_whitelist" value="{{.AdminIPsRaw}}" placeholder="203.0.113.7/32 10.0.0.0/24"></div>
    <p class="hint">⚠️ {{T "admin.sec.warn"}}</p>
-   <div class="actions" style="justify-content:flex-start"><button class="btn primary">{{T "btn.save"}}</button></div>
+   <div class="actions"><button class="btn primary">{{T "btn.save"}}</button></div>
   </form>
  </div>
 </section>`)
@@ -120,11 +120,11 @@ var servicesTmpl = locParse("services", `<section>
   <form method="post" action="/admin/backend/add"><div class="formgrid">
    <div><label>{{T "admin.f.id"}}</label><input name="id" required></div>
    <div><label>{{T "admin.f.name"}}</label><input name="name"></div>
-   <div><label>{{T "admin.f.host"}}</label><input name="host" placeholder="app.dominio.it" required></div>
+   <div><label>{{T "admin.f.host"}}</label><input name="host" placeholder="app.example.com" required></div>
    <div><label>{{T "admin.f.path"}}</label><input name="path" value="/"></div>
    <div><label>{{T "admin.f.rule"}}</label><select name="rule"><option>whitelist</option><option>authenticated</option><option>public</option></select></div>
    <div><label>{{T "admin.f.upstream"}}</label><input name="upstream" placeholder="http://10.0.0.5:8080"></div>
-   <div><label>{{T "admin.f.url"}}</label><input name="url" placeholder="https://app.dominio.it"></div>
+   <div><label>{{T "admin.f.url"}}</label><input name="url" placeholder="https://app.example.com"></div>
    <div><label>{{T "admin.f.ipallow"}}</label><input name="ip_allow" placeholder="203.0.113.0/24"></div>
    <div><button class="btn primary">{{T "btn.add"}}</button></div>
   </div><p class="hint">{{T "admin.rule.help"}}</p></form></div>
@@ -203,7 +203,7 @@ var usersTmpl = locParse("users", `<section>
     <div><label>{{T "field.password"}}</label><input type="password" name="password" required></div>
    </div>
    <div class="checks"><label>{{T "admin.usr.authz"}}</label>{{range .AllIDs}}<label class="check"><input type="checkbox" name="authz" value="{{.}}">{{.}}</label>{{end}}</div>
-   <div class="actions" style="justify-content:flex-start"><button class="btn primary">{{T "admin.usr.create_btn"}}</button></div>
+   <div class="actions"><button class="btn primary">{{T "admin.usr.create_btn"}}</button></div>
   </form></div>
 </section>`)
 
@@ -215,7 +215,7 @@ var userDetailTmpl = locParse("userdetail", `<section>
    <div><label>{{T "admin.usr.email"}}</label><form class="inline" method="post" action="/admin/user/email"><input type="hidden" name="old" value="{{.Email}}"><input name="email" value="{{.Email}}"><button class="btn sm">{{T "btn.save"}}</button></form></div>
    <div><label>{{T "admin.f.provider"}}</label><div style="padding-top:.4rem">{{.Provider}}{{if .Admin}} · <span class="tag">admin</span>{{end}}</div></div>
   </div>
-  <div class="actions" style="justify-content:flex-start;margin-top:.8rem">
+  <div class="actions" style="margin-top:.8rem">
    <form class="inline" method="post" action="/admin/user/admin"><input type="hidden" name="email" value="{{.Email}}"><button class="btn sm">{{if .Admin}}{{T "admin.usr.revoke_admin"}}{{else}}{{T "admin.usr.make_admin"}}{{end}}</button></form>
    <form class="inline" method="post" action="/admin/user/password"><input type="hidden" name="email" value="{{.Email}}"><input type="password" name="password" placeholder="{{T "admin.usr.new_pw"}}" style="width:11rem"><button class="btn sm">{{T "admin.usr.set_pw"}}</button></form>
    <form class="inline" method="post" action="/admin/user/totp"><input type="hidden" name="email" value="{{.Email}}"><button class="btn sm">{{T "admin.usr.reset_2fa"}}</button></form>
@@ -226,7 +226,7 @@ var userDetailTmpl = locParse("userdetail", `<section>
   {{if .Admin}}<p class="hint">{{T "admin.usr.admin_all_note"}}</p>
   {{else}}<form method="post" action="/admin/user/authz"><input type="hidden" name="email" value="{{.Email}}">
    <div class="checks">{{range .AllIDs}}<label class="check"><input type="checkbox" name="authz" value="{{.}}" {{if index $.Checked .}}checked{{end}}>{{.}}</label>{{else}}<span class="hint">{{T "admin.usr.no_services"}}</span>{{end}}</div>
-   <div class="actions" style="justify-content:flex-start;margin-top:.6rem"><button class="btn primary">{{T "admin.usr.save_authz"}}</button></div>
+   <div class="actions" style="margin-top:.6rem"><button class="btn primary">{{T "admin.usr.save_authz"}}</button></div>
   </form>{{end}}
  </div>
 </section>`)
@@ -260,36 +260,28 @@ var monitoringTmpl = locParse("mon", `<section>
   </div></form></div>
 </section>`)
 
-var adminEditTmpl = locParse("adminedit", `<!doctype html>
-<html lang="{{curlang}}"{{if rtl}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · {{T "admin.edit.title"}}</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
-<header class="topbar"><div class="brand">⛬ Xal-Tor-Ka<span class="sub">{{T "admin.edit.title"}}</span></div>
- <nav class="topnav"><a href="/admin/servizi">← {{T "admin.services"}}</a></nav></header>
-<main class="container">
- <h1>{{T "admin.edit.h1"}} «{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}»</h1>
+var adminEditTmpl = locParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}»</h1>
  <div class="card">
   <form method="post" action="/admin/backend/edit">
    <input type="hidden" name="id" value="{{.ID}}">
-   <div class="formgrid">
-    <div><label>{{T "admin.edit.id_ro"}}</label><input value="{{.ID}}" disabled></div>
-    <div><label>{{T "admin.f.name"}}</label><input name="name" value="{{.Name}}"></div>
-    <div><label>{{T "admin.f.host"}}</label><input name="host" value="{{.Host}}" required></div>
-    <div><label>{{T "admin.f.url"}}</label><input name="url" value="{{.URL}}"></div>
-    <div><label>{{T "admin.f.path"}}</label><input name="path" value="{{.Path}}"></div>
-    <div><label>{{T "admin.f.rule"}}</label><select name="rule">
+   <table class="ftable"><tbody>
+    <tr><th>{{T "admin.f.id"}}</th><td><input value="{{.ID}}" disabled></td><td class="fhelp">{{T "admin.edit.help.id"}}</td></tr>
+    <tr><th>{{T "admin.f.name"}}</th><td><input name="name" value="{{.Name}}"></td><td class="fhelp">{{T "admin.edit.help.name"}}</td></tr>
+    <tr><th>{{T "admin.f.host"}}</th><td><input name="host" value="{{.Host}}" required></td><td class="fhelp">{{T "admin.edit.help.host"}}</td></tr>
+    <tr><th>{{T "admin.f.url"}}</th><td><input name="url" value="{{.URL}}"></td><td class="fhelp">{{T "admin.edit.help.url"}}</td></tr>
+    <tr><th>{{T "admin.f.path"}}</th><td><input name="path" value="{{.Path}}"></td><td class="fhelp">{{T "admin.edit.help.path"}}</td></tr>
+    <tr><th>{{T "admin.f.rule"}}</th><td><select name="rule">
      <option {{if eq .Rule "whitelist"}}selected{{end}}>whitelist</option>
      <option {{if eq .Rule "authenticated"}}selected{{end}}>authenticated</option>
-     <option {{if eq .Rule "public"}}selected{{end}}>public</option></select></div>
-    <div><label>{{T "admin.f.upstream"}}</label><input name="upstream" value="{{.Upstream}}" required></div>
-   </div>
-   <p class="hint">{{T "admin.rule.help"}}</p>
-   <div style="margin-top:.6rem"><label>{{T "admin.f.desc"}}</label><input name="description" value="{{.Description}}"></div>
-   <div style="margin-top:.6rem"><label>{{T "admin.edit.ipallow"}}</label><input name="ip_allow" value="{{.IPAllow}}" placeholder="es. 203.0.113.0/24 10.0.0.5"></div>
-   <div class="actions" style="justify-content:flex-start;margin-top:1rem">
+     <option {{if eq .Rule "public"}}selected{{end}}>public</option></select></td><td class="fhelp">{{T "admin.rule.help"}}</td></tr>
+    <tr><th>{{T "admin.f.upstream"}}</th><td><input name="upstream" value="{{.Upstream}}" required></td><td class="fhelp">{{T "admin.edit.help.upstream"}}</td></tr>
+    <tr><th>{{T "admin.f.desc"}}</th><td colspan="2"><input name="description" value="{{.Description}}" placeholder="{{T "admin.edit.help.desc"}}"></td></tr>
+    <tr><th>{{T "admin.col.ipallow"}}</th><td><input name="ip_allow" value="{{.IPAllow}}" placeholder="203.0.113.0/24 10.0.0.5"></td><td class="fhelp">{{T "admin.edit.help.ipallow"}}</td></tr>
+   </tbody></table>
+   <div class="actions" style="margin-top:1rem">
     <button class="btn primary">{{T "btn.save"}}</button><a class="btn" href="/admin/servizi">{{T "admin.cancel"}}</a></div>
   </form>
- </div>
-</main></body></html>`)
+ </div>`)
 
 var adminQRTmpl = locParse("adminqr", `<!doctype html>
 <html lang="{{curlang}}"{{if rtl}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -435,7 +427,7 @@ func (s *Server) handleMonitorAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	id, url := r.PostFormValue("id"), r.PostFormValue("url")
 	if id == "" || url == "" {
-		http.Error(w, "id, url required", http.StatusBadRequest)
+		http.Error(w, i18n.T(s.lang(r), "err.id_url_required"), http.StatusBadRequest)
 		return
 	}
 	iv, _ := strconv.Atoi(r.PostFormValue("interval"))
@@ -549,7 +541,7 @@ func (s *Server) handleDiscoverAdd(w http.ResponseWriter, r *http.Request) {
 	port, _ := strconv.Atoi(r.PostFormValue("port"))
 	rule := r.PostFormValue("rule")
 	if name == "" || port <= 0 || port > 65535 {
-		http.Error(w, "invalid container/port", http.StatusBadRequest)
+		http.Error(w, i18n.T(s.lang(r), "err.invalid_container_port"), http.StatusBadRequest)
 		return
 	}
 	if rule != "public" && rule != "authenticated" && rule != "whitelist" {
@@ -571,13 +563,7 @@ func (s *Server) handleDiscoverAdd(w http.ResponseWriter, r *http.Request) {
 	s.afterMutation(w, r, err)
 }
 
-var hostScanTmpl = locParse("hostscan", `<!doctype html>
-<html lang="{{curlang}}"{{if rtl}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · {{T "admin.hs.subtitle"}}</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
-<header class="topbar"><div class="brand">⛬ Xal-Tor-Ka<span class="sub">{{T "admin.hs.subtitle"}}</span></div>
- <nav class="topnav"><a href="/admin/servizi">← {{T "admin.services"}}</a></nav></header>
-<main class="container">
- <h1>{{T "admin.hs.h1"}} ({{.From}}–{{.To}})</h1>
+var hostScanTmpl = locParse("hostscan", `<h1>{{T "admin.hs.h1"}} ({{.From}}–{{.To}})</h1>
  <p class="hint">{{T "admin.hs.hint"}}</p>
  <form method="post" action="/admin/hostscan/add">
   <table><thead><tr>
@@ -590,13 +576,12 @@ var hostScanTmpl = locParse("hostscan", `<!doctype html>
    <td>{{if .Added}}—{{else}}{{T "admin.hs.new"}}{{end}}</td></tr>
   {{else}}<tr><td colspan="4" class="empty">{{T "admin.hs.none"}}</td></tr>{{end}}
   </tbody></table>
-  <div class="actions" style="justify-content:flex-start;margin-top:.8rem">
+  <div class="actions" style="margin-top:.8rem">
    <label>{{T "admin.f.rule"}} <select name="rule"><option>whitelist</option><option>authenticated</option><option>public</option></select></label>
    <button class="btn primary">{{T "admin.hs.add_selected"}}</button>
   </div>
  </form>
- <p style="margin-top:1rem"><a class="btn" href="/admin">← {{T "admin.hs.back"}}</a></p>
-</main></body></html>`)
+ <p style="margin-top:1rem"><a class="btn" href="/admin">← {{T "admin.hs.back"}}</a></p>`)
 
 type hostPortRow struct {
 	Port         int
@@ -641,7 +626,7 @@ func (s *Server) handleHostScan(w http.ResponseWriter, r *http.Request) {
 		h, added := byPort[p]
 		rows = append(rows, hostPortRow{Port: p, Added: added, ExistingHost: h})
 	}
-	s.renderLoc(w, r, hostScanTmpl, struct {
+	s.renderAdminPage(w, r, "servizi", hostScanTmpl, struct {
 		From, To int
 		Ports    []hostPortRow
 	}{From: from, To: to, Ports: rows})
@@ -691,7 +676,7 @@ func (s *Server) handleUserEmail(w http.ResponseWriter, r *http.Request) {
 	old := r.PostFormValue("old")
 	neu := strings.TrimSpace(r.PostFormValue("email"))
 	if neu == "" {
-		http.Error(w, "email required", http.StatusBadRequest)
+		http.Error(w, i18n.T(s.lang(r), "err.email_required"), http.StatusBadRequest)
 		return
 	}
 	err := s.mutateUsers(func(users *[]models.User) error {
@@ -719,12 +704,12 @@ func (s *Server) handleUserPassword(w http.ResponseWriter, r *http.Request) {
 	email := r.PostFormValue("email")
 	pw := r.PostFormValue("password")
 	if pw == "" {
-		http.Error(w, "password required", http.StatusBadRequest)
+		http.Error(w, i18n.T(s.lang(r), "err.password_required"), http.StatusBadRequest)
 		return
 	}
 	hash, err := auth.HashPassword(pw)
 	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		http.Error(w, i18n.T(s.lang(r), "err.internal"), http.StatusInternalServerError)
 		return
 	}
 	err = s.mutateUsers(func(users *[]models.User) error {
@@ -900,7 +885,7 @@ func (s *Server) handleLinkAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	id, name, url := r.PostFormValue("id"), r.PostFormValue("name"), r.PostFormValue("url")
 	if id == "" || name == "" || url == "" {
-		http.Error(w, "id, name, url required", http.StatusBadRequest)
+		http.Error(w, i18n.T(s.lang(r), "err.id_name_url_required"), http.StatusBadRequest)
 		return
 	}
 	err := s.mutateServices(func(svc *models.Services) error {
@@ -940,11 +925,11 @@ func (s *Server) handleBackendAdd(w http.ResponseWriter, r *http.Request) {
 	upstream := s.hostInternalize(r.PostFormValue("upstream"))
 	rule := r.PostFormValue("rule")
 	if id == "" || host == "" || upstream == "" {
-		http.Error(w, "id, host, upstream required", http.StatusBadRequest)
+		http.Error(w, i18n.T(s.lang(r), "err.id_host_upstream_required"), http.StatusBadRequest)
 		return
 	}
 	if rule != "public" && rule != "authenticated" && rule != "whitelist" {
-		http.Error(w, "invalid rule", http.StatusBadRequest)
+		http.Error(w, i18n.T(s.lang(r), "err.invalid_rule"), http.StatusBadRequest)
 		return
 	}
 	path := r.PostFormValue("path")
@@ -1036,12 +1021,12 @@ func (s *Server) handleBackendEditForm(w http.ResponseWriter, r *http.Request) {
 		if len(b.Routes) > 0 {
 			rt = b.Routes[0]
 		}
-		s.renderLoc(w, r, adminEditTmpl, struct {
+		s.renderAdminPage(w, r, "servizi", adminEditTmpl, struct {
 			ID, Name, Description, Host, URL, Path, Rule, Upstream, IPAllow string
 		}{b.ID, b.Name, b.Description, b.Host, b.URL, rt.Path, rt.Rule, rt.Upstream, strings.Join(b.IPAllow, " ")})
 		return
 	}
-	http.Error(w, "backend not found", http.StatusNotFound)
+	http.Error(w, i18n.T(s.lang(r), "err.backend_not_found"), http.StatusNotFound)
 }
 
 func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
@@ -1064,7 +1049,7 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 	}
 	host := r.PostFormValue("host")
 	if host == "" {
-		http.Error(w, "host required", http.StatusBadRequest)
+		http.Error(w, i18n.T(s.lang(r), "err.host_required"), http.StatusBadRequest)
 		return
 	}
 	ipAllow, ierr := normalizeCIDRs(r.PostFormValue("ip_allow"))
@@ -1112,7 +1097,7 @@ func (s *Server) handleAdminIPs(w http.ResponseWriter, r *http.Request) {
 	}
 	ip := clientIP(r, s.Cfg.Server.TrustedProxies)
 	if ip == nil || !ipInCIDRs(ip, effective) {
-		http.Error(w, "rifiutato: la nuova lista escluderebbe il tuo IP (ti bloccheresti fuori)", http.StatusBadRequest)
+		http.Error(w, i18n.T(s.lang(r), "err.ip_lockout"), http.StatusBadRequest)
 		return
 	}
 	err = s.mutateServices(func(svc *models.Services) error {
@@ -1162,19 +1147,19 @@ func (s *Server) handleUserAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	email, pw := r.PostFormValue("email"), r.PostFormValue("password")
 	if email == "" || pw == "" {
-		http.Error(w, "email and password required", http.StatusBadRequest)
+		http.Error(w, i18n.T(s.lang(r), "err.email_password_required"), http.StatusBadRequest)
 		return
 	}
 	hash, err := auth.HashPassword(pw)
 	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		http.Error(w, i18n.T(s.lang(r), "err.internal"), http.StatusInternalServerError)
 		return
 	}
 	secret := ""
 	if !s.Cfg.DisableTOTP {
 		secret, err = auth.NewTOTPSecret()
 		if err != nil {
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			http.Error(w, i18n.T(s.lang(r), "err.internal"), http.StatusInternalServerError)
 			return
 		}
 	}
@@ -1245,7 +1230,7 @@ func (s *Server) handleUserTOTP(w http.ResponseWriter, r *http.Request) {
 	email := r.PostFormValue("email")
 	secret, err := auth.NewTOTPSecret()
 	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		http.Error(w, i18n.T(s.lang(r), "err.internal"), http.StatusInternalServerError)
 		return
 	}
 	err = s.mutateUsers(func(users *[]models.User) error {
@@ -1307,7 +1292,7 @@ func (s *Server) idTaken(svc models.Services, id string) bool {
 func (s *Server) renderAdminQR(w http.ResponseWriter, r *http.Request, email, secret string) {
 	png, err := qrcode.Encode(otpauthURI(email, secret), qrcode.Medium, 256)
 	if err != nil {
-		http.Error(w, "QR error", http.StatusInternalServerError)
+		http.Error(w, i18n.T(s.lang(r), "err.qr"), http.StatusInternalServerError)
 		return
 	}
 	s.renderLoc(w, r, adminQRTmpl, struct {

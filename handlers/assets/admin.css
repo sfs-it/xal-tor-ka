@@ -107,6 +107,22 @@ td .hint{margin:.15rem 0 0}
 td.rowact{white-space:nowrap;text-align:end}
 td.rowact .btn,td.rowact form.inline{margin-inline-start:.25rem}
 
+/* Field table (property · value · help) for edit forms */
+.ftable{width:100%;border-collapse:collapse;background:transparent;border:0;box-shadow:none;border-radius:0}
+.ftable th,.ftable td{background:transparent;border-bottom:1px solid var(--line);padding:.55rem .8rem .55rem 0;vertical-align:middle}
+.ftable th{width:1%;white-space:nowrap;text-align:start;color:var(--muted);font-weight:600;font-size:.85rem;text-transform:none;letter-spacing:0}
+.ftable td:nth-child(2){width:42%}
+.ftable .fhelp{color:var(--muted);font-size:.8rem;white-space:normal;line-height:1.35;padding-inline-end:0}
+.ftable input,.ftable select{width:100%}
+.ftable tr:last-child th,.ftable tr:last-child td{border-bottom:0}
+@media (max-width:640px){
+  .ftable,.ftable tbody,.ftable tr,.ftable th,.ftable td{display:block;width:auto}
+  .ftable th{border-bottom:0;padding-bottom:.15rem}
+  .ftable td{border-bottom:1px solid var(--line);padding:0 0 .7rem}
+  .ftable td:nth-child(2){width:auto}
+  .ftable .fhelp{padding:.2rem 0 0}
+}
+
 /* Buttons ------------------------------------------------------------------ */
 .btn{font:inherit;font-weight:550;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--text);
   padding:.5rem .9rem;border-radius:9px;transition:.13s;display:inline-block;line-height:1.2}
