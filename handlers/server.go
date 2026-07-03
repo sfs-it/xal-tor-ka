@@ -27,6 +27,7 @@ import (
 	"xaltorka/providers"
 	"xaltorka/proxy"
 	"xaltorka/version"
+	"xaltorka/xtkui"
 )
 
 // Server holds the dependencies shared by the HTTP handlers.
@@ -169,7 +170,7 @@ func (s *Server) currentLinks() []models.Link {
 // Routes builds the HTTP handler with all endpoints mounted.
 func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle("GET /assets/", http.FileServerFS(assetsFS))
+	mux.Handle("GET /assets/", http.FileServerFS(xtkui.AssetsFS))
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/listing", http.StatusSeeOther)
 	})
@@ -321,7 +322,7 @@ func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-var listingTmpl = template.Must(template.New("listing").Funcs(tmplFuncs).Parse(`<!doctype html>
+var listingTmpl = template.Must(template.New("listing").Funcs(xtkui.TmplFuncs).Parse(`<!doctype html>
 <html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Xal-Tor-Ka · {{T .Lang "listing.subtitle"}}</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
 <header class="topbar">

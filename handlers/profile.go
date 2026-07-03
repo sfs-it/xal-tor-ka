@@ -14,9 +14,10 @@ import (
 	"xaltorka/auth"
 	"xaltorka/i18n"
 	"xaltorka/models"
+	"xaltorka/xtkui"
 )
 
-var profileTmpl = template.Must(template.New("profile").Funcs(tmplFuncs).Parse(`<!doctype html>
+var profileTmpl = template.Must(template.New("profile").Funcs(xtkui.TmplFuncs).Parse(`<!doctype html>
 <html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Xal-Tor-Ka · {{T .Lang "profile.subtitle"}}</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
 <header class="topbar">
@@ -56,7 +57,7 @@ var profileTmpl = template.Must(template.New("profile").Funcs(tmplFuncs).Parse(`
  </div>{{end}}
 </main></body></html>`))
 
-var profileQRTmpl = template.Must(template.New("profileqr").Funcs(tmplFuncs).Parse(`<!doctype html>
+var profileQRTmpl = template.Must(template.New("profileqr").Funcs(xtkui.TmplFuncs).Parse(`<!doctype html>
 <html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Xal-Tor-Ka · {{T .Lang "qr.new2fa"}}</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
 <div class="auth-wrap"><div class="auth-card qr">

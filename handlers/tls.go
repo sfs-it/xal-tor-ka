@@ -11,6 +11,7 @@ import (
 
 	"xaltorka/certmgr"
 	"xaltorka/i18n"
+	"xaltorka/xtkui"
 )
 
 // servedHosts returns the unique, non-empty hosts currently proxied (resolver
@@ -45,7 +46,7 @@ type tlsPageData struct {
 	MsgOK       bool
 }
 
-var tlsTmpl = locParse("tls", `<section>
+var tlsTmpl = xtkui.LocParse("tls", `<section>
  <h2>{{T "admin.tls.h2"}}</h2>
  <p class="hint">{{T "admin.tls.hint"}}</p>
  {{if .HasMsg}}<div class="{{if .MsgOK}}ok{{else}}err{{end}}">{{T (print "admin.tls." .Msg)}}</div>{{end}}

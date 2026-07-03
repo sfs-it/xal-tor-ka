@@ -13,9 +13,10 @@ import (
 	"xaltorka/auth"
 	"xaltorka/i18n"
 	"xaltorka/providers"
+	"xaltorka/xtkui"
 )
 
-var loginTmpl = template.Must(template.New("login").Funcs(tmplFuncs).Parse(`<!doctype html>
+var loginTmpl = template.Must(template.New("login").Funcs(xtkui.TmplFuncs).Parse(`<!doctype html>
 <html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Xal-Tor-Ka · {{T .Lang "login.title"}}</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
 <div class="auth-wrap"><div class="auth-card">
@@ -34,7 +35,7 @@ var loginTmpl = template.Must(template.New("login").Funcs(tmplFuncs).Parse(`<!do
  {{corner .Lang}}
 </div></div></body></html>`))
 
-var totpTmpl = template.Must(template.New("totp").Funcs(tmplFuncs).Parse(`<!doctype html>
+var totpTmpl = template.Must(template.New("totp").Funcs(xtkui.TmplFuncs).Parse(`<!doctype html>
 <html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Xal-Tor-Ka · {{T .Lang "totp.title"}}</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
 <div class="auth-wrap"><div class="auth-card">

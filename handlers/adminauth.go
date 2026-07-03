@@ -9,12 +9,13 @@ import (
 	"net/url"
 
 	"xaltorka/i18n"
+	"xaltorka/xtkui"
 )
 
 // forbiddenAdminTmpl is shown to a logged-in NON-admin user hitting /admin: it
 // offers a server-side logout (the session cookie is HttpOnly, so JS can't clear
 // it) to switch account, plus a link back to the dashboard.
-var forbiddenAdminTmpl = template.Must(template.New("forbidden").Funcs(tmplFuncs).Parse(`<!doctype html>
+var forbiddenAdminTmpl = template.Must(template.New("forbidden").Funcs(xtkui.TmplFuncs).Parse(`<!doctype html>
 <html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Xal-Tor-Ka · {{T .Lang "blocked.title"}}</title><link rel="stylesheet" href="/assets/admin.css"></head><body>
 <div class="auth-wrap"><div class="auth-card">

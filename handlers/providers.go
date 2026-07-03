@@ -15,6 +15,7 @@ import (
 	"xaltorka/i18n"
 	"xaltorka/models"
 	"xaltorka/providers"
+	"xaltorka/xtkui"
 )
 
 // BuildOIDC constructs the enabled OIDC clients from a provider set + secrets. The
@@ -93,7 +94,7 @@ type provPageData struct {
 	TestedOK bool
 }
 
-var providersTmpl = locParse("providers", `<section>
+var providersTmpl = xtkui.LocParse("providers", `<section>
  <h2>{{T "admin.prov.h2"}}</h2>
  <p class="hint">{{T "admin.prov.hint"}}</p>
  {{if .Tested}}<div class="{{if .TestedOK}}ok{{else}}err{{end}}">{{if .TestedOK}}✓ {{T "admin.prov.test_ok"}}{{else}}✗ {{T "admin.prov.test_fail"}}{{end}} — <code>{{.TestedID}}</code></div>{{end}}
@@ -170,7 +171,7 @@ type provEditData struct {
 	Enabled, SecretSet                   bool
 }
 
-var providerEditTmpl = locParse("provedit", `<h1>{{T "admin.prov.edit_h1"}} «{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}»</h1>
+var providerEditTmpl = xtkui.LocParse("provedit", `<h1>{{T "admin.prov.edit_h1"}} «{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}»</h1>
  <div class="card">
   <form method="post" action="/admin/provider/edit">
    <input type="hidden" name="id" value="{{.ID}}">

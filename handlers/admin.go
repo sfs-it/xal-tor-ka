@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"html/template"
-	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -26,6 +25,7 @@ import (
 	"xaltorka/i18n"
 	"xaltorka/models"
 	"xaltorka/version"
+	"xaltorka/xtkui"
 )
 
 // Admin panel (BLUEPRINT §9). IP-whitelisted. Manages the runtime services
@@ -33,52 +33,30 @@ import (
 // atomic persistence + snapshot + reload. The config.json backends are
 // read-only (infrastructure, env-templated).
 
-// adminTopbar renders the shared admin header (active nav highlighted) with the
-// trailing icon cluster (language popup + profile + logout) like every other bar.
-func adminTopbar(active, lang string) string {
-	items := []struct{ key, href, k string }{
-		{"servizi", "/admin/servizi", "admin.services"},
-		{"docker", "/admin/docker", "admin.docker"},
-		{"providers", "/admin/providers", "admin.providers"},
-		{"utenti", "/admin/utenti", "admin.users"},
-		{"monitoring", "/admin/monitoring", "admin.monitoring"},
-		{"tls", "/admin/tls", "admin.tls"},
-	}
-	var nav strings.Builder
-	for _, i := range items {
-		cls := ""
-		if i.key == active {
-			cls = ` class="active"`
-		}
-		fmt.Fprintf(&nav, `<a href="%s"%s>%s</a>`, i.href, cls, template.HTMLEscapeString(i18n.T(lang, i.k)))
-	}
-	return `<header class="topbar"><div class="brand"><a href="/admin" style="color:inherit;text-decoration:none">⛬ Xal-Tor-Ka</a><span class="sub">` + template.HTMLEscapeString(i18n.T(lang, "admin.subtitle")) + `</span><span class="ver">` + version.Version + `</span></div><nav class="topnav">` +
-		nav.String() +
-		`<a href="/listing">` + template.HTMLEscapeString(i18n.T(lang, "nav.dashboard")) + `</a>` + string(iconCluster(lang, true)) + `</nav></header>`
+// adminNav is the top navigation of the core admin panel (extensions provide
+// their own). Labels are i18n keys.
+var adminNav = []xtkui.NavItem{
+	{Key: "servizi", Href: "/admin/servizi", LabelKey: "admin.services"},
+	{Key: "docker", Href: "/admin/docker", LabelKey: "admin.docker"},
+	{Key: "providers", Href: "/admin/providers", LabelKey: "admin.providers"},
+	{Key: "utenti", Href: "/admin/utenti", LabelKey: "admin.users"},
+	{Key: "monitoring", Href: "/admin/monitoring", LabelKey: "admin.monitoring"},
+	{Key: "tls", Href: "/admin/tls", LabelKey: "admin.tls"},
 }
 
 // renderAdminPage writes the shared chrome (head + topbar + container) around a
-// page-specific content template, localized for the request.
+// page-specific content template, via the shared UI kit.
 func (s *Server) renderAdminPage(w http.ResponseWriter, r *http.Request, active string, t *template.Template, data any) {
-	lang := s.lang(r)
-	dir := ""
-	if i18n.IsRTL(lang) {
-		dir = ` dir="rtl"`
+	c := xtkui.Chrome{
+		Title: "Xal-Tor-Ka · Admin", BrandText: "⛬ Xal-Tor-Ka", BrandHref: "/admin",
+		SubtitleKey: "admin.subtitle", Version: version.Version,
+		Nav: adminNav, Active: active,
+		DashboardHref: "/listing", DashboardKey: "nav.dashboard", LoggedIn: true,
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, `<!doctype html><html lang="%s"%s><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Xal-Tor-Ka · Admin</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>`, lang, dir)
-	io.WriteString(w, adminTopbar(active, lang))
-	io.WriteString(w, `<main class="container">`)
-	if ct, err := t.Clone(); err == nil {
-		ct.Funcs(locFuncs(lang))
-		_ = ct.Execute(w, data)
-	} else {
-		_ = t.Execute(w, data)
-	}
-	io.WriteString(w, `</main></body></html>`)
+	c.Render(w, s.lang(r), t, data)
 }
 
-var overviewTmpl = locParse("ov", `<h1>{{T "admin.title"}}</h1>
+var overviewTmpl = xtkui.LocParse("ov", `<h1>{{T "admin.title"}}</h1>
 <div class="grid">
  <a class="card" href="/admin/servizi"><div class="row"><h3>{{T "admin.services"}}</h3><span class="tag">{{.Services}}</span></div><div class="meta">{{.ConfigBackends}} {{T "admin.from_config"}} · {{.Links}} {{T "admin.links"}}</div></a>
  <a class="card" href="/admin/docker"><div class="row"><h3>{{T "admin.docker"}}</h3><span class="tag">{{T "admin.discover"}}</span></div><div class="meta">{{T "admin.ov.docker_meta"}}</div></a>
@@ -97,7 +75,7 @@ var overviewTmpl = locParse("ov", `<h1>{{T "admin.title"}}</h1>
  </div>
 </section>`)
 
-var servicesTmpl = locParse("services", `<section>
+var servicesTmpl = xtkui.LocParse("services", `<section>
  <h2>{{T "admin.svc.h2"}}</h2>
  <p class="hint">{{T "admin.svc.hint"}}</p>
  <table><thead><tr><th>{{T "admin.col.service"}}</th><th>{{T "admin.col.host"}}</th><th>{{T "admin.col.rule"}}</th><th>{{T "admin.col.upstream"}}</th><th>{{T "admin.col.ipallow"}}</th><th></th></tr></thead><tbody>
@@ -156,7 +134,7 @@ var servicesTmpl = locParse("services", `<section>
   </div></form></div>
 </section>`)
 
-var dockerTmpl = locParse("docker", `<section>
+var dockerTmpl = xtkui.LocParse("docker", `<section>
  <h2>{{T "admin.dk.h2"}}</h2>
  {{if .DockerEnabled}}
   <p class="hint">{{T "admin.dk.hint"}}</p>
@@ -187,7 +165,7 @@ var dockerTmpl = locParse("docker", `<section>
  </form>
 </section>`)
 
-var usersTmpl = locParse("users", `<section>
+var usersTmpl = xtkui.LocParse("users", `<section>
  <h2>{{T "admin.users"}}</h2>
  <table><thead><tr><th>{{T "admin.usr.email"}}</th><th></th><th>{{T "admin.usr.enabled_hosts"}}</th><th></th></tr></thead><tbody>
  {{range .Users}}<tr>
@@ -210,7 +188,7 @@ var usersTmpl = locParse("users", `<section>
   </form></div>
 </section>`)
 
-var userDetailTmpl = locParse("userdetail", `<section>
+var userDetailTmpl = xtkui.LocParse("userdetail", `<section>
  <p><a href="/admin/utenti">← {{T "admin.users"}}</a></p>
  <h2>{{T "admin.usr.props_of"}} «{{.Email}}»</h2>
  <div class="card">
@@ -234,7 +212,7 @@ var userDetailTmpl = locParse("userdetail", `<section>
  </div>
 </section>`)
 
-var monitoringTmpl = locParse("mon", `<section>
+var monitoringTmpl = xtkui.LocParse("mon", `<section>
  <h2>{{T "admin.mon.status"}}</h2>
  <table><thead><tr><th>id</th><th>{{T "admin.col.host"}}</th><th>{{T "admin.mon.state"}}</th><th>{{T "admin.mon.last_error"}}</th><th>{{T "admin.mon.last_check"}}</th></tr></thead><tbody>
  {{range .Monitoring}}<tr><td>{{.BackendID}}</td><td><code>{{.Host}}</code></td><td><span class="badge {{.State}}">{{.State}}</span></td><td>{{.LastError}}</td><td>{{.LastCheck.Format "15:04:05"}}</td></tr>
@@ -263,7 +241,7 @@ var monitoringTmpl = locParse("mon", `<section>
   </div></form></div>
 </section>`)
 
-var adminEditTmpl = locParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}»</h1>
+var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}»</h1>
  <div class="card">
   <form method="post" action="/admin/backend/edit">
    <input type="hidden" name="id" value="{{.ID}}">
@@ -298,7 +276,7 @@ var adminEditTmpl = locParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{if .Nam
   </form>
  </div>`)
 
-var adminQRTmpl = locParse("adminqr", `<h1>{{T "admin.qr.title"}} {{.Email}}</h1>
+var adminQRTmpl = xtkui.LocParse("adminqr", `<h1>{{T "admin.qr.title"}} {{.Email}}</h1>
  <div class="card qr" style="text-align:center">
   <p class="hint">{{T "admin.qr.hint"}}</p>
   <p><img src="{{.QR}}" alt="QR otpauth" width="240" height="240"></p>
@@ -575,7 +553,7 @@ func (s *Server) handleDiscoverAdd(w http.ResponseWriter, r *http.Request) {
 	s.afterMutation(w, r, err)
 }
 
-var hostScanTmpl = locParse("hostscan", `<h1>{{T "admin.hs.h1"}} ({{.From}}–{{.To}})</h1>
+var hostScanTmpl = xtkui.LocParse("hostscan", `<h1>{{T "admin.hs.h1"}} ({{.From}}–{{.To}})</h1>
  <p class="hint">{{T "admin.hs.hint"}}</p>
  <form method="post" action="/admin/hostscan/add">
   <table><thead><tr>

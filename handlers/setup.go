@@ -18,6 +18,7 @@ import (
 	"xaltorka/config"
 	"xaltorka/i18n"
 	"xaltorka/models"
+	"xaltorka/xtkui"
 )
 
 // Hybrid onboarding (BLUEPRINT §13): the `setup` CLI subcommand writes
@@ -30,7 +31,7 @@ const setupHead = `<!doctype html>
 <title>Xal-Tor-Ka · Setup</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
 <div class="auth-wrap"><div class="auth-card`
 
-var setupCredTmpl = template.Must(template.New("cred").Funcs(tmplFuncs).Parse(setupHead + `">
+var setupCredTmpl = template.Must(template.New("cred").Funcs(xtkui.TmplFuncs).Parse(setupHead + `">
  <h1>⛬ {{T .Lang "setup.cred.title"}}</h1>
  {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
  <p class="hint">{{T .Lang "setup.profile"}} <strong>{{.Email}}</strong></p>
@@ -43,7 +44,7 @@ var setupCredTmpl = template.Must(template.New("cred").Funcs(tmplFuncs).Parse(se
  </form>{{corner .Lang}}
 </div></div></body></html>`))
 
-var setupTOTPTmpl = template.Must(template.New("totp").Funcs(tmplFuncs).Parse(setupHead + ` qr">
+var setupTOTPTmpl = template.Must(template.New("totp").Funcs(xtkui.TmplFuncs).Parse(setupHead + ` qr">
  <h1>{{T .Lang "setup.totp.title"}}</h1>
  {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
  <p class="hint">{{T .Lang "qr.scan"}}</p>
@@ -57,7 +58,7 @@ var setupTOTPTmpl = template.Must(template.New("totp").Funcs(tmplFuncs).Parse(se
  </form>{{corner .Lang}}
 </div></div></body></html>`))
 
-var setupDoneTmpl = template.Must(template.New("done").Funcs(tmplFuncs).Parse(setupHead + `">
+var setupDoneTmpl = template.Must(template.New("done").Funcs(xtkui.TmplFuncs).Parse(setupHead + `">
  <h1>✓ {{T .Lang "setup.done.title"}}</h1>
  <p class="hint">{{T .Lang "setup.done.profile"}} <strong>{{.Email}}</strong> {{T .Lang "setup.done.activated"}}</p>
  <p style="margin-top:1rem"><a class="btn primary" href="/login">{{T .Lang "setup.done.go_login"}}</a></p>{{corner .Lang}}
