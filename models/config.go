@@ -109,9 +109,32 @@ type Backend struct {
 	// IPAllow is an optional per-vhost IP allow-list (CIDRs). When non-empty,
 	// requests whose client IP is not covered are denied (403) before the rule is
 	// evaluated — so it also restricts "public" services. Empty = no IP restriction.
-	IPAllow []string `json:"ip_allow,omitempty"`
-	Routes  []Route  `json:"routes"`
-	Health  Health   `json:"health"`
+	IPAllow []string  `json:"ip_allow,omitempty"`
+	Routes  []Route   `json:"routes"`
+	Health  Health    `json:"health"`
+	Nginx   NginxOpts `json:"nginx,omitempty"` // per-vhost NGINX tuning (optional)
+}
+
+// NginxOpts are optional per-vhost NGINX knobs surfaced in the admin "NGINX
+// settings" section. Zero values keep the current default behaviour. The custom
+// blocks are raw directives for cases not covered by the toggles; NGINX validates
+// them on reload (nginx -t) and the poller keeps the old config if they are wrong.
+type NginxOpts struct {
+	// ProxyTimeout sets proxy_read_timeout/proxy_send_timeout in seconds (0 = default 60).
+	ProxyTimeout int `json:"proxy_timeout,omitempty"`
+	// MaxBodyMB sets client_max_body_size in megabytes (0 = NGINX default 1m).
+	MaxBodyMB int `json:"max_body_mb,omitempty"`
+	// WebSocket adds the HTTP/1.1 Upgrade/Connection headers for WebSocket backends.
+	WebSocket bool `json:"websocket,omitempty"`
+	// NoBuffering disables proxy_buffering (streaming / Server-Sent Events).
+	NoBuffering bool `json:"no_buffering,omitempty"`
+	// BackendSelfSigned skips upstream TLS verification (proxy_ssl_verify off) and
+	// enables SNI (proxy_ssl_server_name on) for HTTPS backends with a private cert.
+	BackendSelfSigned bool `json:"backend_self_signed,omitempty"`
+	// CustomServer / CustomLocation are raw directives injected verbatim in the
+	// server{} / each proxied location{} block.
+	CustomServer   string `json:"custom_server,omitempty"`
+	CustomLocation string `json:"custom_location,omitempty"`
 }
 
 // Link is an external service shown as a tile in /listing but NOT reverse

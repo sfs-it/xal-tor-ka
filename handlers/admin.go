@@ -281,6 +281,18 @@ var adminEditTmpl = locParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{if .Nam
     <tr><th>{{T "admin.f.desc"}}</th><td colspan="2"><input name="description" value="{{.Description}}" placeholder="{{T "admin.edit.help.desc"}}"></td></tr>
     <tr><th>{{T "admin.col.ipallow"}}</th><td><input name="ip_allow" value="{{.IPAllow}}" placeholder="203.0.113.0/24 10.0.0.5"></td><td class="fhelp">{{T "admin.edit.help.ipallow"}}</td></tr>
    </tbody></table>
+   <h3 style="margin-top:1.3rem">{{T "admin.nginx.h"}}</h3>
+   <p class="hint">{{T "admin.nginx.hint"}}</p>
+   <table class="ftable"><tbody>
+    <tr><th>{{T "admin.nginx.timeout"}}</th><td><input type="number" name="ngx_timeout" value="{{.NgxTimeout}}" min="0" placeholder="60"></td><td class="fhelp">{{T "admin.nginx.timeout.help"}}</td></tr>
+    <tr><th>{{T "admin.nginx.maxbody"}}</th><td><input type="number" name="ngx_maxbody" value="{{.NgxMaxBody}}" min="0" placeholder="1"></td><td class="fhelp">{{T "admin.nginx.maxbody.help"}}</td></tr>
+    <tr><th>{{T "admin.nginx.websocket"}}</th><td><input type="checkbox" name="ngx_ws"{{if .NgxWS}} checked{{end}}></td><td class="fhelp">{{T "admin.nginx.websocket.help"}}</td></tr>
+    <tr><th>{{T "admin.nginx.nobuffer"}}</th><td><input type="checkbox" name="ngx_nobuf"{{if .NgxNoBuf}} checked{{end}}></td><td class="fhelp">{{T "admin.nginx.nobuffer.help"}}</td></tr>
+    <tr><th>{{T "admin.nginx.selfsigned"}}</th><td><input type="checkbox" name="ngx_selfsigned"{{if .NgxSelfSigned}} checked{{end}}></td><td class="fhelp">{{T "admin.nginx.selfsigned.help"}}</td></tr>
+    <tr><th>{{T "admin.nginx.custom_loc"}}</th><td colspan="2"><textarea name="ngx_custom_loc" rows="3" placeholder="proxy_set_header X-Foo bar;">{{.NgxCustomLoc}}</textarea></td></tr>
+    <tr><th>{{T "admin.nginx.custom_srv"}}</th><td colspan="2"><textarea name="ngx_custom_srv" rows="2">{{.NgxCustomSrv}}</textarea></td></tr>
+   </tbody></table>
+   <p class="hint">{{T "admin.nginx.custom.help"}}</p>
    <div class="actions" style="margin-top:1rem">
     <button class="btn primary">{{T "btn.save"}}</button><a class="btn" href="/admin/tls#h-{{.Host}}">{{T "admin.tls.manage"}}</a><a class="btn" href="/admin/servizi">{{T "admin.cancel"}}</a></div>
   </form>
@@ -1023,7 +1035,15 @@ func (s *Server) handleBackendEditForm(w http.ResponseWriter, r *http.Request) {
 		}
 		s.renderAdminPage(w, r, "servizi", adminEditTmpl, struct {
 			ID, Name, Description, Host, URL, Path, Rule, Upstream, IPAllow string
-		}{b.ID, b.Name, b.Description, b.Host, b.URL, rt.Path, rt.Rule, rt.Upstream, strings.Join(b.IPAllow, " ")})
+			NgxTimeout, NgxMaxBody                                          int
+			NgxWS, NgxNoBuf, NgxSelfSigned                                  bool
+			NgxCustomLoc, NgxCustomSrv                                      string
+		}{
+			b.ID, b.Name, b.Description, b.Host, b.URL, rt.Path, rt.Rule, rt.Upstream, strings.Join(b.IPAllow, " "),
+			b.Nginx.ProxyTimeout, b.Nginx.MaxBodyMB,
+			b.Nginx.WebSocket, b.Nginx.NoBuffering, b.Nginx.BackendSelfSigned,
+			b.Nginx.CustomLocation, b.Nginx.CustomServer,
+		})
 		return
 	}
 	http.Error(w, i18n.T(s.lang(r), "err.backend_not_found"), http.StatusNotFound)
@@ -1057,6 +1077,7 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, ierr.Error(), http.StatusBadRequest)
 		return
 	}
+	ngx := parseNginxOpts(r)
 	err := s.mutateServices(func(svc *models.Services) error {
 		for i := range svc.Backends {
 			if svc.Backends[i].ID != id {
@@ -1068,6 +1089,7 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 			b.Host = host
 			b.URL = r.PostFormValue("url")
 			b.IPAllow = ipAllow
+			b.Nginx = ngx
 			if len(b.Routes) == 0 {
 				b.Routes = []models.Route{{}}
 			}
@@ -1077,6 +1099,27 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 		return fmt.Errorf("backend not found")
 	})
 	s.afterMutation(w, r, err)
+}
+
+// parseNginxOpts reads the per-vhost "NGINX settings" section of the backend edit
+// form into a models.NginxOpts (zero values = default behaviour).
+func parseNginxOpts(r *http.Request) models.NginxOpts {
+	atoi := func(s string) int {
+		n, _ := strconv.Atoi(strings.TrimSpace(s))
+		if n < 0 {
+			n = 0
+		}
+		return n
+	}
+	return models.NginxOpts{
+		ProxyTimeout:      atoi(r.PostFormValue("ngx_timeout")),
+		MaxBodyMB:         atoi(r.PostFormValue("ngx_maxbody")),
+		WebSocket:         r.PostFormValue("ngx_ws") != "",
+		NoBuffering:       r.PostFormValue("ngx_nobuf") != "",
+		BackendSelfSigned: r.PostFormValue("ngx_selfsigned") != "",
+		CustomLocation:    strings.TrimSpace(r.PostFormValue("ngx_custom_loc")),
+		CustomServer:      strings.TrimSpace(r.PostFormValue("ngx_custom_srv")),
+	}
 }
 
 // handleAdminIPs updates the admin-area IP whitelist (persisted as a services.json
