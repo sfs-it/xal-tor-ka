@@ -15,8 +15,10 @@ privilegi restano FUORI dal core.** Il core resta read-only su Docker, low-priv.
    crea utenti OS, admin DB. API **stretta, autenticata, internal-only**, verbi
    whitelisted e parametrici (niente shell libera), **audit** di ogni azione.
    Nessuna esposizione web. Perimetro critico minimizzato.
-   - Trasporto consigliato: **unix socket sull'host** (massimo contenimento) —
-     alternativa mTLS su rete interna. Agente su host via **systemd**, non in
+   - Trasporto (DECISO): **unix socket sull'host** di default (massimo contenimento;
+     auth via permessi del socket, gruppo dedicato). La **porta TCP** (mTLS su rete
+     interna) è un'**alternativa abilitabile in un secondo momento**, gated da
+     **whitelist** IP — off di default. Agente su host via **systemd**, non in
      container (evita docker.sock montato in un container).
 2. **Estensione hosting** (nuova Docker + sw) — logica + UI di management
    (crea sito / gestisci DB / gestisci utenti-app). **Non ha poteri propri**:
@@ -99,7 +101,12 @@ Due assi indipendenti, scelti per-sito:
    con DB **a scelta MariaDB o PostgreSQL**, agente `site up/down` ·
    `db create (engine)` · `user create`, integrazione backend/cert.
 
-## Aperti
-- Trasporto agente: unix socket (consigliato) vs mTLS.
-- Isolamento sito: utente OS per-sito vs unico.
-- Sub-progetto: **dir nel repo** (deciso), non repo a sé.
+## Decisioni chiuse
+- Trasporto agente: **unix socket** (default) + TCP/mTLS opzionale con whitelist, abilitabile dopo.
+- Isolamento sito: **utente OS reale per-sito** nel gruppo `docker-hosting`.
+- Struttura: **dir nel repo** (monorepo), non repo a sé.
+- Engine DB: pg **o** mysql, per-sito. Topologia: dedicato **o** condiviso, per-sito.
+
+## Aperti (in fase di implementazione)
+- Formato messaggi agente (JSON verbi request/response) + formato audit.
+- Set esatto dei template di sito (php-fpm+nginx primo).
