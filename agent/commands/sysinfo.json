@@ -1,0 +1,5 @@
+{
+  "description": "Read-only host + docker summary (safe demo of the command pattern)",
+  "timeout_seconds": 15,
+  "params": {}
+}

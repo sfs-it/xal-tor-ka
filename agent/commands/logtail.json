@@ -1,0 +1,8 @@
+{
+  "description": "Tail lines from a WHITELISTED log file (log-analysis pattern)",
+  "timeout_seconds": 10,
+  "params": {
+    "log":   { "required": true,  "enum": ["nginx-access", "nginx-error", "syslog"] },
+    "lines": { "required": false, "pattern": "[0-9]{1,4}" }
+  }
+}

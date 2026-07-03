@@ -1,0 +1,24 @@
+[Unit]
+Description=Xal-Tor-Ka hosting agent — vetted host command dispatcher
+Documentation=https://github.com/sfs-it/xal-tor-ka
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Runs as root: it must create OS users, run docker and manage /opt/sites. Safety
+# comes from the NARROW model (a fixed set of root-owned vetted scripts + validated,
+# non-injectable parameters), NOT from sandboxing away the powers it needs.
+#
+# The socket is created 0660; to let the hosting extension connect, create a group
+# (e.g. `xtk-agent`), add the extension's user to it, and pass its gid via
+# --socket-gid <GID> below. Optionally pin the caller with --allow-uid <UID>.
+ExecStart=/usr/local/bin/xtk-agent \
+  --socket /run/xtk-agent.sock \
+  --commands /usr/local/lib/xtk-agent/commands \
+  --trusted-uid 0
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
