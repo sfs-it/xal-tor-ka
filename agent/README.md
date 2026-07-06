@@ -41,12 +41,18 @@ Response: `{"ok":true,"code":0,"stdout":"…","stderr":""}`  (or `{"error":"…"
   under `/opt/sites/<name>`, and a rendered compose (from `templates/<template>`).
   Does not start it. Prints `upstream=http://<name>.site` for the gateway.
 - `site_up` / `site_down` / `site_status` — `docker compose` lifecycle of a site.
+- `site_destroy` — stop and remove a site (`compose down -v`, remove the dir,
+  `userdel` the OS user). Refuses if the site does not exist.
+- `db_create` — create a database + dedicated user on the **shared** engine
+  instance (`engine` ∈ `{pg, mysql}`), bringing that instance up on first use
+  under `/opt/xtk-db/<engine>/`. Refuses if the db already exists. Prints the
+  connection (`host db user password …`) on stdout for the caller to inject; the
+  generated password is never audited (only param keys are).
 
 Site containers run as the site's uid:gid and join the external `xtk-hosting`
 network (alias `<name>.site`); the gateway reverse-proxies there. No host port is
 published. Templates live in `templates/` (first: `php-fpm` = nginx + php-fpm).
-Still to add: `db_create` (engine-aware pg|mysql, shared|dedicated) and
-`site_destroy`.
+Shared DB instances get the alias `xtk-db-<engine>.db` on the same network.
 
 ## Deploy
     go build -ldflags="-s -w" -o xtk-agent ./agent/xtk-agent

@@ -1,0 +1,5 @@
+{
+  "description": "Stop and remove a site (compose down -v, remove dir, delete the OS user)",
+  "timeout_seconds": 60,
+  "params": { "name": { "required": true, "pattern": "[a-z][a-z0-9-]{1,30}" } }
+}
