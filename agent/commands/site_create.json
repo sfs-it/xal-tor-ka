@@ -1,0 +1,8 @@
+{
+  "description": "Provision a site: OS user in docker-hosting + rendered compose (not started)",
+  "timeout_seconds": 60,
+  "params": {
+    "name":     { "required": true,  "pattern": "[a-z][a-z0-9-]{1,30}" },
+    "template": { "required": false, "enum": ["php-fpm"] }
+  }
+}

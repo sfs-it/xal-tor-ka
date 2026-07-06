@@ -33,10 +33,20 @@ docker, manage databases); the internet-facing gateway never gains them.
 Request:  `{"cmd":"logtail","params":{"log":"nginx-error","lines":"100"}}`
 Response: `{"ok":true,"code":0,"stdout":"…","stderr":""}`  (or `{"error":"…"}`)
 
-## Examples shipped
+## Commands shipped
 - `sysinfo` — read-only host/docker summary (no params).
 - `logtail` — tail a **whitelisted** log (`enum` + `pattern` params); the
   log-analysis pattern.
+- `site_create` — provision a site: per-site OS user in `docker-hosting`, site dir
+  under `/opt/sites/<name>`, and a rendered compose (from `templates/<template>`).
+  Does not start it. Prints `upstream=http://<name>.site` for the gateway.
+- `site_up` / `site_down` / `site_status` — `docker compose` lifecycle of a site.
+
+Site containers run as the site's uid:gid and join the external `xtk-hosting`
+network (alias `<name>.site`); the gateway reverse-proxies there. No host port is
+published. Templates live in `templates/` (first: `php-fpm` = nginx + php-fpm).
+Still to add: `db_create` (engine-aware pg|mysql, shared|dedicated) and
+`site_destroy`.
 
 ## Deploy
     go build -ldflags="-s -w" -o xtk-agent ./agent/xtk-agent

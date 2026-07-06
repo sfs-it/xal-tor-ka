@@ -1,0 +1,5 @@
+{
+  "description": "docker compose up for a provisioned site",
+  "timeout_seconds": 120,
+  "params": { "name": { "required": true, "pattern": "[a-z][a-z0-9-]{1,30}" } }
+}
