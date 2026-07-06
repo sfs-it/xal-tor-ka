@@ -1,0 +1,5 @@
+{
+  "description": "List provisioned sites as JSON (name, owner uid, running container count). No params.",
+  "timeout_seconds": 60,
+  "params": {}
+}
