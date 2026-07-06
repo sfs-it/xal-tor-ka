@@ -25,4 +25,4 @@ done
 chown -R "$uid:$gid" "$dir"
 docker network inspect xtk-hosting >/dev/null 2>&1 || docker network create xtk-hosting >/dev/null
 
-echo "site=$name user=$user uid=$uid gid=$gid dir=$dir upstream=http://$name.site"
+echo "site=$name user=$user uid=$uid gid=$gid dir=$dir upstream=http://$name.site:8080"

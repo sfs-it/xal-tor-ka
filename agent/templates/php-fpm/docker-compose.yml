@@ -3,7 +3,10 @@
 # reverse-proxy to it at http://__NAME__.site (no host port is published).
 services:
   web:
-    image: nginx:stable-alpine
+    # nginx-unprivileged: built to run as an arbitrary non-root uid (temp paths +
+    # pid under /tmp, listens on 8080). The stock nginx image cannot: it fails to
+    # create /var/cache/nginx as non-root.
+    image: nginxinc/nginx-unprivileged:stable-alpine
     restart: unless-stopped
     user: "__UID__:__GID__"
     volumes:
