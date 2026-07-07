@@ -1,4 +1,4 @@
-# ⛬ Xal-Tor-Ka · `beta0.3`
+# ⛬ Xal-Tor-Ka · `beta0.4`
 
 *Traduction du document officiel en anglais ; en cas de divergence, la version anglaise prévaut.*
 
@@ -51,7 +51,7 @@ tentatives par force brute et sauvegarde sa propre configuration.
 
 ## État
 
-**`beta0.3`** — une version antérieure à la 1.0. Le cœur est construit et
+**`beta0.4`** — une version antérieure à la 1.0. Le cœur est construit et
 fonctionnel ; certaines fonctionnalités avancées sont en cours de finition (voir
 [`TODO.md`](../../TODO.md)).
 

@@ -12,7 +12,7 @@ import (
 func TestChromeRender(t *testing.T) {
 	c := Chrome{
 		Title: "Xal-Tor-Ka · Admin", BrandText: "⛬ Xal-Tor-Ka", BrandHref: "/admin",
-		SubtitleKey: "admin.subtitle", Version: "beta0.3",
+		SubtitleKey: "admin.subtitle", Version: "beta0.4",
 		Nav: []NavItem{
 			{Key: "servizi", Href: "/admin/servizi", LabelKey: "admin.services"},
 			{Key: "tls", Href: "/admin/tls", LabelKey: "admin.tls"},
@@ -31,7 +31,7 @@ func TestChromeRender(t *testing.T) {
 		`class="topbar"`,
 		`href="/admin/servizi"`,
 		`href="/admin/tls" class="active"`, // active page highlighted
-		`beta0.3`,
+		`beta0.4`,
 		`href="/listing"`,   // dashboard link
 		`class="cluster"`,   // language + profile + logout cluster
 		`action="/logout"`,  // logged-in cluster
