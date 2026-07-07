@@ -41,6 +41,8 @@ Response: `{"ok":true,"code":0,"stdout":"…","stderr":""}`  (or `{"error":"…"
   under `/opt/sites/<name>`, and a rendered compose (from `templates/<template>`).
   Does not start it. Prints `upstream=http://<name>.site` for the gateway.
 - `site_up` / `site_down` / `site_status` — `docker compose` lifecycle of a site.
+- `site_list` — read-only JSON inventory of provisioned sites (name, owner uid,
+  running container count); the hosting UI renders it without host privileges.
 - `site_destroy` — stop and remove a site (`compose down -v`, remove the dir,
   `userdel` the OS user). Refuses if the site does not exist.
 - `db_create` — create a database + dedicated user on the **shared** engine
