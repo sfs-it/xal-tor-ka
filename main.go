@@ -140,6 +140,7 @@ func run() error {
 		BaseProviders:     bundle.Config.Providers,
 		DockerProxyURL:    getenv("DOCKER_PROXY", ""),
 		DockerExclude:     splitCSV(getenv("DISCOVER_EXCLUDE", "xaltorka,docker-socket-proxy")),
+		HostingUpstream:   getenv("HOSTING_UPSTREAM", ""), // set → enables /admin/hosting proxy + nav
 		Audit:             auditLog,
 		Proxy: &proxy.Manager{
 			OutPath:    filepath.Join(*configDir, "nginx", "conf.d", "backends.conf"),

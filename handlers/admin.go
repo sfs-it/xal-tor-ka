@@ -47,10 +47,15 @@ var adminNav = []xtkui.NavItem{
 // renderAdminPage writes the shared chrome (head + topbar + container) around a
 // page-specific content template, via the shared UI kit.
 func (s *Server) renderAdminPage(w http.ResponseWriter, r *http.Request, active string, t *template.Template, data any) {
+	nav := adminNav
+	if s.HostingUpstream != "" { // extension installed → surface its entry (copy, don't mutate the shared slice)
+		nav = append(append([]xtkui.NavItem{}, adminNav...),
+			xtkui.NavItem{Key: "hosting", Href: "/admin/hosting", LabelKey: "admin.hosting"})
+	}
 	c := xtkui.Chrome{
 		Title: "Xal-Tor-Ka · Admin", BrandText: "⛬ Xal-Tor-Ka", BrandHref: "/admin",
 		SubtitleKey: "admin.subtitle", Version: version.Version,
-		Nav: adminNav, Active: active,
+		Nav: nav, Active: active,
 		DashboardHref: "/listing", DashboardKey: "nav.dashboard", LoggedIn: true,
 	}
 	c.Render(w, s.lang(r), t, data)

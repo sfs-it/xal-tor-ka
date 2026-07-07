@@ -1,0 +1,44 @@
+# Hosting extension overlay. Enable it by merging over the core compose:
+#   docker compose -f docker-compose.yml -f ext/hosting/docker-compose.yml up -d --build
+#
+# It adds the internal UI service (xtk-hosting-ui) and switches the core's
+# HOSTING_UPSTREAM on, so the core reverse-proxies /admin/hosting/* to it (admin
+# session gated) and shows the Hosting nav entry. The UI has no host powers: it
+# drives the privileged xtk-agent (a systemd host daemon, see deploy/agent/) over
+# its unix socket, which must already be running on the host.
+#
+# Prereq on the host: the agent's socket must be group-accessible to this service.
+# Create a group and run the agent with --socket-gid <gid>:
+#   groupadd -g 1997 xtk-agent
+#   # add ' --socket-gid 1997' to ExecStart in the xtk-agent unit, then restart it
+# Override the gid here via XTK_AGENT_GID if you used a different one.
+services:
+  xaltorka:
+    environment:
+      - HOSTING_UPSTREAM=http://xtk-hosting-ui:8090
+
+  xtk-hosting-ui:
+    build:
+      context: .
+      dockerfile: ext/hosting/Dockerfile
+    image: xtk-hosting-ui:latest
+    restart: unless-stopped
+    user: "65532" # distroless nonroot
+    group_add:
+      - "${XTK_AGENT_GID:-1997}" # the xtk-agent socket group
+    volumes:
+      - /run/xtk-agent.sock:/run/xtk-agent.sock
+    networks:
+      - internal
+    depends_on:
+      - xaltorka
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 64M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

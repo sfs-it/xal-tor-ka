@@ -12,6 +12,7 @@ import (
 	"html/template"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"strings"
 	"sync"
@@ -54,6 +55,13 @@ type Server struct {
 	// Docker discovery (via read-only socket-proxy). Empty URL disables it.
 	DockerProxyURL string
 	DockerExclude  []string // container name substrings to hide (own stack)
+
+	// HostingUpstream is the hosting extension's internal base URL (e.g.
+	// http://xtk-hosting-ui:8090). Empty disables the extension: /admin/hosting
+	// 404s and its admin-nav entry is hidden. The core reverse-proxies
+	// /admin/hosting/* there, gated by the admin session (adminSessionOK).
+	HostingUpstream string
+	hostingProxy    *httputil.ReverseProxy
 
 	// UpstreamLocalhost is the host that user-entered "localhost"/"127.0.0.1"
 	// upstreams are rewritten to. In Docker that is "host.docker.internal" (the
@@ -230,6 +238,16 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /admin/tls/renew", s.handleTLSRenew)
 	mux.HandleFunc("POST /admin/tls/del", s.handleTLSDelete)
 	mux.HandleFunc("GET /admin/tls/ca.crt", s.handleTLSCA)
+
+	// Hosting extension (optional): the core reverse-proxies /admin/hosting/* to it,
+	// gated by the admin session. No method prefix → GET and POST both route here.
+	if s.HostingUpstream != "" {
+		if u, err := url.Parse(s.HostingUpstream); err == nil {
+			s.hostingProxy = httputil.NewSingleHostReverseProxy(u)
+		}
+		mux.HandleFunc("/admin/hosting", s.handleHostingProxy)
+		mux.HandleFunc("/admin/hosting/", s.handleHostingProxy)
+	}
 	return mux
 }
 

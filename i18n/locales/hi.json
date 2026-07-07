@@ -116,6 +116,7 @@
   "admin.users": "उपयोगकर्ता",
   "admin.monitoring": "निगरानी",
   "admin.tls": "TLS",
+  "admin.hosting": "होस्टिंग",
   "admin.tls.h2": "प्रमाणपत्र",
   "admin.tls.manage": "SSL प्रबंधन",
   "admin.nginx.h": "NGINX सेटिंग्स",

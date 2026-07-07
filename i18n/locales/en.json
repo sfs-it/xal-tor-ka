@@ -13,20 +13,16 @@
   "field.email": "Email",
   "field.password": "Password",
   "lang.label": "Language",
-
   "login.title": "Sign in",
   "login.or": "or",
   "login.with": "Sign in with",
-
   "totp.title": "Two-factor verification",
   "totp.code": "TOTP code",
-
   "listing.subtitle": "Services",
   "listing.title": "Available services",
   "listing.empty": "No services available for your profile.",
   "tag.external": "external",
   "tag.proxy": "proxy",
-
   "profile.subtitle": "Profile",
   "profile.title": "My profile",
   "profile.email": "Email",
@@ -44,19 +40,16 @@
   "profile.pw_updated": "Password updated.",
   "profile.pw_wrong": "Current password is incorrect.",
   "profile.local_only": "Available only for local accounts.",
-
   "qr.new2fa": "New 2FA",
   "qr.scan": "Scan the QR with your authenticator app (or enter the key manually). Your next sign-in uses this code.",
   "qr.key": "Key",
   "qr.back_profile": "← back to profile",
-
   "blocked.title": "Restricted area",
   "blocked.not_admin": "This account is not an administrator.",
   "blocked.you_are": "You are signed in as",
   "blocked.need_admin": "The administration area requires an account with the admin flag.",
   "blocked.logout_switch": "Log out and switch account",
   "blocked.to_dashboard": "← go to the dashboard",
-
   "err.bad_request": "invalid request",
   "err.bad_credentials": "invalid credentials",
   "err.internal": "internal error",
@@ -82,7 +75,6 @@
   "err.host_required": "host required",
   "err.ip_lockout": "rejected: the new list would exclude your own IP (you would lock yourself out)",
   "err.email_password_required": "email and password required",
-
   "admin.title": "Administration",
   "admin.subtitle": "Administration",
   "admin.services": "Services",
@@ -124,6 +116,7 @@
   "admin.users": "Users",
   "admin.monitoring": "Monitoring",
   "admin.tls": "TLS",
+  "admin.hosting": "Hosting",
   "admin.tls.h2": "Certificates",
   "admin.tls.manage": "Manage SSL",
   "admin.nginx.h": "NGINX settings",
@@ -174,7 +167,6 @@
   "admin.sec.your_ip": "Your IP:",
   "admin.sec.field": "Allowed IPs/CIDRs (space or comma; single IP = /32)",
   "admin.sec.warn": "The new list must include your IP, otherwise you would lock yourself out. Empty the field to revert to config.json/ADMIN_CIDR.",
-
   "admin.svc.h2": "Reverse-proxy services",
   "admin.svc.hint": "Services from config.json are read-only (infrastructure). Those added here live in services.json.",
   "admin.svc.add": "Add proxied service",
@@ -216,7 +208,6 @@
   "admin.links.add": "Add link",
   "admin.vis.public": "public",
   "admin.vis.private": "reserved",
-
   "admin.dk.h2": "Discover Docker containers",
   "admin.dk.hint": "Running containers with published ports. «Add» creates a vhost <name>.localhost → host.docker.internal:<port>.",
   "admin.dk.container": "container",
@@ -234,7 +225,6 @@
   "admin.dk.from": "from",
   "admin.dk.to": "to",
   "admin.dk.scan": "scan",
-
   "admin.usr.email": "email",
   "admin.usr.enabled_hosts": "enabled hosts",
   "admin.usr.all_admin": "all (admin)",
@@ -254,7 +244,6 @@
   "admin.usr.admin_all_note": "This user is an administrator: they access all services, the whitelist does not apply.",
   "admin.usr.no_services": "no service configured",
   "admin.usr.save_authz": "save authorizations",
-
   "admin.mon.status": "Status",
   "admin.mon.state": "state",
   "admin.mon.last_error": "last error",
@@ -269,17 +258,14 @@
   "admin.mon.health_url": "health url",
   "admin.mon.interval_s": "interval (s)",
   "admin.mon.timeout_s": "timeout (s)",
-
   "admin.edit.title": "Edit service",
   "admin.edit.h1": "Edit",
   "admin.edit.id_ro": "id (read-only)",
   "admin.edit.ipallow": "IP allow-list (CIDR, optional — empty = no limit)",
   "admin.cancel": "cancel",
-
   "admin.qr.title": "2FA for",
   "admin.qr.hint": "Have the user scan the QR with their authenticator app, or share the key.",
   "admin.qr.back": "back to users",
-
   "admin.hs.subtitle": "Host ports",
   "admin.hs.h1": "Ports listening on host",
   "admin.hs.hint": "Ports reachable via host.docker.internal (e.g. PuTTY/SSH tunnels, host services). Tick the ports and add them in bulk; empty name → host-<port>.",
@@ -289,7 +275,6 @@
   "admin.hs.none": "no open port in the range",
   "admin.hs.add_selected": "Add selected",
   "admin.hs.back": "back to administration",
-
   "setup.cred.title": "Initial setup",
   "setup.profile": "Profile:",
   "setup.confirm_pw": "Confirm password",

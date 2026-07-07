@@ -116,6 +116,7 @@
   "admin.users": "Benutzer",
   "admin.monitoring": "Überwachung",
   "admin.tls": "TLS",
+  "admin.hosting": "Hosting",
   "admin.tls.h2": "Zertifikate",
   "admin.tls.manage": "SSL verwalten",
   "admin.nginx.h": "NGINX-Einstellungen",
