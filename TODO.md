@@ -10,6 +10,9 @@ _(nessuna voce attiva — prossimo passo da decidere: vedi candidati in «Da far
 * [ ] **2026-06-29 —** OIDC: provare con credenziali **reali** Google/Microsoft (l'exchange/verifica id_token è già coperto da test mock-IdP; manca la prova live)
 * [ ] **2026-06-30 —** Portabilità: **field-test deploy host/LXD** (systemd + `nginx -s reload` + `PROXY_RESOLVER`/`PROXY_UPSTREAM`) — scaffolding pronto, non provato su macchina reale
 
+* [ ] **2026-07-07 —** Hosting UI: localizzare le stringhe della pagina (chiavi i18n hosting nelle 10 lingue; la chrome è già localizzata)
+* [ ] **2026-07-07 —** Hosting UI: azioni DB (`db_create`) nella UI + scorciatoia «pubblica backend» per-sito (crea il backend `<host>`→`http://<name>.site:8080` in services.json)
+
 ## Idee / Backlog
 
 * [ ] **2026-06-29 —** Selettore provider nel form crea-utente di `/admin` (oggi gli utenti OIDC si creano da CLI `user --provider <id>`)
@@ -68,3 +71,5 @@ _(nessuna voce attiva — prossimo passo da decidere: vedi candidati in «Da far
 * [x] **2026-07-02 —** Gestione provider OIDC in UI (`/admin/providers`): CRUD runtime in `services.json` (merge sui provider di `config.json`), `client_secret` write-only in `secrets.json`, hot-swap di `s.OIDC` sotto `RWMutex` in `Reload()` (no restart), endpoint `test` (discovery), i18n 10 lingue. `config.json` providers read-only in UI.
 * [x] **2026-07-02 —** TLS `selfsigned`/CA interna + download CA (`/admin/tls/ca.crt`) — package `certmgr` (ECDSA CA + emissione per-host stdlib), UI `/admin/tls`, generazione `listen 443 ssl` condizionale nei vhost, compose 443 + volume `./certs` su nginx. Unit-tested. (Sostituisce l'idea `/setup/ca.crt`.)
 * [x] **2026-07-02 —** TLS `acme` **HTTP-01** (Let's Encrypt via `x/crypto/acme`): handler `/.well-known/acme-challenge/`, emissione+scrittura cert in `./certs`, goroutine di rinnovo (30gg) legata al ctx. Code-complete; la prova live richiede deploy pubblico (host→gate, :80). DNS-01/PowerDNS resta come alternativa a backlog.
+* [x] **2026-07-06 —** Hosting agent (host daemon blindato): `xtk-agent` (unix socket, SO_PEERCRED, script vetted root:root + allow-list param via env, mai shell) con verbi `sysinfo`/`logtail`/`site_create`/`site_up`/`site_down`/`site_status`/`site_destroy`/`site_list`/`db_create` (pg|mysql istanza condivisa). Template php-fpm con `nginxinc/nginx-unprivileged` (gira come utente OS `site-<name>` in `docker-hosting`). Deployato via systemd sulla VPS, **provato end-to-end** (sito `demo1` servito dal gateway in HTTP+HTTPS). Ogni op via run+log (esec. 0001–0006).
+* [x] **2026-07-07 —** Estensione hosting (3° livello): UI `ext/hosting/` (binario del modulo, distroless nonroot) che chiama l'agente sul socket via gruppo `xtk-agent`; core fa reverse-proxy di `/admin/hosting/*` gated da `adminSessionOK` (split di `adminGuard` senza `ParseForm`), abilitato da `HOSTING_UPSTREAM`, voce nav `admin.hosting` (10 lingue). Dockerfile+overlay compose. **Provato live sulla VPS**: l'estensione rende l'inventario (`demo1 running(2)`); gate 403 per IP non-whitelist (esec. 0007–0009).
