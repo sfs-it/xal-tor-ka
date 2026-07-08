@@ -30,6 +30,7 @@ services:
       - /run/xtk-agent.sock:/run/xtk-agent.sock
     networks:
       - internal
+      - xtk-hosting # reach ephemeral Adminer containers by their alias
     depends_on:
       - xaltorka
     deploy:
@@ -42,3 +43,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+networks:
+  xtk-hosting:
+    external: true

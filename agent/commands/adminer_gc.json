@@ -1,0 +1,2 @@
+{ "description": "Remove ALL ephemeral Adminer containers (startup/orphan cleanup). No params.",
+  "timeout_seconds": 60, "params": {} }

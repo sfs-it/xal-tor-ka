@@ -19,10 +19,12 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"xaltorka/agent"
@@ -74,17 +76,26 @@ type dbStatus struct {
 	Version   string `json:"version"`
 }
 
-// dbTab maps a URL segment (mysql|pgsql) to the agent engine name (mysql|pg) + label.
-type dbTab struct{ Engine, Seg, Label string }
+// dbTab maps a URL segment (mysql|pgsql) to the agent engine name (mysql|pg), label,
+// and the Adminer login-URL driver param (server= for MySQL, pgsql= for Postgres).
+type dbTab struct{ Engine, Seg, Label, Driver string }
 
 var dbTabs = map[string]dbTab{
-	"mysql": {Engine: "mysql", Seg: "mysql", Label: "MySQL"},
-	"pgsql": {Engine: "pg", Seg: "pgsql", Label: "PgSQL"},
+	"mysql": {Engine: "mysql", Seg: "mysql", Label: "MySQL", Driver: "server"},
+	"pgsql": {Engine: "pg", Seg: "pgsql", Label: "PgSQL", Driver: "pgsql"},
+}
+
+// adminerSession is a live ephemeral Adminer container; reaped after idle.
+type adminerSession struct {
+	engine, alias string
+	last          time.Time
 }
 
 type server struct {
-	socket string
-	log    *slog.Logger
+	socket  string
+	log     *slog.Logger
+	mu      sync.Mutex
+	adminer map[string]*adminerSession // token → session
 }
 
 // callAgent runs one vetted command over the unix socket (one request per connection).
@@ -324,6 +335,7 @@ SCP/SFTP, chrooted to the site dir — upload into <code>www/</code>.</p>
               <div><button class="btn primary">Set password</button></div></div>
             </form>
             <div class="actions" style="justify-content:flex-start">
+              <form class="inline" method="post" action="/admin/hosting/users/sshkey" onsubmit="return confirm('Generate a new SSH key for {{.User}}? Any previous key is replaced.')"><input type="hidden" name="name" value="{{.Site}}"><button class="btn sm">Generate SSH key</button></form>
               {{if ne .Scp "none"}}<form class="inline" method="post" action="/admin/hosting/users/lock"><input type="hidden" name="name" value="{{.Site}}"><input type="hidden" name="locked" value="{{if eq .Scp "on"}}true{{else}}false{{end}}"><button class="btn sm">{{if eq .Scp "on"}}Disable SCP{{else}}Enable SCP{{end}}</button></form>{{end}}
               {{if .Orphan}}<form class="inline" method="post" action="/admin/hosting/users/delete" onsubmit="return confirm('Delete orphan user {{.User}}?')"><input type="hidden" name="name" value="{{.Site}}"><button class="btn danger sm">Delete user</button></form>{{end}}
             </div>
@@ -376,6 +388,7 @@ var dbTmpl = xtkui.LocParse("hostingdb", subtabsSrc+`<h1>{{.Label}}</h1>
       {{if .Status.Running}}<span class="tag ext">running · {{.Status.Version}}</span>{{else}}<span class="tag ro">stopped</span>{{end}}</div>
     <div class="meta">From sites: <code>{{.Status.Host}}:{{.Status.Port}}</code></div>
     <div class="meta">Host-local: <code>{{.Status.Localhost}}</code> (admin tools / clients)</div>
+    {{if .Status.Running}}<form method="post" action="/admin/hosting/{{.Seg}}/adminer/open" style="margin-top:.7rem"><button class="btn">Open database admin (Adminer)</button></form>{{end}}
   </div></section>
   <section>
     <table><thead><tr><th>Database</th></tr></thead><tbody>
@@ -439,6 +452,86 @@ func (s *server) handleDBCreate(seg string) http.HandlerFunc {
 		// db_create prints the connection (incl. the one-time password) on stdout;
 		// render it once in the page (never in the URL / logs).
 		s.dbView(w, r, t, strings.TrimSpace(resp.Stdout))
+	}
+}
+
+// ---------------------------------------------------------------- Adminer (ephemeral)
+
+var adminerConnectTmpl = xtkui.LocParse("hostingadminer", subtabsSrc+`<h1>{{.Label}} · Adminer</h1>
+<div class="card">
+  <p class="hint">A throwaway Adminer session is running — it auto-stops after 5 minutes idle. Log in with:</p>
+  <div class="meta">Server: <code>{{.Server}}</code></div>
+  <div class="meta">Username: <code>{{.User}}</code></div>
+  <div class="meta">Password: <code>{{.Password}}</code></div>
+  <p style="margin-top:1rem">
+    <a class="btn primary" href="/admin/hosting/{{.Seg}}/adminer/{{.Token}}/?{{.Driver}}={{.Server}}&username={{.User}}" target="_blank" rel="noopener">Open Adminer ↗</a>
+    <a class="btn" href="/admin/hosting/{{.Seg}}">Back</a>
+  </p>
+</div>`)
+
+func (s *server) handleAdminerOpen(seg string) http.HandlerFunc {
+	t := dbTabs[seg]
+	return func(w http.ResponseWriter, r *http.Request) {
+		token := randToken("") // 10 hex chars
+		resp, err := s.callAgent(r.Context(), "adminer_up", map[string]string{"engine": t.Engine, "token": token})
+		if err != nil || !resp.OK {
+			redirectMsg(w, r, "/admin/hosting/"+t.Seg, "", "adminer: "+agentMsg(resp, err))
+			return
+		}
+		c := kvFields(resp.Stdout)
+		s.mu.Lock()
+		s.adminer[token] = &adminerSession{engine: t.Engine, alias: c["alias"], last: time.Now()}
+		s.mu.Unlock()
+		data := struct{ Tab, Label, Seg, Driver, Token, Server, User, Password string }{
+			Tab: t.Seg, Label: t.Label, Seg: t.Seg, Driver: t.Driver, Token: token,
+			Server: c["server"], User: c["user"], Password: c["password"],
+		}
+		s.chrome(t.Label).Render(w, xtkui.LangFromRequest(r), adminerConnectTmpl, data)
+	}
+}
+
+// handleAdminerProxy reverse-proxies /admin/hosting/<seg>/adminer/<token>/… to the
+// ephemeral Adminer container, refreshing the idle timer on each hit.
+func (s *server) handleAdminerProxy(seg string) http.HandlerFunc {
+	prefix := "/admin/hosting/" + seg + "/adminer/"
+	return func(w http.ResponseWriter, r *http.Request) {
+		rest := strings.TrimPrefix(r.URL.Path, prefix)
+		token, sub, _ := strings.Cut(rest, "/")
+		s.mu.Lock()
+		sess := s.adminer[token]
+		if sess != nil {
+			sess.last = time.Now()
+		}
+		s.mu.Unlock()
+		if sess == nil {
+			http.Error(w, "Adminer session expired — reopen it from the "+dbTabs[seg].Label+" tab.", http.StatusGone)
+			return
+		}
+		target, _ := url.Parse("http://" + sess.alias + ":8080")
+		proxy := httputil.NewSingleHostReverseProxy(target)
+		r.URL.Path = "/" + sub // strip the prefix+token
+		proxy.ServeHTTP(w, r)
+	}
+}
+
+// reapAdminer stops ephemeral Adminer containers idle for more than 5 minutes.
+func (s *server) reapAdminer() {
+	for range time.Tick(60 * time.Second) {
+		now := time.Now()
+		s.mu.Lock()
+		stale := []string{}
+		for tok, sess := range s.adminer {
+			if now.Sub(sess.last) > 5*time.Minute {
+				stale = append(stale, tok)
+				delete(s.adminer, tok)
+			}
+		}
+		s.mu.Unlock()
+		for _, tok := range stale {
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			_, _ = s.callAgent(ctx, "adminer_down", map[string]string{"token": tok})
+			cancel()
+		}
 	}
 }
 
@@ -564,6 +657,38 @@ func (s *server) handleUserLock(w http.ResponseWriter, r *http.Request) {
 	redirectMsg(w, r, "/admin/hosting/users", "SCP for site-"+name+" "+state+".", "")
 }
 
+var sshkeyTmpl = xtkui.LocParse("hostingsshkey", subtabsSrc+`<h1>SSH key · <code>site-{{.Name}}</code></h1>
+{{if .Error}}<div class="err">{{.Error}}</div>{{end}}
+{{if .Private}}
+<div class="ok"><b>Save the private key now — it is shown only once and never stored on the server.</b></div>
+<div class="card">
+  <h3>Private key</h3>
+  <textarea readonly spellcheck="false" onclick="this.select()" style="width:100%;min-height:12rem;font-family:var(--font-mono);font-size:.76rem;padding:.6rem;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);white-space:pre">{{.Private}}</textarea>
+  <h3 style="margin-top:1rem">Public key (installed in the user's authorized_keys)</h3>
+  <textarea readonly spellcheck="false" onclick="this.select()" style="width:100%;min-height:3.5rem;font-family:var(--font-mono);font-size:.76rem;padding:.6rem;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);white-space:pre-wrap">{{.Public}}</textarea>
+  <p class="hint" style="margin-top:.8rem">Connect: <code>sftp -i &lt;saved-key&gt; -P 2222 site-{{.Name}}@&lt;host&gt;</code> (or <code>scp</code>). Key auth works without a password; the SCP/SFTP gateway must be running.</p>
+  <p style="margin-top:.6rem"><a class="btn" href="/admin/hosting/users">Back to Users</a></p>
+</div>
+{{end}}`)
+
+func (s *server) handleUserSshKey(w http.ResponseWriter, r *http.Request) {
+	name := r.FormValue("name")
+	resp, err := s.callAgent(r.Context(), "hosting_user_sshkey", map[string]string{"name": name})
+	if err != nil || !resp.OK {
+		redirectMsg(w, r, "/admin/hosting/users", "", "ssh key: "+agentMsg(resp, err))
+		return
+	}
+	const marker = "-----END OPENSSH PRIVATE KEY-----"
+	out := resp.Stdout
+	priv, pub := strings.TrimSpace(out), ""
+	if i := strings.Index(out, marker); i >= 0 {
+		priv = strings.TrimSpace(out[:i+len(marker)])
+		pub = strings.TrimSpace(out[i+len(marker):])
+	}
+	data := struct{ Tab, Name, Private, Public, Error string }{Tab: "users", Name: name, Private: priv, Public: pub}
+	s.chrome("SSH key").Render(w, xtkui.LangFromRequest(r), sshkeyTmpl, data)
+}
+
 func (s *server) handleAutoUpdate(w http.ResponseWriter, r *http.Request) {
 	name, enabled := r.FormValue("name"), r.FormValue("enabled")
 	resp, err := s.callAgent(r.Context(), "site_autoupdate", map[string]string{"name": name, "enabled": enabled})
@@ -616,7 +741,14 @@ func main() {
 	flag.Parse()
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	s := &server{socket: *socket, log: log}
+	s := &server{socket: *socket, log: log, adminer: map[string]*adminerSession{}}
+	// clean up any Adminer containers orphaned by a previous run, then reap idle ones.
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		_, _ = s.callAgent(ctx, "adminer_gc", nil)
+	}()
+	go s.reapAdminer()
 
 	mux := http.NewServeMux()
 	// Hosts
@@ -635,11 +767,16 @@ func main() {
 	mux.HandleFunc("POST /admin/hosting/users/sshd-install", s.handleSshdInstall)
 	mux.HandleFunc("POST /admin/hosting/users/passwd", s.handleUserPasswd)
 	mux.HandleFunc("POST /admin/hosting/users/lock", s.handleUserLock)
+	mux.HandleFunc("POST /admin/hosting/users/sshkey", s.handleUserSshKey)
 	// MySQL / PgSQL
 	for _, seg := range []string{"mysql", "pgsql"} {
 		mux.HandleFunc("GET /admin/hosting/"+seg, s.handleDB(seg))
 		mux.HandleFunc("POST /admin/hosting/"+seg+"/install", s.handleDBInstall(seg))
 		mux.HandleFunc("POST /admin/hosting/"+seg+"/dbcreate", s.handleDBCreate(seg))
+		mux.HandleFunc("POST /admin/hosting/"+seg+"/adminer/open", s.handleAdminerOpen(seg))
+		proxy := s.handleAdminerProxy(seg) // GET+POST explicit (avoids method/path ambiguity with GET /admin/hosting/)
+		mux.HandleFunc("GET /admin/hosting/"+seg+"/adminer/", proxy)
+		mux.HandleFunc("POST /admin/hosting/"+seg+"/adminer/", proxy)
 	}
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) })
 

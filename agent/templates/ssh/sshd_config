@@ -6,7 +6,6 @@ PermitRootLogin no
 PasswordAuthentication yes
 PubkeyAuthentication yes
 KbdInteractiveAuthentication no
-UsePAM no
 X11Forwarding no
 AllowAgentForwarding no
 AllowTcpForwarding no

@@ -1,0 +1,2 @@
+{ "description": "Stop and remove an ephemeral Adminer container by token.",
+  "timeout_seconds": 30, "params": { "token": { "required": true, "pattern": "[a-f0-9]{8,40}" } } }
