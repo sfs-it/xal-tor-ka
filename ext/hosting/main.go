@@ -2,10 +2,11 @@
 // Copyright 2026 SFS.it di Zanutto Agostino
 
 // Command xtk-hosting-ui is the hosting extension's web UI: an internal service that
-// renders a site-management panel (shared xtkui chrome) and drives the privileged
-// xtk-agent over its unix socket. It has NO host powers of its own — every mutating
-// action is a vetted agent command. The gateway reverse-proxies it under the admin
-// host (/admin/hosting), auth-gated; it is never exposed directly.
+// renders a site-management panel (shared xtkui chrome, tabbed: Hosts, Users, MySQL,
+// PgSQL) and drives the privileged xtk-agent over its unix socket. It has NO host
+// powers of its own — every mutating action is a vetted agent command. The gateway
+// reverse-proxies it under the admin host (/admin/hosting), auth-gated; it is never
+// exposed directly.
 package main
 
 import (
@@ -27,21 +28,43 @@ import (
 	"xaltorka/xtkui"
 )
 
-// site is one row of the site_list agent command's JSON output.
 type site struct {
 	Name    string `json:"name"`
 	UID     int    `json:"uid"`
 	Running int    `json:"running"`
 }
 
-// server holds the socket path; handlers call the agent through it.
+type hostingUser struct {
+	User string `json:"user"`
+	UID  int    `json:"uid"`
+	Site string `json:"site"`
+	Home string `json:"home"`
+}
+
+type dbStatus struct {
+	Engine    string `json:"engine"`
+	Installed bool   `json:"installed"`
+	Running   bool   `json:"running"`
+	Host      string `json:"host"`
+	Port      int    `json:"port"`
+	Localhost string `json:"localhost"`
+	Version   string `json:"version"`
+}
+
+// dbTab maps a URL segment (mysql|pgsql) to the agent engine name (mysql|pg) + label.
+type dbTab struct{ Engine, Seg, Label string }
+
+var dbTabs = map[string]dbTab{
+	"mysql": {Engine: "mysql", Seg: "mysql", Label: "MySQL"},
+	"pgsql": {Engine: "pg", Seg: "pgsql", Label: "PgSQL"},
+}
+
 type server struct {
 	socket string
 	log    *slog.Logger
 }
 
-// callAgent runs one vetted command over the unix socket and returns its response.
-// One request per connection (matches the agent protocol).
+// callAgent runs one vetted command over the unix socket (one request per connection).
 func (s *server) callAgent(ctx context.Context, cmd string, params map[string]string) (agent.Response, error) {
 	var resp agent.Response
 	d := net.Dialer{Timeout: 5 * time.Second}
@@ -55,7 +78,7 @@ func (s *server) callAgent(ctx context.Context, cmd string, params map[string]st
 		return resp, fmt.Errorf("send %s: %w", cmd, err)
 	}
 	if uc, ok := conn.(*net.UnixConn); ok {
-		_ = uc.CloseWrite() // signal end-of-request; the agent then replies
+		_ = uc.CloseWrite()
 	}
 	if err := json.NewDecoder(conn).Decode(&resp); err != nil {
 		return resp, fmt.Errorf("read %s: %w", cmd, err)
@@ -63,24 +86,18 @@ func (s *server) callAgent(ctx context.Context, cmd string, params map[string]st
 	return resp, nil
 }
 
-func (s *server) listSites(ctx context.Context) ([]site, error) {
-	resp, err := s.callAgent(ctx, "site_list", nil)
+// callJSON runs a read-only command and unmarshals its stdout into v.
+func (s *server) callJSON(ctx context.Context, cmd string, params map[string]string, v any) error {
+	resp, err := s.callAgent(ctx, cmd, params)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if !resp.OK {
-		return nil, fmt.Errorf("site_list: %s", agentMsg(resp, nil))
+		return fmt.Errorf("%s: %s", cmd, agentMsg(resp, nil))
 	}
-	var sites []site
-	if err := json.Unmarshal([]byte(resp.Stdout), &sites); err != nil {
-		return nil, fmt.Errorf("parse site_list: %w", err)
-	}
-	sort.Slice(sites, func(i, j int) bool { return sites[i].Name < sites[j].Name })
-	return sites, nil
+	return json.Unmarshal([]byte(resp.Stdout), v)
 }
 
-// agentMsg extracts a short, human-readable message from an agent result: the dial
-// error, else the command's error/stderr first line.
 func agentMsg(resp agent.Response, err error) string {
 	if err != nil {
 		return err.Error()
@@ -101,19 +118,24 @@ func firstLine(s string) string {
 	return s
 }
 
-// redirectMsg sends the browser back to the index with a one-shot ok/err notice.
-func redirectMsg(w http.ResponseWriter, r *http.Request, ok, errMsg string) {
+// redirectMsg returns to a tab with a one-shot ok/err notice.
+func redirectMsg(w http.ResponseWriter, r *http.Request, path, ok, errMsg string) {
 	q := url.Values{}
 	if errMsg != "" {
 		q.Set("err", errMsg)
 	} else if ok != "" {
 		q.Set("ok", ok)
 	}
-	http.Redirect(w, r, "/admin/hosting?"+q.Encode(), http.StatusSeeOther)
+	http.Redirect(w, r, path+"?"+q.Encode(), http.StatusSeeOther)
 }
 
+// Labels are literal words: i18n.T returns the key unchanged when no catalog entry
+// exists, so these render as-is (hosting page copy is English-first for now).
 var hostingNav = []xtkui.NavItem{
-	{Key: "hosting", Href: "/admin/hosting", LabelKey: "admin.hosting"},
+	{Key: "hosts", Href: "/admin/hosting", LabelKey: "Hosts"},
+	{Key: "users", Href: "/admin/hosting/users", LabelKey: "Users"},
+	{Key: "mysql", Href: "/admin/hosting/mysql", LabelKey: "MySQL"},
+	{Key: "pgsql", Href: "/admin/hosting/pgsql", LabelKey: "PgSQL"},
 }
 
 func (s *server) chrome(title, active string) xtkui.Chrome {
@@ -124,9 +146,22 @@ func (s *server) chrome(title, active string) xtkui.Chrome {
 	}
 }
 
-// NOTE: page copy is English-first for now; hosting i18n keys are a follow-up (the
-// shared chrome — brand, language cluster, RTL — is already localized).
-var indexTmpl = xtkui.LocParse("hosting", `<h1>Hosting sites</h1>
+func notices(r *http.Request) (string, string) {
+	return r.URL.Query().Get("ok"), r.URL.Query().Get("err")
+}
+
+// ---------------------------------------------------------------- Hosts tab
+
+func (s *server) listSites(ctx context.Context) ([]site, error) {
+	var sites []site
+	if err := s.callJSON(ctx, "site_list", nil, &sites); err != nil {
+		return nil, err
+	}
+	sort.Slice(sites, func(i, j int) bool { return sites[i].Name < sites[j].Name })
+	return sites, nil
+}
+
+var indexTmpl = xtkui.LocParse("hosting", `<h1>Hosts</h1>
 {{if .Notice}}<div class="ok">{{.Notice}}</div>{{end}}
 {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
 <section>
@@ -173,6 +208,181 @@ var indexTmpl = xtkui.LocParse("hosting", `<h1>Hosting sites</h1>
   </div>
 </section>`)
 
+func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
+	ok, errMsg := notices(r)
+	data := struct {
+		Sites         []site
+		Notice, Error string
+	}{Notice: ok, Error: errMsg}
+	sites, err := s.listSites(r.Context())
+	if err != nil && data.Error == "" {
+		data.Error = err.Error()
+	}
+	data.Sites = sites
+	s.chrome("Hosting", "hosts").Render(w, xtkui.LangFromRequest(r), indexTmpl, data)
+}
+
+// ---------------------------------------------------------------- Users tab
+
+var usersTmpl = xtkui.LocParse("hostingusers", `<h1>Users</h1>
+<p class="hint">OS accounts that own sites — each a system user in the <code>docker-hosting</code>
+group (nologin). Their containers run as this uid:gid.</p>
+{{if .Error}}<div class="err">{{.Error}}</div>{{end}}
+<section>
+  <table>
+    <thead><tr><th>Site</th><th>OS user</th><th>uid</th><th>Home</th></tr></thead>
+    <tbody>
+    {{range .Users}}
+      <tr><td><b>{{.Site}}</b></td><td><code>{{.User}}</code></td><td><code>{{.UID}}</code></td><td><code>{{.Home}}</code></td></tr>
+    {{else}}
+      <tr><td colspan="4" class="hint">No site users yet.</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+</section>`)
+
+func (s *server) handleUsers(w http.ResponseWriter, r *http.Request) {
+	var users []hostingUser
+	err := s.callJSON(r.Context(), "hosting_users", nil, &users)
+	sort.Slice(users, func(i, j int) bool { return users[i].Site < users[j].Site })
+	data := struct {
+		Users []hostingUser
+		Error string
+	}{Users: users}
+	if err != nil {
+		data.Error = err.Error()
+	}
+	s.chrome("Users", "users").Render(w, xtkui.LangFromRequest(r), usersTmpl, data)
+}
+
+// ---------------------------------------------------------------- MySQL / PgSQL tabs
+
+var dbTmpl = xtkui.LocParse("hostingdb", `<h1>{{.Label}}</h1>
+{{if .Notice}}<div class="ok">{{.Notice}}</div>{{end}}
+{{if .Created}}<div class="ok"><b>Database created — copy the connection now:</b><br><code>{{.Created}}</code></div>{{end}}
+{{if .Error}}<div class="err">{{.Error}}</div>{{end}}
+{{if not .Status.Installed}}
+  <section><div class="card">
+    <h3>{{.Label}} shared instance — not installed</h3>
+    <p class="hint">A single shared {{.Label}} instance serves all hosting sites. It is not
+    installed yet. Installing brings up a container with a persistent volume, reachable by
+    sites as <code>{{.Status.Host}}</code> and host-locally at <code>{{.Status.Localhost}}</code>.</p>
+    <form method="post" action="/admin/hosting/{{.Seg}}/install"><button class="btn primary">Install shared {{.Label}}</button></form>
+  </div></section>
+{{else}}
+  <section><div class="card">
+    <div class="row"><h3>{{.Label}} shared instance</h3>
+      {{if .Status.Running}}<span class="tag ext">running · {{.Status.Version}}</span>{{else}}<span class="tag ro">stopped</span>{{end}}</div>
+    <div class="meta">From sites: <code>{{.Status.Host}}:{{.Status.Port}}</code></div>
+    <div class="meta">Host-local: <code>{{.Status.Localhost}}</code> (admin tools / clients)</div>
+  </div></section>
+  <section>
+    <table><thead><tr><th>Database</th></tr></thead><tbody>
+    {{range .Databases}}<tr><td><code>{{.}}</code></td></tr>{{else}}<tr><td class="hint">No databases yet.</td></tr>{{end}}
+    </tbody></table>
+    <div class="card addcard" style="margin-top:1rem"><h3>New database</h3>
+      <form method="post" action="/admin/hosting/{{.Seg}}/dbcreate"><div class="formgrid">
+        <div><label>Name (= db and user)</label><input name="name" pattern="[a-z][a-z0-9_]{1,30}" placeholder="a-z0-9_" required></div>
+        <div><button class="btn primary">Create database</button></div>
+      </div></form>
+      <p class="hint">Creates a database and a dedicated user with a generated password (shown once).</p>
+    </div>
+  </section>
+{{end}}`)
+
+// dbView renders a DB tab; created is a one-time connection line to surface after a create.
+func (s *server) dbView(w http.ResponseWriter, r *http.Request, t dbTab, created string) {
+	ok, errMsg := notices(r)
+	var st dbStatus
+	if err := s.callJSON(r.Context(), "db_instance_status", map[string]string{"engine": t.Engine}, &st); err != nil && errMsg == "" {
+		errMsg = err.Error()
+	}
+	var dbs []string
+	if st.Running {
+		_ = s.callJSON(r.Context(), "db_list", map[string]string{"engine": t.Engine}, &dbs)
+	}
+	data := struct {
+		Label, Seg, Notice, Error, Created string
+		Status                             dbStatus
+		Databases                          []string
+	}{Label: t.Label, Seg: t.Seg, Notice: ok, Error: errMsg, Created: created, Status: st, Databases: dbs}
+	s.chrome(t.Label, t.Seg).Render(w, xtkui.LangFromRequest(r), dbTmpl, data)
+}
+
+func (s *server) handleDB(seg string) http.HandlerFunc {
+	t := dbTabs[seg]
+	return func(w http.ResponseWriter, r *http.Request) { s.dbView(w, r, t, "") }
+}
+
+func (s *server) handleDBInstall(seg string) http.HandlerFunc {
+	t := dbTabs[seg]
+	return func(w http.ResponseWriter, r *http.Request) {
+		resp, err := s.callAgent(r.Context(), "db_instance_up", map[string]string{"engine": t.Engine})
+		if err != nil || !resp.OK {
+			redirectMsg(w, r, "/admin/hosting/"+t.Seg, "", "install: "+agentMsg(resp, err))
+			return
+		}
+		redirectMsg(w, r, "/admin/hosting/"+t.Seg, t.Label+" shared instance installed.", "")
+	}
+}
+
+func (s *server) handleDBCreate(seg string) http.HandlerFunc {
+	t := dbTabs[seg]
+	return func(w http.ResponseWriter, r *http.Request) {
+		name := r.FormValue("name")
+		resp, err := s.callAgent(r.Context(), "db_create", map[string]string{"engine": t.Engine, "name": name})
+		if err != nil || !resp.OK {
+			redirectMsg(w, r, "/admin/hosting/"+t.Seg, "", "create db: "+agentMsg(resp, err))
+			return
+		}
+		// db_create prints the connection (incl. the one-time password) on stdout;
+		// render it once in the page (never in the URL / logs).
+		s.dbView(w, r, t, strings.TrimSpace(resp.Stdout))
+	}
+}
+
+// ---------------------------------------------------------------- Hosts actions
+
+func (s *server) action(cmd, okMsg string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		name := r.FormValue("name")
+		resp, err := s.callAgent(r.Context(), cmd, map[string]string{"name": name})
+		if err != nil || !resp.OK {
+			redirectMsg(w, r, "/admin/hosting", "", cmd+": "+agentMsg(resp, err))
+			return
+		}
+		redirectMsg(w, r, "/admin/hosting", fmt.Sprintf(okMsg, name), "")
+	}
+}
+
+func (s *server) handleCreate(w http.ResponseWriter, r *http.Request) {
+	name := r.FormValue("name")
+	tmpl, pv := r.FormValue("stack"), ""
+	if i := strings.IndexByte(tmpl, ':'); i >= 0 {
+		tmpl, pv = tmpl[:i], tmpl[i+1:]
+	}
+	if tmpl == "" {
+		tmpl = "php-fpm"
+	}
+	params := map[string]string{"name": name, "template": tmpl}
+	if pv != "" {
+		params["php_version"] = pv
+	}
+	if resp, err := s.callAgent(r.Context(), "site_create", params); err != nil || !resp.OK {
+		redirectMsg(w, r, "/admin/hosting", "", "create: "+agentMsg(resp, err))
+		return
+	}
+	if resp, err := s.callAgent(r.Context(), "site_up", map[string]string{"name": name}); err != nil || !resp.OK {
+		redirectMsg(w, r, "/admin/hosting", "", "site created but start failed: "+agentMsg(resp, err))
+		return
+	}
+	if tmpl == "custom" {
+		http.Redirect(w, r, "/admin/hosting/edit?name="+url.QueryEscape(name), http.StatusSeeOther)
+		return
+	}
+	redirectMsg(w, r, "/admin/hosting", "Site "+name+" created and started.", "")
+}
+
 var editTmpl = xtkui.LocParse("hostingedit", `<h1>Edit compose · <code>{{.Name}}</code></h1>
 {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
 <p class="hint">Editing <code>/opt/sites/{{.Name}}/docker-compose.yml</code>. On save it is validated with
@@ -186,79 +396,15 @@ var editTmpl = xtkui.LocParse("hostingedit", `<h1>Edit compose · <code>{{.Name}
   </div>
 </form>`)
 
-func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
-	data := struct {
-		Sites         []site
-		Notice, Error string
-	}{
-		Notice: r.URL.Query().Get("ok"),
-		Error:  r.URL.Query().Get("err"),
-	}
-	sites, err := s.listSites(r.Context())
-	if err != nil {
-		if data.Error == "" {
-			data.Error = err.Error()
-		}
-		s.log.Warn("list sites failed", "err", err)
-	}
-	data.Sites = sites
-	s.chrome("Hosting", "hosting").Render(w, xtkui.LangFromRequest(r), indexTmpl, data)
-}
-
-// action runs a single-name agent command then redirects back with feedback.
-func (s *server) action(cmd, okMsg string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		name := r.FormValue("name")
-		resp, err := s.callAgent(r.Context(), cmd, map[string]string{"name": name})
-		if err != nil || !resp.OK {
-			s.log.Warn("action failed", "cmd", cmd, "name", name, "err", agentMsg(resp, err))
-			redirectMsg(w, r, "", cmd+": "+agentMsg(resp, err))
-			return
-		}
-		redirectMsg(w, r, fmt.Sprintf(okMsg, name), "")
-	}
-}
-
-func (s *server) handleCreate(w http.ResponseWriter, r *http.Request) {
-	name := r.FormValue("name")
-	// "stack" is a self-describing choice; its value encodes template[:php_version]
-	// (e.g. "php-fpm:8.2", "static", "custom"). Fall back to a plain php-fpm.
-	tmpl, pv := r.FormValue("stack"), ""
-	if i := strings.IndexByte(tmpl, ':'); i >= 0 {
-		tmpl, pv = tmpl[:i], tmpl[i+1:]
-	}
-	if tmpl == "" {
-		tmpl = "php-fpm"
-	}
-	params := map[string]string{"name": name, "template": tmpl}
-	if pv != "" {
-		params["php_version"] = pv
-	}
-	if resp, err := s.callAgent(r.Context(), "site_create", params); err != nil || !resp.OK {
-		redirectMsg(w, r, "", "create: "+agentMsg(resp, err))
-		return
-	}
-	if resp, err := s.callAgent(r.Context(), "site_up", map[string]string{"name": name}); err != nil || !resp.OK {
-		redirectMsg(w, r, "", "site created but start failed: "+agentMsg(resp, err))
-		return
-	}
-	// For a custom stack, drop the admin straight into the compose editor.
-	if tmpl == "custom" {
-		http.Redirect(w, r, "/admin/hosting/edit?name="+url.QueryEscape(name), http.StatusSeeOther)
-		return
-	}
-	redirectMsg(w, r, "Site "+name+" created and started.", "")
-}
-
 func (s *server) handleEdit(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Query().Get("name")
 	resp, err := s.callAgent(r.Context(), "site_compose_get", map[string]string{"name": name})
 	if err != nil || !resp.OK {
-		redirectMsg(w, r, "", "edit: "+agentMsg(resp, err))
+		redirectMsg(w, r, "/admin/hosting", "", "edit: "+agentMsg(resp, err))
 		return
 	}
 	data := struct{ Name, Content, Error string }{Name: name, Content: resp.Stdout}
-	s.chrome("Edit compose", "hosting").Render(w, xtkui.LangFromRequest(r), editTmpl, data)
+	s.chrome("Edit compose", "hosts").Render(w, xtkui.LangFromRequest(r), editTmpl, data)
 }
 
 func (s *server) handleEditSave(w http.ResponseWriter, r *http.Request) {
@@ -266,12 +412,11 @@ func (s *server) handleEditSave(w http.ResponseWriter, r *http.Request) {
 	content := r.FormValue("content")
 	resp, err := s.callAgent(r.Context(), "site_compose_set", map[string]string{"name": name, "content": content})
 	if err != nil || !resp.OK {
-		// Re-render the editor with the (rejected) content so the admin can fix it.
 		data := struct{ Name, Content, Error string }{Name: name, Content: content, Error: agentMsg(resp, err)}
-		s.chrome("Edit compose", "hosting").Render(w, xtkui.LangFromRequest(r), editTmpl, data)
+		s.chrome("Edit compose", "hosts").Render(w, xtkui.LangFromRequest(r), editTmpl, data)
 		return
 	}
-	redirectMsg(w, r, "Compose for "+name+" updated and applied.", "")
+	redirectMsg(w, r, "/admin/hosting", "Compose for "+name+" updated and applied.", "")
 }
 
 func main() {
@@ -283,6 +428,7 @@ func main() {
 	s := &server{socket: *socket, log: log}
 
 	mux := http.NewServeMux()
+	// Hosts
 	mux.HandleFunc("GET /admin/hosting", s.handleIndex)
 	mux.HandleFunc("GET /admin/hosting/", s.handleIndex)
 	mux.HandleFunc("POST /admin/hosting/create", s.handleCreate)
@@ -291,6 +437,14 @@ func main() {
 	mux.HandleFunc("POST /admin/hosting/destroy", s.action("site_destroy", "Site %s destroyed."))
 	mux.HandleFunc("GET /admin/hosting/edit", s.handleEdit)
 	mux.HandleFunc("POST /admin/hosting/edit", s.handleEditSave)
+	// Users
+	mux.HandleFunc("GET /admin/hosting/users", s.handleUsers)
+	// MySQL / PgSQL
+	for _, seg := range []string{"mysql", "pgsql"} {
+		mux.HandleFunc("GET /admin/hosting/"+seg, s.handleDB(seg))
+		mux.HandleFunc("POST /admin/hosting/"+seg+"/install", s.handleDBInstall(seg))
+		mux.HandleFunc("POST /admin/hosting/"+seg+"/dbcreate", s.handleDBCreate(seg))
+	}
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) })
 
 	srv := &http.Server{
