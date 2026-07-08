@@ -45,6 +45,11 @@ Response: `{"ok":true,"code":0,"stdout":"…","stderr":""}`  (or `{"error":"…"
   running container count); the hosting UI renders it without host privileges.
 - `site_destroy` — stop and remove a site (`compose down -v`, remove the dir,
   `userdel` the OS user). Refuses if the site does not exist.
+- `site_compose_get` — read a site's `docker-compose.yml` (stdout).
+- `site_compose_set` — replace a site's `docker-compose.yml` with admin-supplied
+  YAML (arrives only as an env var, never a shell), validated with `docker compose
+  config` and **reverted** if invalid, then re-applied with `up -d`. A bounded,
+  purpose-specific capability gated to the trusted admin.
 - `db_create` — create a database + dedicated user on the **shared** engine
   instance (`engine` ∈ `{pg, mysql}`), bringing that instance up on first use
   under `/opt/xtk-db/<engine>/`. Refuses if the db already exists. Prints the

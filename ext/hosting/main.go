@@ -16,8 +16,10 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"xaltorka/agent"
@@ -32,7 +34,7 @@ type site struct {
 	Running int    `json:"running"`
 }
 
-// server holds the socket path and dial timeout; handlers call the agent through it.
+// server holds the socket path; handlers call the agent through it.
 type server struct {
 	socket string
 	log    *slog.Logger
@@ -67,7 +69,7 @@ func (s *server) listSites(ctx context.Context) ([]site, error) {
 		return nil, err
 	}
 	if !resp.OK {
-		return nil, fmt.Errorf("site_list: %s%s", resp.Error, resp.Stderr)
+		return nil, fmt.Errorf("site_list: %s", agentMsg(resp, nil))
 	}
 	var sites []site
 	if err := json.Unmarshal([]byte(resp.Stdout), &sites); err != nil {
@@ -77,82 +79,136 @@ func (s *server) listSites(ctx context.Context) ([]site, error) {
 	return sites, nil
 }
 
+// agentMsg extracts a short, human-readable message from an agent result: the dial
+// error, else the command's error/stderr first line.
+func agentMsg(resp agent.Response, err error) string {
+	if err != nil {
+		return err.Error()
+	}
+	if resp.Error != "" {
+		return resp.Error
+	}
+	if s := strings.TrimSpace(resp.Stderr); s != "" {
+		return firstLine(s)
+	}
+	return firstLine(strings.TrimSpace(resp.Stdout))
+}
+
+func firstLine(s string) string {
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		return s[:i]
+	}
+	return s
+}
+
+// redirectMsg sends the browser back to the index with a one-shot ok/err notice.
+func redirectMsg(w http.ResponseWriter, r *http.Request, ok, errMsg string) {
+	q := url.Values{}
+	if errMsg != "" {
+		q.Set("err", errMsg)
+	} else if ok != "" {
+		q.Set("ok", ok)
+	}
+	http.Redirect(w, r, "/admin/hosting?"+q.Encode(), http.StatusSeeOther)
+}
+
 var hostingNav = []xtkui.NavItem{
 	{Key: "hosting", Href: "/admin/hosting", LabelKey: "nav.services"},
 }
 
-func (s *server) chrome(active string) xtkui.Chrome {
+func (s *server) chrome(title, active string) xtkui.Chrome {
 	return xtkui.Chrome{
-		Title: "Xal-Tor-Ka · Hosting", BrandText: "⛬ Xal-Tor-Ka · Hosting", BrandHref: "/admin/hosting",
+		Title: "Xal-Tor-Ka · " + title, BrandText: "⛬ Xal-Tor-Ka · Hosting", BrandHref: "/admin/hosting",
 		Version: version.Version, Nav: hostingNav, Active: active,
 		DashboardHref: "/admin", DashboardKey: "nav.admin", LoggedIn: true,
 	}
 }
 
-// NOTE: the page copy is English-first for now; the hosting i18n keys are a follow-up
-// (the shared chrome — brand, language cluster, RTL — is already localized).
+// NOTE: page copy is English-first for now; hosting i18n keys are a follow-up (the
+// shared chrome — brand, language cluster, RTL — is already localized).
 var indexTmpl = xtkui.LocParse("hosting", `<h1>Hosting sites</h1>
-{{if .Error}}<p class="err">{{.Error}}</p>{{end}}
+{{if .Notice}}<div class="ok">{{.Notice}}</div>{{end}}
+{{if .Error}}<div class="err">{{.Error}}</div>{{end}}
 <section>
-  <table class="grid">
-    <thead><tr><th>Site</th><th>Owner uid</th><th>Containers</th><th>Actions</th></tr></thead>
+  <table>
+    <thead><tr><th>Site</th><th>Upstream</th><th>Owner</th><th>Status</th><th></th></tr></thead>
     <tbody>
     {{range .Sites}}
-      <tr>
-        <td><code>{{.Name}}</code> <span class="sub">{{.Name}}.site:8080</span></td>
-        <td>{{.UID}}</td>
-        <td>{{if gt .Running 0}}<span class="ok">running ({{.Running}})</span>{{else}}<span class="off">stopped</span>{{end}}</td>
-        <td class="actions">
-          <form method="post" action="/admin/hosting/up"><input type="hidden" name="name" value="{{.Name}}"><button>Up</button></form>
-          <form method="post" action="/admin/hosting/down"><input type="hidden" name="name" value="{{.Name}}"><button>Down</button></form>
-          <form method="post" action="/admin/hosting/destroy" onsubmit="return confirm('Destroy {{.Name}}? This removes its data and OS user.')"><input type="hidden" name="name" value="{{.Name}}"><button class="danger">Destroy</button></form>
+      <tr{{if not .Running}} class="off"{{end}}>
+        <td><b>{{.Name}}</b></td>
+        <td><code>{{.Name}}.site:8080</code></td>
+        <td><code>{{.UID}}</code></td>
+        <td>{{if gt .Running 0}}<span class="tag ext">running · {{.Running}}</span>{{else}}<span class="tag ro">stopped</span>{{end}}</td>
+        <td class="rowact">
+          <form class="inline" method="post" action="/admin/hosting/up"><input type="hidden" name="name" value="{{.Name}}"><button class="btn sm">Up</button></form>
+          <form class="inline" method="post" action="/admin/hosting/down"><input type="hidden" name="name" value="{{.Name}}"><button class="btn sm">Down</button></form>
+          <a class="btn sm" href="/admin/hosting/edit?name={{.Name}}">Edit compose</a>
+          <form class="inline" method="post" action="/admin/hosting/destroy" onsubmit="return confirm('Destroy {{.Name}}? This removes its data and OS user.')"><input type="hidden" name="name" value="{{.Name}}"><button class="btn danger sm">Destroy</button></form>
         </td>
       </tr>
     {{else}}
-      <tr><td colspan="4" class="sub">No sites yet.</td></tr>
+      <tr><td colspan="5" class="hint">No sites yet.</td></tr>
     {{end}}
     </tbody>
   </table>
 </section>
 <section>
-  <h2>New site</h2>
-  <form method="post" action="/admin/hosting/create" class="row">
-    <input name="name" placeholder="site name (a-z0-9-)" pattern="[a-z][a-z0-9-]{1,30}" required>
-    <select name="template"><option value="php-fpm">php-fpm</option></select>
-    <button>Create &amp; start</button>
-  </form>
-  <p class="sub">Provisions an isolated site (own OS user in <code>docker-hosting</code>), starts it on the
-  <code>xtk-hosting</code> network, and reaches it at <code>&lt;name&gt;.site:8080</code>. Add a backend in
-  Services to publish it.</p>
+  <div class="card addcard" style="margin-top:1rem">
+    <h3>New site</h3>
+    <form method="post" action="/admin/hosting/create"><div class="formgrid">
+      <div><label>Name</label><input name="name" placeholder="a-z0-9-" pattern="[a-z][a-z0-9-]{1,30}" required></div>
+      <div><label>Template</label><select name="template"><option value="php-fpm">php-fpm</option></select></div>
+      <div><button class="btn primary">Create &amp; start</button></div>
+    </div></form>
+    <p class="hint">Provisions an isolated site (own OS user in <code>docker-hosting</code>), starts it on the
+    <code>xtk-hosting</code> network, reachable at <code>&lt;name&gt;.site:8080</code>. Add a backend in
+    Services to publish it.</p>
+  </div>
 </section>`)
+
+var editTmpl = xtkui.LocParse("hostingedit", `<h1>Edit compose · <code>{{.Name}}</code></h1>
+{{if .Error}}<div class="err">{{.Error}}</div>{{end}}
+<p class="hint">Editing <code>/opt/sites/{{.Name}}/docker-compose.yml</code>. On save it is validated with
+<code>docker&nbsp;compose&nbsp;config</code> (reverted if invalid) and re-applied with <code>up&nbsp;-d</code>.</p>
+<form method="post" action="/admin/hosting/edit">
+  <input type="hidden" name="name" value="{{.Name}}">
+  <textarea name="content" spellcheck="false" style="width:100%;min-height:26rem;font-family:var(--font-mono);font-size:.82rem;line-height:1.45;padding:.75rem;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);white-space:pre">{{.Content}}</textarea>
+  <div class="actions">
+    <a class="btn" href="/admin/hosting">Cancel</a>
+    <button class="btn primary">Save &amp; apply</button>
+  </div>
+</form>`)
 
 func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	data := struct {
-		Sites []site
-		Error string
-	}{}
+		Sites         []site
+		Notice, Error string
+	}{
+		Notice: r.URL.Query().Get("ok"),
+		Error:  r.URL.Query().Get("err"),
+	}
 	sites, err := s.listSites(r.Context())
 	if err != nil {
-		data.Error = err.Error()
+		if data.Error == "" {
+			data.Error = err.Error()
+		}
 		s.log.Warn("list sites failed", "err", err)
 	}
 	data.Sites = sites
-	s.chrome("hosting").Render(w, xtkui.LangFromRequest(r), indexTmpl, data)
+	s.chrome("Hosting", "hosting").Render(w, xtkui.LangFromRequest(r), indexTmpl, data)
 }
 
-// action runs a single-name agent command then redirects back to the index.
-func (s *server) action(cmd string, extra ...string) http.HandlerFunc {
+// action runs a single-name agent command then redirects back with feedback.
+func (s *server) action(cmd, okMsg string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		name := r.FormValue("name")
-		if _, err := s.callAgent(r.Context(), cmd, map[string]string{"name": name}); err != nil {
-			s.log.Warn("action failed", "cmd", cmd, "err", err)
+		resp, err := s.callAgent(r.Context(), cmd, map[string]string{"name": name})
+		if err != nil || !resp.OK {
+			s.log.Warn("action failed", "cmd", cmd, "name", name, "err", agentMsg(resp, err))
+			redirectMsg(w, r, "", cmd+": "+agentMsg(resp, err))
+			return
 		}
-		for _, next := range extra { // e.g. site_create then site_up
-			if _, err := s.callAgent(r.Context(), next, map[string]string{"name": name}); err != nil {
-				s.log.Warn("action failed", "cmd", next, "err", err)
-			}
-		}
-		http.Redirect(w, r, "/admin/hosting", http.StatusSeeOther)
+		redirectMsg(w, r, fmt.Sprintf(okMsg, name), "")
 	}
 }
 
@@ -162,15 +218,39 @@ func (s *server) handleCreate(w http.ResponseWriter, r *http.Request) {
 	if tmpl == "" {
 		tmpl = "php-fpm"
 	}
-	if _, err := s.callAgent(r.Context(), "site_create", map[string]string{"name": name, "template": tmpl}); err != nil {
-		s.log.Warn("site_create failed", "err", err)
-		http.Redirect(w, r, "/admin/hosting", http.StatusSeeOther)
+	if resp, err := s.callAgent(r.Context(), "site_create", map[string]string{"name": name, "template": tmpl}); err != nil || !resp.OK {
+		redirectMsg(w, r, "", "create: "+agentMsg(resp, err))
 		return
 	}
-	if _, err := s.callAgent(r.Context(), "site_up", map[string]string{"name": name}); err != nil {
-		s.log.Warn("site_up failed", "err", err)
+	if resp, err := s.callAgent(r.Context(), "site_up", map[string]string{"name": name}); err != nil || !resp.OK {
+		redirectMsg(w, r, "", "site created but start failed: "+agentMsg(resp, err))
+		return
 	}
-	http.Redirect(w, r, "/admin/hosting", http.StatusSeeOther)
+	redirectMsg(w, r, "Site "+name+" created and started.", "")
+}
+
+func (s *server) handleEdit(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("name")
+	resp, err := s.callAgent(r.Context(), "site_compose_get", map[string]string{"name": name})
+	if err != nil || !resp.OK {
+		redirectMsg(w, r, "", "edit: "+agentMsg(resp, err))
+		return
+	}
+	data := struct{ Name, Content, Error string }{Name: name, Content: resp.Stdout}
+	s.chrome("Edit compose", "hosting").Render(w, xtkui.LangFromRequest(r), editTmpl, data)
+}
+
+func (s *server) handleEditSave(w http.ResponseWriter, r *http.Request) {
+	name := r.FormValue("name")
+	content := r.FormValue("content")
+	resp, err := s.callAgent(r.Context(), "site_compose_set", map[string]string{"name": name, "content": content})
+	if err != nil || !resp.OK {
+		// Re-render the editor with the (rejected) content so the admin can fix it.
+		data := struct{ Name, Content, Error string }{Name: name, Content: content, Error: agentMsg(resp, err)}
+		s.chrome("Edit compose", "hosting").Render(w, xtkui.LangFromRequest(r), editTmpl, data)
+		return
+	}
+	redirectMsg(w, r, "Compose for "+name+" updated and applied.", "")
 }
 
 func main() {
@@ -185,9 +265,11 @@ func main() {
 	mux.HandleFunc("GET /admin/hosting", s.handleIndex)
 	mux.HandleFunc("GET /admin/hosting/", s.handleIndex)
 	mux.HandleFunc("POST /admin/hosting/create", s.handleCreate)
-	mux.HandleFunc("POST /admin/hosting/up", s.action("site_up"))
-	mux.HandleFunc("POST /admin/hosting/down", s.action("site_down"))
-	mux.HandleFunc("POST /admin/hosting/destroy", s.action("site_destroy"))
+	mux.HandleFunc("POST /admin/hosting/up", s.action("site_up", "Site %s started."))
+	mux.HandleFunc("POST /admin/hosting/down", s.action("site_down", "Site %s stopped."))
+	mux.HandleFunc("POST /admin/hosting/destroy", s.action("site_destroy", "Site %s destroyed."))
+	mux.HandleFunc("GET /admin/hosting/edit", s.handleEdit)
+	mux.HandleFunc("POST /admin/hosting/edit", s.handleEditSave)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) })
 
 	srv := &http.Server{

@@ -1,0 +1,8 @@
+{
+  "description": "Replace a site's docker-compose.yml (validated with 'docker compose config', reverted on error), then apply with up -d",
+  "timeout_seconds": 180,
+  "params": {
+    "name":    { "required": true, "pattern": "[a-z][a-z0-9-]{1,30}" },
+    "content": { "required": true }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "description": "Read a site's docker-compose.yml (stdout)",
+  "timeout_seconds": 30,
+  "params": { "name": { "required": true, "pattern": "[a-z][a-z0-9-]{1,30}" } }
+}
