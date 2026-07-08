@@ -29,9 +29,11 @@ import (
 )
 
 type site struct {
-	Name    string `json:"name"`
-	UID     int    `json:"uid"`
-	Running int    `json:"running"`
+	Name       string `json:"name"`
+	UID        int    `json:"uid"`
+	Running    int    `json:"running"`
+	Template   string `json:"template"`
+	PhpVersion string `json:"php_version"`
 }
 
 type hostingUser struct {
@@ -171,23 +173,24 @@ var indexTmpl = xtkui.LocParse("hosting", subtabsSrc+`<h1>Hosts</h1>
 {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
 <section>
   <table>
-    <thead><tr><th>Site</th><th>Upstream</th><th>Owner</th><th>Status</th><th></th></tr></thead>
+    <thead><tr><th>Site</th><th>Stack</th><th>Upstream</th><th>Owner</th><th>Status</th><th></th></tr></thead>
     <tbody>
     {{range .Sites}}
       <tr{{if not .Running}} class="off"{{end}}>
         <td><b>{{.Name}}</b></td>
+        <td>{{if .Template}}<code>{{.Template}}{{if .PhpVersion}} · {{.PhpVersion}}{{end}}</code>{{else}}<span class="hint">—</span>{{end}}</td>
         <td><code>{{.Name}}.site:8080</code></td>
-        <td><code>{{.UID}}</code></td>
+        <td><code>site-{{.Name}}</code> <span class="hint">uid {{.UID}}</span></td>
         <td>{{if gt .Running 0}}<span class="tag ext">running · {{.Running}}</span>{{else}}<span class="tag ro">stopped</span>{{end}}</td>
         <td class="rowact">
           <form class="inline" method="post" action="/admin/hosting/up"><input type="hidden" name="name" value="{{.Name}}"><button class="btn sm">Up</button></form>
           <form class="inline" method="post" action="/admin/hosting/down"><input type="hidden" name="name" value="{{.Name}}"><button class="btn sm">Down</button></form>
-          <a class="btn sm" href="/admin/hosting/edit?name={{.Name}}">Edit compose</a>
+          <a class="btn sm" href="/admin/hosting/edit?name={{.Name}}" title="Edit docker-compose.yml"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" style="vertical-align:-2px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg> Compose</a>
           <form class="inline" method="post" action="/admin/hosting/destroy" onsubmit="return confirm('Destroy {{.Name}}? This removes its data and OS user.')"><input type="hidden" name="name" value="{{.Name}}"><button class="btn danger sm">Destroy</button></form>
         </td>
       </tr>
     {{else}}
-      <tr><td colspan="5" class="hint">No sites yet.</td></tr>
+      <tr><td colspan="6" class="hint">No sites yet.</td></tr>
     {{end}}
     </tbody>
   </table>

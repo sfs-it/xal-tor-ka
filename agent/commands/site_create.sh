@@ -24,6 +24,9 @@ mkdir -p "$dir"; cp -a "$src/." "$dir/"
 for f in "$dir/docker-compose.yml" "$dir/nginx.conf" "$dir/www/index.php" "$dir/www/index.html"; do
   [ -f "$f" ] && sed -i "s|__NAME__|$name|g; s|__UID__|$uid|g; s|__GID__|$gid|g; s|__PHP_VERSION__|$pv|g" "$f"
 done
+# record the chosen stack so the UI can show it and future auto-updates can tell a
+# pristine template from a hand-edited one.
+printf 'template=%s\nphp_version=%s\n' "$tmpl" "$pv" > "$dir/.xtk-stack"
 chown -R "$uid:$gid" "$dir"
 docker network inspect xtk-hosting >/dev/null 2>&1 || docker network create xtk-hosting >/dev/null
 

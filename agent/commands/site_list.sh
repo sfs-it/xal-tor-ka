@@ -10,8 +10,13 @@ if [ -d "$XTK_SITES" ]; then
     name="$(basename "$d")"
     running="$(cd "$d" && docker compose -p "$name" ps -q 2>/dev/null | wc -l | tr -d ' ')"
     uid="$(stat -c '%u' "$d")"
+    tmpl=""; pv=""
+    if [ -f "$d/.xtk-stack" ]; then
+      tmpl="$(sed -n 's/^template=//p' "$d/.xtk-stack")"
+      pv="$(sed -n 's/^php_version=//p' "$d/.xtk-stack")"
+    fi
     [ $first -eq 1 ] || printf ','; first=0
-    printf '{"name":"%s","uid":%s,"running":%s}' "$name" "$uid" "$running"
+    printf '{"name":"%s","uid":%s,"running":%s,"template":"%s","php_version":"%s"}' "$name" "$uid" "$running" "$tmpl" "$pv"
   done
 fi
 printf ']\n'
