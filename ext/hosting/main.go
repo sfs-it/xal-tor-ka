@@ -11,6 +11,8 @@ package main
 
 import (
 	"context"
+	crand "crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -27,6 +29,15 @@ import (
 	"xaltorka/version"
 	"xaltorka/xtkui"
 )
+
+// randToken returns prefix + 10 random hex chars — a valid, opaque db/user
+// identifier ([a-z][a-z0-9_]…). Used so attached db names/users are random, not
+// derived from (guessable) site names.
+func randToken(prefix string) string {
+	b := make([]byte, 5)
+	_, _ = crand.Read(b)
+	return prefix + hex.EncodeToString(b)
+}
 
 type site struct {
 	Name       string `json:"name"`
@@ -405,8 +416,8 @@ func (s *server) handleCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	// Optional shared DB: create it and inject the connection into the site's db.env.
 	if db != "" {
-		dbname := strings.ReplaceAll(name, "-", "_") // db names take '_' not '-'
-		resp, err := s.callAgent(r.Context(), "db_create", map[string]string{"engine": db, "name": dbname})
+		dbname, dbuser := randToken("h"), randToken("u") // random, not derived from the site name
+		resp, err := s.callAgent(r.Context(), "db_create", map[string]string{"engine": db, "name": dbname, "user": dbuser})
 		if err != nil || !resp.OK {
 			_, _ = s.callAgent(r.Context(), "site_up", map[string]string{"name": name})
 			redirectMsg(w, r, "/admin/hosting", "", "site created and started, but DB failed: "+agentMsg(resp, err))

@@ -2,7 +2,8 @@
   "description": "Create a database + dedicated user on the shared engine instance (brought up on first use)",
   "timeout_seconds": 180,
   "params": {
-    "engine": { "required": true, "enum": ["pg", "mysql"] },
-    "name":   { "required": true, "pattern": "[a-z][a-z0-9_]{1,30}" }
+    "engine": { "required": true,  "enum": ["pg", "mysql"] },
+    "name":   { "required": true,  "pattern": "[a-z][a-z0-9_]{1,30}" },
+    "user":   { "required": false, "pattern": "[a-z][a-z0-9_]{1,30}" }
   }
 }

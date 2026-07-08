@@ -6,8 +6,10 @@
 set -euo pipefail
 : "${XTK_DB:=/opt/xtk-db}"; : "${XTK_TEMPLATES:=/usr/local/lib/xtk-agent/templates}"
 engine="${XTK_P_ENGINE:?}"; name="${XTK_P_NAME:?}"
+user="${XTK_P_USER:-$name}"   # separate login role; defaults to the db name
 [[ "$engine" =~ ^(pg|mysql)$ ]]         || { echo "invalid engine" >&2; exit 2; }
 [[ "$name" =~ ^[a-z][a-z0-9_]{1,30}$ ]] || { echo "invalid db name" >&2; exit 2; }
+[[ "$user" =~ ^[a-z][a-z0-9_]{1,30}$ ]] || { echo "invalid db user" >&2; exit 2; }
 inst="$XTK_DB/$engine"; proj="xtk-db-$engine"
 docker network inspect xtk-hosting >/dev/null 2>&1 || docker network create xtk-hosting >/dev/null
 mkdir -p "$inst"
@@ -23,14 +25,14 @@ cid="$(cd "$inst" && docker compose -p "$proj" ps -q db)"
 pw="$(head -c32 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c24)"
 if [ "$engine" = pg ]; then
   for i in $(seq 1 30); do docker exec "$cid" pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done
-  docker exec "$cid" psql -U postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='$name'" | grep -q 1 && { echo "db already exists" >&2; exit 3; }
-  docker exec "$cid" psql -v ON_ERROR_STOP=1 -U postgres -c "CREATE ROLE \"$name\" LOGIN PASSWORD '$pw';" >/dev/null
-  docker exec "$cid" createdb -U postgres -O "$name" "$name" >/dev/null
+  docker exec "$cid" psql -U postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='$user'" | grep -q 1 && { echo "db user already exists" >&2; exit 3; }
+  docker exec "$cid" psql -v ON_ERROR_STOP=1 -U postgres -c "CREATE ROLE \"$user\" LOGIN PASSWORD '$pw';" >/dev/null
+  docker exec "$cid" createdb -U postgres -O "$user" "$name" >/dev/null
   host=xtk-db-pg.db; port=5432
 else
   for i in $(seq 1 30); do docker exec -e MYSQL_PWD="$admin" "$cid" mariadb -uroot -e 'SELECT 1' >/dev/null 2>&1 && break; sleep 1; done
-  docker exec -e MYSQL_PWD="$admin" "$cid" mariadb -uroot -N -e "SELECT 1 FROM mysql.user WHERE user='$name'" 2>/dev/null | grep -q 1 && { echo "db already exists" >&2; exit 3; }
-  docker exec -e MYSQL_PWD="$admin" "$cid" mariadb -uroot -e "CREATE DATABASE \`$name\`; CREATE USER '$name'@'%' IDENTIFIED BY '$pw'; GRANT ALL ON \`$name\`.* TO '$name'@'%'; FLUSH PRIVILEGES;" >/dev/null
+  docker exec -e MYSQL_PWD="$admin" "$cid" mariadb -uroot -N -e "SELECT 1 FROM mysql.user WHERE user='$user'" 2>/dev/null | grep -q 1 && { echo "db user already exists" >&2; exit 3; }
+  docker exec -e MYSQL_PWD="$admin" "$cid" mariadb -uroot -e "CREATE DATABASE \`$name\`; CREATE USER '$user'@'%' IDENTIFIED BY '$pw'; GRANT ALL ON \`$name\`.* TO '$user'@'%'; FLUSH PRIVILEGES;" >/dev/null
   host=xtk-db-mysql.db; port=3306
 fi
-echo "engine=$engine host=$host port=$port db=$name user=$name password=$pw"
+echo "engine=$engine host=$host port=$port db=$name user=$user password=$pw"
