@@ -55,6 +55,13 @@ type hostingUser struct {
 	Site   string `json:"site"`
 	Home   string `json:"home"`
 	Orphan bool   `json:"orphan"`
+	Scp    string `json:"scp"` // on | off | none
+}
+
+type sshdStatus struct {
+	Installed bool `json:"installed"`
+	Running   bool `json:"running"`
+	Port      int  `json:"port"`
 }
 
 type dbStatus struct {
@@ -270,19 +277,44 @@ func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
 // ---------------------------------------------------------------- Users tab
 
 var usersTmpl = xtkui.LocParse("hostingusers", subtabsSrc+`<h1>Users</h1>
-<p class="hint">OS accounts that own sites — each a system user in the <code>docker-hosting</code>
-group (nologin). Their containers run as this uid:gid.</p>
+<p class="hint">OS accounts that own sites (<code>docker-hosting</code>, nologin). File access is
+SCP/SFTP, chrooted to the site dir — upload into <code>www/</code>.</p>
 {{if .Notice}}<div class="ok">{{.Notice}}</div>{{end}}
 {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
+<section><div class="card">
+  <div class="row"><h3>SCP / SFTP gateway</h3>
+  {{if .Sshd.Running}}<span class="tag ext">running · port {{.Sshd.Port}}</span>{{else if .Sshd.Installed}}<span class="tag ro">stopped</span>{{else}}<span class="tag ro">not installed</span>{{end}}</div>
+  {{if .Sshd.Installed}}<div class="meta">Connect: <code>sftp -P {{.Sshd.Port}} site-&lt;name&gt;@&lt;host&gt;</code> (SFTP-only, chroot, no shell). Set a password per user below to enable access.</div>
+  {{else}}<p class="hint">Not installed. Installing brings up a hardened OpenSSH container (SFTP-only, chroot, no shell) on port 2222.</p>
+  <form method="post" action="/admin/hosting/users/sshd-install"><button class="btn primary">Install SCP gateway</button></form>{{end}}
+</div></section>
 <section>
   <table>
-    <thead><tr><th>Site</th><th>OS user</th><th>uid</th><th>Home</th><th></th></tr></thead>
+    <thead><tr><th>Site</th><th>OS user</th><th>uid</th><th>SCP</th><th></th></tr></thead>
     <tbody>
     {{range .Users}}
       <tr{{if .Orphan}} class="off"{{end}}>
         <td><b>{{.Site}}</b>{{if .Orphan}} <span class="tag ro">orphan</span>{{end}}</td>
-        <td><code>{{.User}}</code></td><td><code>{{.UID}}</code></td><td><code>{{.Home}}</code></td>
-        <td class="rowact">{{if .Orphan}}<form class="inline" method="post" action="/admin/hosting/users/delete" onsubmit="return confirm('Delete orphan user {{.User}}?')"><input type="hidden" name="name" value="{{.Site}}"><button class="btn danger sm">Delete</button></form>{{else}}<span class="hint">has site</span>{{end}}</td>
+        <td><code>{{.User}}</code></td><td><code>{{.UID}}</code></td>
+        <td>{{if eq .Scp "on"}}<span class="tag ext">enabled</span>{{else if eq .Scp "off"}}<span class="tag ro">disabled</span>{{else}}<span class="hint">no password</span>{{end}}</td>
+        <td class="rowact">
+          <button class="btn sm" type="button" onclick="this.nextElementSibling.showModal()">Edit</button>
+          <dialog class="dlg">
+            <form method="dialog" class="dlg-x"><button class="btn sm" aria-label="Close">✕</button></form>
+            <h3>{{.User}}</h3>
+            <div class="meta">Site: <code>{{.Site}}</code>{{if .Orphan}} <span class="tag ro">orphan</span>{{end}} · uid <code>{{.UID}}</code></div>
+            <div class="meta">SCP access: {{if eq .Scp "on"}}<b>enabled</b>{{else if eq .Scp "off"}}<b>disabled</b>{{else}}no password set{{end}}</div>
+            <form method="post" action="/admin/hosting/users/passwd" style="margin:.9rem 0 .3rem">
+              <input type="hidden" name="name" value="{{.Site}}">
+              <div class="formgrid"><div><label>Set SCP password (min 8)</label><input type="password" name="password" minlength="8" required></div>
+              <div><button class="btn primary">Set password</button></div></div>
+            </form>
+            <div class="actions" style="justify-content:flex-start">
+              {{if ne .Scp "none"}}<form class="inline" method="post" action="/admin/hosting/users/lock"><input type="hidden" name="name" value="{{.Site}}"><input type="hidden" name="locked" value="{{if eq .Scp "on"}}true{{else}}false{{end}}"><button class="btn sm">{{if eq .Scp "on"}}Disable SCP{{else}}Enable SCP{{end}}</button></form>{{end}}
+              {{if .Orphan}}<form class="inline" method="post" action="/admin/hosting/users/delete" onsubmit="return confirm('Delete orphan user {{.User}}?')"><input type="hidden" name="name" value="{{.Site}}"><button class="btn danger sm">Delete user</button></form>{{end}}
+            </div>
+          </dialog>
+        </td>
       </tr>
     {{else}}
       <tr><td colspan="5" class="hint">No site users yet.</td></tr>
@@ -295,12 +327,15 @@ func (s *server) handleUsers(w http.ResponseWriter, r *http.Request) {
 	var users []hostingUser
 	err := s.callJSON(r.Context(), "hosting_users", nil, &users)
 	sort.Slice(users, func(i, j int) bool { return users[i].Site < users[j].Site })
+	var sshd sshdStatus
+	_ = s.callJSON(r.Context(), "sshd_status", nil, &sshd)
 	ok, errMsg := notices(r)
 	data := struct {
 		Tab           string
 		Users         []hostingUser
+		Sshd          sshdStatus
 		Notice, Error string
-	}{Tab: "users", Users: users, Notice: ok, Error: errMsg}
+	}{Tab: "users", Users: users, Sshd: sshd, Notice: ok, Error: errMsg}
 	if err != nil && data.Error == "" {
 		data.Error = err.Error()
 	}
@@ -482,6 +517,39 @@ func (s *server) handleUserDelete(w http.ResponseWriter, r *http.Request) {
 	redirectMsg(w, r, "/admin/hosting/users", "Orphan user for "+name+" deleted.", "")
 }
 
+func (s *server) handleSshdInstall(w http.ResponseWriter, r *http.Request) {
+	resp, err := s.callAgent(r.Context(), "sshd_up", nil)
+	if err != nil || !resp.OK {
+		redirectMsg(w, r, "/admin/hosting/users", "", "install gateway: "+agentMsg(resp, err))
+		return
+	}
+	redirectMsg(w, r, "/admin/hosting/users", "SCP gateway installed and running.", "")
+}
+
+func (s *server) handleUserPasswd(w http.ResponseWriter, r *http.Request) {
+	name := r.FormValue("name")
+	resp, err := s.callAgent(r.Context(), "hosting_user_passwd", map[string]string{"name": name, "password": r.FormValue("password")})
+	if err != nil || !resp.OK {
+		redirectMsg(w, r, "/admin/hosting/users", "", "set password: "+agentMsg(resp, err))
+		return
+	}
+	redirectMsg(w, r, "/admin/hosting/users", "SCP password set for site-"+name+".", "")
+}
+
+func (s *server) handleUserLock(w http.ResponseWriter, r *http.Request) {
+	name, locked := r.FormValue("name"), r.FormValue("locked")
+	resp, err := s.callAgent(r.Context(), "hosting_user_lock", map[string]string{"name": name, "locked": locked})
+	if err != nil || !resp.OK {
+		redirectMsg(w, r, "/admin/hosting/users", "", "lock: "+agentMsg(resp, err))
+		return
+	}
+	state := "enabled"
+	if locked == "true" {
+		state = "disabled"
+	}
+	redirectMsg(w, r, "/admin/hosting/users", "SCP for site-"+name+" "+state+".", "")
+}
+
 func (s *server) handleAutoUpdate(w http.ResponseWriter, r *http.Request) {
 	name, enabled := r.FormValue("name"), r.FormValue("enabled")
 	resp, err := s.callAgent(r.Context(), "site_autoupdate", map[string]string{"name": name, "enabled": enabled})
@@ -550,6 +618,9 @@ func main() {
 	// Users
 	mux.HandleFunc("GET /admin/hosting/users", s.handleUsers)
 	mux.HandleFunc("POST /admin/hosting/users/delete", s.handleUserDelete)
+	mux.HandleFunc("POST /admin/hosting/users/sshd-install", s.handleSshdInstall)
+	mux.HandleFunc("POST /admin/hosting/users/passwd", s.handleUserPasswd)
+	mux.HandleFunc("POST /admin/hosting/users/lock", s.handleUserLock)
 	// MySQL / PgSQL
 	for _, seg := range []string{"mysql", "pgsql"} {
 		mux.HandleFunc("GET /admin/hosting/"+seg, s.handleDB(seg))

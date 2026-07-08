@@ -60,7 +60,15 @@ Response: `{"ok":true,"code":0,"stdout":"…","stderr":""}`  (or `{"error":"…"
   The instance port is bound to `127.0.0.1` (host-local admin/clients only).
 - `site_env_set` — write a site's `db.env` (the php service's `env_file`), used to
   inject DB connection creds; content arrives only as env.
-- `hosting_users` — list the site OS users (primary group `docker-hosting`) as JSON.
+- `hosting_users` — list the site OS users (primary group `docker-hosting`) as JSON,
+  with `orphan` (no site dir) and `scp` (on/off/none) state.
+- `hosting_user_delete` — delete an **orphaned** site user (refuses if its site exists).
+- **SCP/SFTP gateway**: `sshd_up` / `sshd_status` manage a hardened OpenSSH container
+  (`templates/ssh`) on port 2222 — SFTP-only (covers scp), each site user chrooted to
+  its site dir, **no shell**. It authenticates against **synthesized** passwd/group/
+  shadow (only the site users + minimal system entries — the host's `/etc/shadow` is
+  never exposed). `hosting_user_passwd` sets a user's password (arrives only as env);
+  `hosting_user_lock` enables/disables access.
 
 Site containers run as the site's uid:gid and join the external `xtk-hosting`
 network (alias `<name>.site`); the gateway reverse-proxies there. No host port is

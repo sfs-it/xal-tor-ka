@@ -1,0 +1,3 @@
+{ "description": "Set a site user's SCP/SFTP password (enables file access). Password arrives only as env, never logged.",
+  "timeout_seconds": 30,
+  "params": { "name": { "required": true, "pattern": "[a-z][a-z0-9-]{1,30}" }, "password": { "required": true } } }

@@ -1,0 +1,17 @@
+# Xal-Tor-Ka SCP/SFTP gateway. Authenticates site owners against SYNTHESIZED
+# passwd/group/shadow (only the site users + minimal system entries — the host's
+# /etc/shadow is never exposed). Each user is chrooted to /opt/sites/<name>.
+services:
+  sshd:
+    build: .
+    image: xtk-sshd:latest
+    restart: unless-stopped
+    ports: ["0.0.0.0:2222:22"]
+    volumes:
+      - /opt/sites:/opt/sites
+      - ./passwd:/etc/passwd:ro
+      - ./group:/etc/group:ro
+      - ./shadow:/etc/shadow:ro
+      - ./keys:/etc/ssh/keys
+    deploy: { resources: { limits: { memory: 128M } } }
+    logging: { driver: "json-file", options: { max-size: "10m", max-file: "3" } }

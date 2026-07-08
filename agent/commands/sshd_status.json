@@ -1,0 +1,2 @@
+{ "description": "SCP/SFTP gateway status as JSON (installed/running/port). No params, no side effects.",
+  "timeout_seconds": 30, "params": {} }

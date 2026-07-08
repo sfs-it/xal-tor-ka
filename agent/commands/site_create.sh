@@ -27,7 +27,11 @@ done
 # record the chosen stack so the UI can show it and future auto-updates can tell a
 # pristine template from a hand-edited one.
 printf 'template=%s\nphp_version=%s\n' "$tmpl" "$pv" > "$dir/.xtk-stack"
-chown -R "$uid:$gid" "$dir"
+# chroot-friendly ownership: SFTP ChrootDirectory (%h = the site dir) must be
+# root-owned & not group/world-writable; only www (the site's content) is writable
+# by the site user. Config files stay root-owned (mounted read-only into containers).
+chown -R root:root "$dir"; chmod 0755 "$dir"
+chown -R "$uid:$gid" "$dir/www"
 docker network inspect xtk-hosting >/dev/null 2>&1 || docker network create xtk-hosting >/dev/null
 
 echo "site=$name user=$user uid=$uid gid=$gid dir=$dir upstream=http://$name.site:8080"

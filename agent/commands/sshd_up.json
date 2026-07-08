@@ -1,0 +1,2 @@
+{ "description": "Bring up the SCP/SFTP gateway container and regenerate its passwd/group roster (idempotent). No params.",
+  "timeout_seconds": 180, "params": {} }

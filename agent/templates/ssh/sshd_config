@@ -1,0 +1,24 @@
+Port 22
+AddressFamily any
+HostKey /etc/ssh/keys/ssh_host_ed25519_key
+HostKey /etc/ssh/keys/ssh_host_rsa_key
+PermitRootLogin no
+PasswordAuthentication yes
+PubkeyAuthentication yes
+KbdInteractiveAuthentication no
+UsePAM no
+X11Forwarding no
+AllowAgentForwarding no
+AllowTcpForwarding no
+PermitTunnel no
+MaxAuthTries 3
+LoginGraceTime 20
+ClientAliveInterval 120
+Subsystem sftp internal-sftp
+# Site owners: chroot to their site dir, SFTP-only (covers scp on modern clients),
+# no shell. Only accounts with a set (unlocked) password can connect.
+Match Group docker-hosting
+    ChrootDirectory %h
+    ForceCommand internal-sftp
+    AllowTcpForwarding no
+    PermitTunnel no

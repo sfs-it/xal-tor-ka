@@ -1,0 +1,3 @@
+{ "description": "Lock/unlock a site user's SCP access (toggles the '!' prefix on its shadow hash).",
+  "timeout_seconds": 20,
+  "params": { "name": { "required": true, "pattern": "[a-z][a-z0-9-]{1,30}" }, "locked": { "required": true, "enum": ["true", "false"] } } }
