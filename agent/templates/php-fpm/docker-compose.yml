@@ -19,7 +19,7 @@ services:
     deploy: { resources: { limits: { cpus: "0.50", memory: 256M } } }
     logging: { driver: "json-file", options: { max-size: "10m", max-file: "3" } }
   php:
-    image: php:8.3-fpm-alpine
+    image: php:__PHP_VERSION__-fpm-alpine
     restart: unless-stopped
     user: "__UID__:__GID__"
     volumes:

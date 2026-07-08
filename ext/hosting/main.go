@@ -113,7 +113,7 @@ func redirectMsg(w http.ResponseWriter, r *http.Request, ok, errMsg string) {
 }
 
 var hostingNav = []xtkui.NavItem{
-	{Key: "hosting", Href: "/admin/hosting", LabelKey: "nav.services"},
+	{Key: "hosting", Href: "/admin/hosting", LabelKey: "admin.hosting"},
 }
 
 func (s *server) chrome(title, active string) xtkui.Chrome {
@@ -157,7 +157,8 @@ var indexTmpl = xtkui.LocParse("hosting", `<h1>Hosting sites</h1>
     <h3>New site</h3>
     <form method="post" action="/admin/hosting/create"><div class="formgrid">
       <div><label>Name</label><input name="name" placeholder="a-z0-9-" pattern="[a-z][a-z0-9-]{1,30}" required></div>
-      <div><label>Template</label><select name="template"><option value="php-fpm">php-fpm</option></select></div>
+      <div><label>Template</label><select name="template"><option value="php-fpm">php-fpm</option><option value="static">static (nginx only)</option></select></div>
+      <div><label>PHP version</label><select name="php_version"><option>8.3</option><option>8.2</option><option>8.1</option><option>7.4</option></select></div>
       <div><button class="btn primary">Create &amp; start</button></div>
     </div></form>
     <p class="hint">Provisions an isolated site (own OS user in <code>docker-hosting</code>), starts it on the
@@ -218,7 +219,11 @@ func (s *server) handleCreate(w http.ResponseWriter, r *http.Request) {
 	if tmpl == "" {
 		tmpl = "php-fpm"
 	}
-	if resp, err := s.callAgent(r.Context(), "site_create", map[string]string{"name": name, "template": tmpl}); err != nil || !resp.OK {
+	params := map[string]string{"name": name, "template": tmpl}
+	if pv := r.FormValue("php_version"); pv != "" && tmpl == "php-fpm" {
+		params["php_version"] = pv
+	}
+	if resp, err := s.callAgent(r.Context(), "site_create", params); err != nil || !resp.OK {
 		redirectMsg(w, r, "", "create: "+agentMsg(resp, err))
 		return
 	}
