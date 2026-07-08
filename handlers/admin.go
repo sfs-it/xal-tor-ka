@@ -33,25 +33,12 @@ import (
 // atomic persistence + snapshot + reload. The config.json backends are
 // read-only (infrastructure, env-templated).
 
-// adminNav is the top navigation of the core admin panel (extensions provide
-// their own). Labels are i18n keys.
-var adminNav = []xtkui.NavItem{
-	{Key: "servizi", Href: "/admin/servizi", LabelKey: "admin.services"},
-	{Key: "docker", Href: "/admin/docker", LabelKey: "admin.docker"},
-	{Key: "providers", Href: "/admin/providers", LabelKey: "admin.providers"},
-	{Key: "utenti", Href: "/admin/utenti", LabelKey: "admin.users"},
-	{Key: "monitoring", Href: "/admin/monitoring", LabelKey: "admin.monitoring"},
-	{Key: "tls", Href: "/admin/tls", LabelKey: "admin.tls"},
-}
-
 // renderAdminPage writes the shared chrome (head + topbar + container) around a
-// page-specific content template, via the shared UI kit.
+// page-specific content template, via the shared UI kit. The top nav (incl. the
+// optional Hosting entry) is the shared xtkui.AdminNav, so the core and the hosting
+// extension render an identical main menu.
 func (s *Server) renderAdminPage(w http.ResponseWriter, r *http.Request, active string, t *template.Template, data any) {
-	nav := adminNav
-	if s.HostingUpstream != "" { // extension installed → surface its entry (copy, don't mutate the shared slice)
-		nav = append(append([]xtkui.NavItem{}, adminNav...),
-			xtkui.NavItem{Key: "hosting", Href: "/admin/hosting", LabelKey: "admin.hosting"})
-	}
+	nav := xtkui.AdminNav(s.HostingUpstream != "")
 	c := xtkui.Chrome{
 		Title: "Xal-Tor-Ka · Admin", BrandText: "⛬ Xal-Tor-Ka", BrandHref: "/admin",
 		SubtitleKey: "admin.subtitle", Version: version.Version,

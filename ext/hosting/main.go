@@ -129,22 +129,27 @@ func redirectMsg(w http.ResponseWriter, r *http.Request, path, ok, errMsg string
 	http.Redirect(w, r, path+"?"+q.Encode(), http.StatusSeeOther)
 }
 
-// Labels are literal words: i18n.T returns the key unchanged when no catalog entry
-// exists, so these render as-is (hosting page copy is English-first for now).
-var hostingNav = []xtkui.NavItem{
-	{Key: "hosts", Href: "/admin/hosting", LabelKey: "Hosts"},
-	{Key: "users", Href: "/admin/hosting/users", LabelKey: "Users"},
-	{Key: "mysql", Href: "/admin/hosting/mysql", LabelKey: "MySQL"},
-	{Key: "pgsql", Href: "/admin/hosting/pgsql", LabelKey: "PgSQL"},
-}
-
-func (s *server) chrome(title, active string) xtkui.Chrome {
+// chrome renders the SAME top menu as the core admin (via xtkui.AdminNav) with the
+// "Hosting" entry active — so the extension looks like a native admin section. The
+// four hosting tabs are a secondary bar inside the page (subtabsSrc), not the topbar.
+func (s *server) chrome(title string) xtkui.Chrome {
 	return xtkui.Chrome{
-		Title: "Xal-Tor-Ka · " + title, BrandText: "⛬ Xal-Tor-Ka · Hosting", BrandHref: "/admin/hosting",
-		Version: version.Version, Nav: hostingNav, Active: active,
-		DashboardHref: "/admin", DashboardKey: "nav.admin", LoggedIn: true,
+		Title: "Xal-Tor-Ka · " + title, BrandText: "⛬ Xal-Tor-Ka", BrandHref: "/admin",
+		SubtitleKey: "admin.subtitle", Version: version.Version,
+		Nav: xtkui.AdminNav(true), Active: "hosting",
+		DashboardHref: "/listing", DashboardKey: "nav.dashboard", LoggedIn: true,
 	}
 }
+
+// subtabsSrc is the in-page secondary tab bar; .Tab (on each page's data) marks the
+// active one. Prepended to every hosting template.
+const subtabsSrc = `<nav class="subtabs">
+<a href="/admin/hosting"{{if eq .Tab "hosts"}} class="active"{{end}}>Hosts</a>
+<a href="/admin/hosting/users"{{if eq .Tab "users"}} class="active"{{end}}>Users</a>
+<a href="/admin/hosting/mysql"{{if eq .Tab "mysql"}} class="active"{{end}}>MySQL</a>
+<a href="/admin/hosting/pgsql"{{if eq .Tab "pgsql"}} class="active"{{end}}>PgSQL</a>
+</nav>
+`
 
 func notices(r *http.Request) (string, string) {
 	return r.URL.Query().Get("ok"), r.URL.Query().Get("err")
@@ -161,7 +166,7 @@ func (s *server) listSites(ctx context.Context) ([]site, error) {
 	return sites, nil
 }
 
-var indexTmpl = xtkui.LocParse("hosting", `<h1>Hosts</h1>
+var indexTmpl = xtkui.LocParse("hosting", subtabsSrc+`<h1>Hosts</h1>
 {{if .Notice}}<div class="ok">{{.Notice}}</div>{{end}}
 {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
 <section>
@@ -215,20 +220,21 @@ var indexTmpl = xtkui.LocParse("hosting", `<h1>Hosts</h1>
 func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	ok, errMsg := notices(r)
 	data := struct {
+		Tab           string
 		Sites         []site
 		Notice, Error string
-	}{Notice: ok, Error: errMsg}
+	}{Tab: "hosts", Notice: ok, Error: errMsg}
 	sites, err := s.listSites(r.Context())
 	if err != nil && data.Error == "" {
 		data.Error = err.Error()
 	}
 	data.Sites = sites
-	s.chrome("Hosting", "hosts").Render(w, xtkui.LangFromRequest(r), indexTmpl, data)
+	s.chrome("Hosting").Render(w, xtkui.LangFromRequest(r), indexTmpl, data)
 }
 
 // ---------------------------------------------------------------- Users tab
 
-var usersTmpl = xtkui.LocParse("hostingusers", `<h1>Users</h1>
+var usersTmpl = xtkui.LocParse("hostingusers", subtabsSrc+`<h1>Users</h1>
 <p class="hint">OS accounts that own sites — each a system user in the <code>docker-hosting</code>
 group (nologin). Their containers run as this uid:gid.</p>
 {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
@@ -250,18 +256,19 @@ func (s *server) handleUsers(w http.ResponseWriter, r *http.Request) {
 	err := s.callJSON(r.Context(), "hosting_users", nil, &users)
 	sort.Slice(users, func(i, j int) bool { return users[i].Site < users[j].Site })
 	data := struct {
+		Tab   string
 		Users []hostingUser
 		Error string
-	}{Users: users}
+	}{Tab: "users", Users: users}
 	if err != nil {
 		data.Error = err.Error()
 	}
-	s.chrome("Users", "users").Render(w, xtkui.LangFromRequest(r), usersTmpl, data)
+	s.chrome("Users").Render(w, xtkui.LangFromRequest(r), usersTmpl, data)
 }
 
 // ---------------------------------------------------------------- MySQL / PgSQL tabs
 
-var dbTmpl = xtkui.LocParse("hostingdb", `<h1>{{.Label}}</h1>
+var dbTmpl = xtkui.LocParse("hostingdb", subtabsSrc+`<h1>{{.Label}}</h1>
 {{if .Notice}}<div class="ok">{{.Notice}}</div>{{end}}
 {{if .Created}}<div class="ok"><b>Database created — copy the connection now:</b><br><code>{{.Created}}</code></div>{{end}}
 {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
@@ -306,11 +313,11 @@ func (s *server) dbView(w http.ResponseWriter, r *http.Request, t dbTab, created
 		_ = s.callJSON(r.Context(), "db_list", map[string]string{"engine": t.Engine}, &dbs)
 	}
 	data := struct {
-		Label, Seg, Notice, Error, Created string
-		Status                             dbStatus
-		Databases                          []string
-	}{Label: t.Label, Seg: t.Seg, Notice: ok, Error: errMsg, Created: created, Status: st, Databases: dbs}
-	s.chrome(t.Label, t.Seg).Render(w, xtkui.LangFromRequest(r), dbTmpl, data)
+		Tab, Label, Seg, Notice, Error, Created string
+		Status                                  dbStatus
+		Databases                               []string
+	}{Tab: t.Seg, Label: t.Label, Seg: t.Seg, Notice: ok, Error: errMsg, Created: created, Status: st, Databases: dbs}
+	s.chrome(t.Label).Render(w, xtkui.LangFromRequest(r), dbTmpl, data)
 }
 
 func (s *server) handleDB(seg string) http.HandlerFunc {
@@ -424,7 +431,7 @@ func (s *server) handleCreate(w http.ResponseWriter, r *http.Request) {
 	redirectMsg(w, r, "/admin/hosting", msg, "")
 }
 
-var editTmpl = xtkui.LocParse("hostingedit", `<h1>Edit compose · <code>{{.Name}}</code></h1>
+var editTmpl = xtkui.LocParse("hostingedit", subtabsSrc+`<h1>Edit compose · <code>{{.Name}}</code></h1>
 {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
 <p class="hint">Editing <code>/opt/sites/{{.Name}}/docker-compose.yml</code>. On save it is validated with
 <code>docker&nbsp;compose&nbsp;config</code> (reverted if invalid) and re-applied with <code>up&nbsp;-d</code>.</p>
@@ -444,8 +451,8 @@ func (s *server) handleEdit(w http.ResponseWriter, r *http.Request) {
 		redirectMsg(w, r, "/admin/hosting", "", "edit: "+agentMsg(resp, err))
 		return
 	}
-	data := struct{ Name, Content, Error string }{Name: name, Content: resp.Stdout}
-	s.chrome("Edit compose", "hosts").Render(w, xtkui.LangFromRequest(r), editTmpl, data)
+	data := struct{ Tab, Name, Content, Error string }{Tab: "hosts", Name: name, Content: resp.Stdout}
+	s.chrome("Edit compose").Render(w, xtkui.LangFromRequest(r), editTmpl, data)
 }
 
 func (s *server) handleEditSave(w http.ResponseWriter, r *http.Request) {
@@ -453,8 +460,8 @@ func (s *server) handleEditSave(w http.ResponseWriter, r *http.Request) {
 	content := r.FormValue("content")
 	resp, err := s.callAgent(r.Context(), "site_compose_set", map[string]string{"name": name, "content": content})
 	if err != nil || !resp.OK {
-		data := struct{ Name, Content, Error string }{Name: name, Content: content, Error: agentMsg(resp, err)}
-		s.chrome("Edit compose", "hosts").Render(w, xtkui.LangFromRequest(r), editTmpl, data)
+		data := struct{ Tab, Name, Content, Error string }{Tab: "hosts", Name: name, Content: content, Error: agentMsg(resp, err)}
+		s.chrome("Edit compose").Render(w, xtkui.LangFromRequest(r), editTmpl, data)
 		return
 	}
 	redirectMsg(w, r, "/admin/hosting", "Compose for "+name+" updated and applied.", "")

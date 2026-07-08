@@ -205,4 +205,11 @@ ul.hostlist li{margin:.15rem 0}
   .topnav{gap:.9rem}
   .container{margin:1.2rem auto}
 }
+/* secondary tab bar inside a section page (e.g. hosting: Hosts/Users/MySQL/PgSQL) */
+.subtabs{display:flex;gap:.15rem;border-bottom:1px solid var(--line);margin:0 0 1.3rem;flex-wrap:wrap}
+.subtabs a{padding:.5rem .9rem;color:var(--muted);font-weight:550;text-decoration:none;
+  border-bottom:2px solid transparent;margin-bottom:-1px}
+.subtabs a:hover{color:var(--accent-ink)}
+.subtabs a.active{color:var(--text);border-bottom-color:var(--accent)}
+
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}

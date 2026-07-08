@@ -122,6 +122,25 @@ type NavItem struct {
 	Key, Href, LabelKey string
 }
 
+// AdminNav is the core admin top navigation, shared by the core and by extensions
+// (e.g. hosting) so the main menu is identical everywhere. withHosting appends the
+// Hosting entry — the core adds it only when the hosting extension is enabled; the
+// extension always passes true and marks it Active.
+func AdminNav(withHosting bool) []NavItem {
+	nav := []NavItem{
+		{Key: "servizi", Href: "/admin/servizi", LabelKey: "admin.services"},
+		{Key: "docker", Href: "/admin/docker", LabelKey: "admin.docker"},
+		{Key: "providers", Href: "/admin/providers", LabelKey: "admin.providers"},
+		{Key: "utenti", Href: "/admin/utenti", LabelKey: "admin.users"},
+		{Key: "monitoring", Href: "/admin/monitoring", LabelKey: "admin.monitoring"},
+		{Key: "tls", Href: "/admin/tls", LabelKey: "admin.tls"},
+	}
+	if withHosting {
+		nav = append(nav, NavItem{Key: "hosting", Href: "/admin/hosting", LabelKey: "admin.hosting"})
+	}
+	return nav
+}
+
 // Chrome describes the shared page frame (head + top bar + container) that wraps a
 // content template. The core and each extension fill it with their own brand and
 // navigation; everything else (assets, language cluster, RTL, layout) is shared.
