@@ -1,3 +1,7 @@
-{ "description": "Generate an ed25519 SSH keypair for a site user, install the public key in its chroot authorized_keys, and return the PRIVATE key once (not stored).",
+{ "description": "Generate an ed25519 SSH keypair for a site user (optional passphrase + comment), install the public key, return the private key once.",
   "timeout_seconds": 30,
-  "params": { "name": { "required": true, "pattern": "[a-z][a-z0-9-]{1,30}" } } }
+  "params": {
+    "name":       { "required": true,  "pattern": "[a-z][a-z0-9-]{1,30}" },
+    "passphrase": { "required": false },
+    "comment":    { "required": false }
+  } }

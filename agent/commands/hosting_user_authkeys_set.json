@@ -1,0 +1,3 @@
+{ "description": "Replace a site user's authorized_keys with admin-supplied public keys (content only as env). Empty clears it.",
+  "timeout_seconds": 20,
+  "params": { "name": { "required": true, "pattern": "[a-z][a-z0-9-]{1,30}" }, "content": { "required": false } } }

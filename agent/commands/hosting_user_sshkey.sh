@@ -8,14 +8,17 @@ set -euo pipefail
 name="${XTK_P_NAME:?}"; [[ "$name" =~ ^[a-z][a-z0-9-]{1,30}$ ]] || { echo "invalid name" >&2; exit 2; }
 user="site-$name"; dir="$XTK_SITES/$name"; [ -d "$dir" ] || { echo "no such site: $name" >&2; exit 3; }
 [ -d "$XTK_SSH" ] || { echo "SCP/SFTP gateway not installed — bring it up first" >&2; exit 4; }
+pass="${XTK_P_PASSPHRASE-}"                # optional private-key passphrase
+comment="${XTK_P_COMMENT:-$user@xaltorka}" # optional public-key comment
 uid="$(id -u "$user")"; gid="$(id -g "$user")"
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
-ssh-keygen -t ed25519 -f "$tmp/id" -N '' -C "$user@xaltorka" -q
+# values are single quoted args to ssh-keygen — no shell injection
+ssh-keygen -t ed25519 -f "$tmp/id" -N "$pass" -C "$comment" -q
 install -d -m0700 "$dir/.ssh"
-install -m0600 "$tmp/id.pub" "$dir/.ssh/authorized_keys"
+cat "$tmp/id.pub" >> "$dir/.ssh/authorized_keys"   # append (keep existing keys)
 # sshd reads authorized_keys AS the user (after privsep) → it must be user-owned;
 # the home stays root-owned for the chroot, which StrictModes accepts.
-chown -R "$uid:$gid" "$dir/.ssh"
+chown -R "$uid:$gid" "$dir/.ssh"; chmod 0600 "$dir/.ssh/authorized_keys"
 # refresh the synthesized passwd so a site created after sshd_up is known to sshd
 hgid="$(getent group docker-hosting | cut -d: -f3)"
 { printf 'root:x:0:0:root:/root:/sbin/nologin\nsshd:x:22:22:sshd:/dev/null:/sbin/nologin\nnobody:x:65534:65534:nobody:/:/sbin/nologin\n'

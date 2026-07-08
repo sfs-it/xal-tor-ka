@@ -160,7 +160,11 @@ func redirectMsg(w http.ResponseWriter, r *http.Request, path, ok, errMsg string
 	} else if ok != "" {
 		q.Set("ok", ok)
 	}
-	http.Redirect(w, r, path+"?"+q.Encode(), http.StatusSeeOther)
+	sep := "?"
+	if strings.Contains(path, "?") {
+		sep = "&"
+	}
+	http.Redirect(w, r, path+sep+q.Encode(), http.StatusSeeOther)
 }
 
 // chrome renders the SAME top menu as the core admin (via xtkui.AdminNav) with the
@@ -335,7 +339,7 @@ SCP/SFTP, chrooted to the site dir — upload into <code>www/</code>.</p>
               <div><button class="btn primary">Set password</button></div></div>
             </form>
             <div class="actions" style="justify-content:flex-start">
-              <form class="inline" method="post" action="/admin/hosting/users/sshkey" onsubmit="return confirm('Generate a new SSH key for {{.User}}? Any previous key is replaced.')"><input type="hidden" name="name" value="{{.Site}}"><button class="btn sm">Generate SSH key</button></form>
+              <a class="btn sm" href="/admin/hosting/users/keys?name={{.Site}}">SSH keys</a>
               {{if ne .Scp "none"}}<form class="inline" method="post" action="/admin/hosting/users/lock"><input type="hidden" name="name" value="{{.Site}}"><input type="hidden" name="locked" value="{{if eq .Scp "on"}}true{{else}}false{{end}}"><button class="btn sm">{{if eq .Scp "on"}}Disable SCP{{else}}Enable SCP{{end}}</button></form>{{end}}
               {{if .Orphan}}<form class="inline" method="post" action="/admin/hosting/users/delete" onsubmit="return confirm('Delete orphan user {{.User}}?')"><input type="hidden" name="name" value="{{.Site}}"><button class="btn danger sm">Delete user</button></form>{{end}}
             </div>
@@ -657,25 +661,35 @@ func (s *server) handleUserLock(w http.ResponseWriter, r *http.Request) {
 	redirectMsg(w, r, "/admin/hosting/users", "SCP for site-"+name+" "+state+".", "")
 }
 
-var sshkeyTmpl = xtkui.LocParse("hostingsshkey", subtabsSrc+`<h1>SSH key · <code>site-{{.Name}}</code></h1>
+var sshkeyTmpl = xtkui.LocParse("hostingsshkey", subtabsSrc+`<h1>New SSH key · <code>site-{{.Name}}</code></h1>
 {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
 {{if .Private}}
 <div class="ok"><b>Save the private key now — it is shown only once and never stored on the server.</b></div>
 <div class="card">
   <h3>Private key</h3>
-  <textarea readonly spellcheck="false" onclick="this.select()" style="width:100%;min-height:12rem;font-family:var(--font-mono);font-size:.76rem;padding:.6rem;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);white-space:pre">{{.Private}}</textarea>
-  <h3 style="margin-top:1rem">Public key (installed in the user's authorized_keys)</h3>
-  <textarea readonly spellcheck="false" onclick="this.select()" style="width:100%;min-height:3.5rem;font-family:var(--font-mono);font-size:.76rem;padding:.6rem;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);white-space:pre-wrap">{{.Public}}</textarea>
+  <textarea id="privkey" readonly spellcheck="false" onclick="this.select()" style="width:100%;min-height:12rem;font-family:var(--font-mono);font-size:.76rem;padding:.6rem;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);white-space:pre">{{.Private}}</textarea>
+  <h3 style="margin-top:1rem">Public key (appended to the user's authorized_keys)</h3>
+  <textarea id="pubkey" readonly spellcheck="false" onclick="this.select()" style="width:100%;min-height:3.5rem;font-family:var(--font-mono);font-size:.76rem;padding:.6rem;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);white-space:pre-wrap">{{.Public}}</textarea>
+  <div class="actions" style="justify-content:flex-start">
+    <button class="btn primary" type="button" onclick="(function(){var b=new Blob([document.getElementById('privkey').value+'\n\n'+document.getElementById('pubkey').value+'\n'],{type:'application/octet-stream'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='site-{{.Name}}-ed25519.txt';document.body.appendChild(a);a.click();a.remove();})()">Download key file</button>
+    <a class="btn" href="/admin/hosting/users/keys?name={{.Name}}">Back to SSH keys</a>
+  </div>
   <p class="hint" style="margin-top:.8rem">Connect: <code>sftp -i &lt;saved-key&gt; -P 2222 site-{{.Name}}@&lt;host&gt;</code> (or <code>scp</code>). Key auth works without a password; the SCP/SFTP gateway must be running.</p>
-  <p style="margin-top:.6rem"><a class="btn" href="/admin/hosting/users">Back to Users</a></p>
 </div>
 {{end}}`)
 
 func (s *server) handleUserSshKey(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
-	resp, err := s.callAgent(r.Context(), "hosting_user_sshkey", map[string]string{"name": name})
+	params := map[string]string{"name": name}
+	if p := r.FormValue("passphrase"); p != "" {
+		params["passphrase"] = p
+	}
+	if c := r.FormValue("comment"); c != "" {
+		params["comment"] = c
+	}
+	resp, err := s.callAgent(r.Context(), "hosting_user_sshkey", params)
 	if err != nil || !resp.OK {
-		redirectMsg(w, r, "/admin/hosting/users", "", "ssh key: "+agentMsg(resp, err))
+		redirectMsg(w, r, "/admin/hosting/users/keys?name="+url.QueryEscape(name), "", "ssh key: "+agentMsg(resp, err))
 		return
 	}
 	const marker = "-----END OPENSSH PRIVATE KEY-----"
@@ -686,7 +700,57 @@ func (s *server) handleUserSshKey(w http.ResponseWriter, r *http.Request) {
 		pub = strings.TrimSpace(out[i+len(marker):])
 	}
 	data := struct{ Tab, Name, Private, Public, Error string }{Tab: "users", Name: name, Private: priv, Public: pub}
-	s.chrome("SSH key").Render(w, xtkui.LangFromRequest(r), sshkeyTmpl, data)
+	s.chrome("New SSH key").Render(w, xtkui.LangFromRequest(r), sshkeyTmpl, data)
+}
+
+// ---- SSH keys management page (view/edit authorized_keys + generate) ----
+
+var keysTmpl = xtkui.LocParse("hostingkeys", subtabsSrc+`<h1>SSH keys · <code>site-{{.Name}}</code></h1>
+{{if .Notice}}<div class="ok">{{.Notice}}</div>{{end}}
+{{if .Error}}<div class="err">{{.Error}}</div>{{end}}
+<section><div class="card">
+  <h3>Authorized public keys</h3>
+  <p class="hint">One key per line — each grants SSH/SFTP access (port 2222, chrooted to the site). Edit freely.</p>
+  <form method="post" action="/admin/hosting/users/keys">
+    <input type="hidden" name="name" value="{{.Name}}">
+    <textarea name="content" spellcheck="false" style="width:100%;min-height:8rem;font-family:var(--font-mono);font-size:.78rem;padding:.6rem;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);white-space:pre">{{.AuthKeys}}</textarea>
+    <div class="actions"><a class="btn" href="/admin/hosting/users">Back to Users</a><button class="btn primary">Save keys</button></div>
+  </form>
+</div></section>
+<section><div class="card addcard">
+  <h3>Generate new keypair</h3>
+  <form method="post" action="/admin/hosting/users/sshkey"><div class="formgrid">
+    <input type="hidden" name="name" value="{{.Name}}">
+    <div><label>Passphrase (optional)</label><input type="password" name="passphrase" autocomplete="new-password"></div>
+    <div><label>Comment (optional)</label><input name="comment" placeholder="site-{{.Name}}@laptop"></div>
+    <div><button class="btn primary">Generate &amp; append</button></div>
+  </div></form>
+  <p class="hint">Creates an ed25519 pair, appends its public key above, and shows the private key once (with a download).</p>
+</div></section>`)
+
+func (s *server) handleUserKeys(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("name")
+	resp, err := s.callAgent(r.Context(), "hosting_user_authkeys_get", map[string]string{"name": name})
+	ok, errMsg := notices(r)
+	data := struct{ Tab, Name, AuthKeys, Notice, Error string }{Tab: "users", Name: name, Notice: ok, Error: errMsg}
+	if err != nil || !resp.OK {
+		if data.Error == "" {
+			data.Error = "read keys: " + agentMsg(resp, err)
+		}
+	} else {
+		data.AuthKeys = resp.Stdout
+	}
+	s.chrome("SSH keys").Render(w, xtkui.LangFromRequest(r), keysTmpl, data)
+}
+
+func (s *server) handleUserAuthKeysSet(w http.ResponseWriter, r *http.Request) {
+	name := r.FormValue("name")
+	resp, err := s.callAgent(r.Context(), "hosting_user_authkeys_set", map[string]string{"name": name, "content": r.FormValue("content")})
+	if err != nil || !resp.OK {
+		redirectMsg(w, r, "/admin/hosting/users/keys?name="+url.QueryEscape(name), "", "save keys: "+agentMsg(resp, err))
+		return
+	}
+	redirectMsg(w, r, "/admin/hosting/users/keys?name="+url.QueryEscape(name), "Authorized keys updated.", "")
 }
 
 func (s *server) handleAutoUpdate(w http.ResponseWriter, r *http.Request) {
@@ -768,6 +832,8 @@ func main() {
 	mux.HandleFunc("POST /admin/hosting/users/passwd", s.handleUserPasswd)
 	mux.HandleFunc("POST /admin/hosting/users/lock", s.handleUserLock)
 	mux.HandleFunc("POST /admin/hosting/users/sshkey", s.handleUserSshKey)
+	mux.HandleFunc("GET /admin/hosting/users/keys", s.handleUserKeys)
+	mux.HandleFunc("POST /admin/hosting/users/keys", s.handleUserAuthKeysSet)
 	// MySQL / PgSQL
 	for _, seg := range []string{"mysql", "pgsql"} {
 		mux.HandleFunc("GET /admin/hosting/"+seg, s.handleDB(seg))

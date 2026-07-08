@@ -1,0 +1,2 @@
+{ "description": "Read a site user's authorized_keys (public keys). No side effects.",
+  "timeout_seconds": 20, "params": { "name": { "required": true, "pattern": "[a-z][a-z0-9-]{1,30}" } } }
