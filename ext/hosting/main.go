@@ -674,7 +674,7 @@ var sshkeyTmpl = xtkui.LocParse("hostingsshkey", subtabsSrc+`<h1>New SSH key · 
     <button class="btn primary" type="button" onclick="(function(){var b=new Blob([document.getElementById('privkey').value+'\n\n'+document.getElementById('pubkey').value+'\n'],{type:'application/octet-stream'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='site-{{.Name}}-ed25519.txt';document.body.appendChild(a);a.click();a.remove();})()">Download key file</button>
     <a class="btn" href="/admin/hosting/users/keys?name={{.Name}}">Back to SSH keys</a>
   </div>
-  <p class="hint" style="margin-top:.8rem">Connect: <code>sftp -i &lt;saved-key&gt; -P 2222 site-{{.Name}}@&lt;host&gt;</code> (or <code>scp</code>). Key auth works without a password; the SCP/SFTP gateway must be running.</p>
+  <p class="hint" style="margin-top:.8rem">After saving, restrict the file: <code>chmod 600 &lt;saved-key&gt;</code> — OpenSSH ignores world-readable keys. Then connect: <code>sftp -i &lt;saved-key&gt; -P 2222 site-{{.Name}}@&lt;host&gt;</code> (or <code>scp</code>). Key auth needs no password; the SCP/SFTP gateway must be running.</p>
 </div>
 {{end}}`)
 
