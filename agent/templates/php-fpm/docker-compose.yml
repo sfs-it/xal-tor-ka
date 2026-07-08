@@ -25,6 +25,7 @@ services:
     image: php:__PHP_VERSION__-fpm-alpine
     restart: unless-stopped
     user: "__UID__:__GID__"
+    env_file: [./db.env] # DB connection when a shared DB is attached (else just a comment)
     volumes:
       - ./www:/var/www/html
     networks: [site] # private to this site — NOT on xtk-hosting

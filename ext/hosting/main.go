@@ -194,7 +194,11 @@ var indexTmpl = xtkui.LocParse("hosting", `<h1>Hosts</h1>
       <div><label>Name</label><input name="name" placeholder="a-z0-9-" pattern="[a-z][a-z0-9-]{1,30}" required></div>
       <div style="grid-column:span 2"><label>Stack</label><select name="stack">
         <option value="php-fpm:8.3">NGINX + PHP-FPM 8.3</option>
+        <option value="php-fpm:8.3:mysql">NGINX + PHP-FPM 8.3 + MySQL (shared)</option>
+        <option value="php-fpm:8.3:pg">NGINX + PHP-FPM 8.3 + PgSQL (shared)</option>
         <option value="php-fpm:8.2">NGINX + PHP-FPM 8.2</option>
+        <option value="php-fpm:8.2:mysql">NGINX + PHP-FPM 8.2 + MySQL (shared)</option>
+        <option value="php-fpm:8.2:pg">NGINX + PHP-FPM 8.2 + PgSQL (shared)</option>
         <option value="php-fpm:8.1">NGINX + PHP-FPM 8.1</option>
         <option value="php-fpm:7.4">NGINX + PHP-FPM 7.4 (legacy)</option>
         <option value="static">NGINX (static)</option>
@@ -355,11 +359,28 @@ func (s *server) action(cmd, okMsg string) http.HandlerFunc {
 	}
 }
 
+// kvFields parses "k=v k2=v2 …" (db_create's output) into a map.
+func kvFields(s string) map[string]string {
+	m := map[string]string{}
+	for _, tok := range strings.Fields(s) {
+		if i := strings.IndexByte(tok, '='); i >= 0 {
+			m[tok[:i]] = tok[i+1:]
+		}
+	}
+	return m
+}
+
 func (s *server) handleCreate(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
-	tmpl, pv := r.FormValue("stack"), ""
-	if i := strings.IndexByte(tmpl, ':'); i >= 0 {
-		tmpl, pv = tmpl[:i], tmpl[i+1:]
+	// "stack" encodes template[:php_version[:db]] — e.g. "php-fpm:8.2:mysql". Colons
+	// only (never '+', which form-encoding turns into a space).
+	parts := strings.Split(r.FormValue("stack"), ":")
+	tmpl, pv, db := parts[0], "", ""
+	if len(parts) > 1 {
+		pv = parts[1]
+	}
+	if len(parts) > 2 {
+		db = parts[2] // agent engine name: "mysql" | "pg"
 	}
 	if tmpl == "" {
 		tmpl = "php-fpm"
@@ -372,6 +393,22 @@ func (s *server) handleCreate(w http.ResponseWriter, r *http.Request) {
 		redirectMsg(w, r, "/admin/hosting", "", "create: "+agentMsg(resp, err))
 		return
 	}
+	// Optional shared DB: create it and inject the connection into the site's db.env.
+	if db != "" {
+		dbname := strings.ReplaceAll(name, "-", "_") // db names take '_' not '-'
+		resp, err := s.callAgent(r.Context(), "db_create", map[string]string{"engine": db, "name": dbname})
+		if err != nil || !resp.OK {
+			_, _ = s.callAgent(r.Context(), "site_up", map[string]string{"name": name})
+			redirectMsg(w, r, "/admin/hosting", "", "site created and started, but DB failed: "+agentMsg(resp, err))
+			return
+		}
+		c := kvFields(resp.Stdout)
+		env := fmt.Sprintf("DB_HOST=%s\nDB_PORT=%s\nDB_NAME=%s\nDB_USER=%s\nDB_PASSWORD=%s",
+			c["host"], c["port"], c["db"], c["user"], c["password"])
+		if resp, err := s.callAgent(r.Context(), "site_env_set", map[string]string{"name": name, "content": env}); err != nil || !resp.OK {
+			s.log.Warn("site_env_set failed", "name", name, "err", agentMsg(resp, err))
+		}
+	}
 	if resp, err := s.callAgent(r.Context(), "site_up", map[string]string{"name": name}); err != nil || !resp.OK {
 		redirectMsg(w, r, "/admin/hosting", "", "site created but start failed: "+agentMsg(resp, err))
 		return
@@ -380,7 +417,11 @@ func (s *server) handleCreate(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/hosting/edit?name="+url.QueryEscape(name), http.StatusSeeOther)
 		return
 	}
-	redirectMsg(w, r, "/admin/hosting", "Site "+name+" created and started.", "")
+	msg := "Site " + name + " created and started."
+	if db != "" {
+		msg += " Shared " + db + " database attached."
+	}
+	redirectMsg(w, r, "/admin/hosting", msg, "")
 }
 
 var editTmpl = xtkui.LocParse("hostingedit", `<h1>Edit compose · <code>{{.Name}}</code></h1>
