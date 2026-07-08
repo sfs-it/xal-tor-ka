@@ -157,8 +157,14 @@ var indexTmpl = xtkui.LocParse("hosting", `<h1>Hosting sites</h1>
     <h3>New site</h3>
     <form method="post" action="/admin/hosting/create"><div class="formgrid">
       <div><label>Name</label><input name="name" placeholder="a-z0-9-" pattern="[a-z][a-z0-9-]{1,30}" required></div>
-      <div><label>Template</label><select name="template"><option value="php-fpm">php-fpm</option><option value="static">static (nginx only)</option></select></div>
-      <div><label>PHP version</label><select name="php_version"><option>8.3</option><option>8.2</option><option>8.1</option><option>7.4</option></select></div>
+      <div style="grid-column:span 2"><label>Stack</label><select name="stack">
+        <option value="php-fpm:8.3">NGINX + PHP-FPM 8.3</option>
+        <option value="php-fpm:8.2">NGINX + PHP-FPM 8.2</option>
+        <option value="php-fpm:8.1">NGINX + PHP-FPM 8.1</option>
+        <option value="php-fpm:7.4">NGINX + PHP-FPM 7.4 (legacy)</option>
+        <option value="static">NGINX (static)</option>
+        <option value="custom">Custom — write your own compose.yml</option>
+      </select></div>
       <div><button class="btn primary">Create &amp; start</button></div>
     </div></form>
     <p class="hint">Provisions an isolated site (own OS user in <code>docker-hosting</code>), starts it on the
@@ -215,12 +221,17 @@ func (s *server) action(cmd, okMsg string) http.HandlerFunc {
 
 func (s *server) handleCreate(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
-	tmpl := r.FormValue("template")
+	// "stack" is a self-describing choice; its value encodes template[:php_version]
+	// (e.g. "php-fpm:8.2", "static", "custom"). Fall back to a plain php-fpm.
+	tmpl, pv := r.FormValue("stack"), ""
+	if i := strings.IndexByte(tmpl, ':'); i >= 0 {
+		tmpl, pv = tmpl[:i], tmpl[i+1:]
+	}
 	if tmpl == "" {
 		tmpl = "php-fpm"
 	}
 	params := map[string]string{"name": name, "template": tmpl}
-	if pv := r.FormValue("php_version"); pv != "" && tmpl == "php-fpm" {
+	if pv != "" {
 		params["php_version"] = pv
 	}
 	if resp, err := s.callAgent(r.Context(), "site_create", params); err != nil || !resp.OK {
@@ -229,6 +240,11 @@ func (s *server) handleCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	if resp, err := s.callAgent(r.Context(), "site_up", map[string]string{"name": name}); err != nil || !resp.OK {
 		redirectMsg(w, r, "", "site created but start failed: "+agentMsg(resp, err))
+		return
+	}
+	// For a custom stack, drop the admin straight into the compose editor.
+	if tmpl == "custom" {
+		http.Redirect(w, r, "/admin/hosting/edit?name="+url.QueryEscape(name), http.StatusSeeOther)
 		return
 	}
 	redirectMsg(w, r, "Site "+name+" created and started.", "")
