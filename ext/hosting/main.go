@@ -50,10 +50,11 @@ type site struct {
 }
 
 type hostingUser struct {
-	User string `json:"user"`
-	UID  int    `json:"uid"`
-	Site string `json:"site"`
-	Home string `json:"home"`
+	User   string `json:"user"`
+	UID    int    `json:"uid"`
+	Site   string `json:"site"`
+	Home   string `json:"home"`
+	Orphan bool   `json:"orphan"`
 }
 
 type dbStatus struct {
@@ -271,15 +272,20 @@ func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
 var usersTmpl = xtkui.LocParse("hostingusers", subtabsSrc+`<h1>Users</h1>
 <p class="hint">OS accounts that own sites — each a system user in the <code>docker-hosting</code>
 group (nologin). Their containers run as this uid:gid.</p>
+{{if .Notice}}<div class="ok">{{.Notice}}</div>{{end}}
 {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
 <section>
   <table>
-    <thead><tr><th>Site</th><th>OS user</th><th>uid</th><th>Home</th></tr></thead>
+    <thead><tr><th>Site</th><th>OS user</th><th>uid</th><th>Home</th><th></th></tr></thead>
     <tbody>
     {{range .Users}}
-      <tr><td><b>{{.Site}}</b></td><td><code>{{.User}}</code></td><td><code>{{.UID}}</code></td><td><code>{{.Home}}</code></td></tr>
+      <tr{{if .Orphan}} class="off"{{end}}>
+        <td><b>{{.Site}}</b>{{if .Orphan}} <span class="tag ro">orphan</span>{{end}}</td>
+        <td><code>{{.User}}</code></td><td><code>{{.UID}}</code></td><td><code>{{.Home}}</code></td>
+        <td class="rowact">{{if .Orphan}}<form class="inline" method="post" action="/admin/hosting/users/delete" onsubmit="return confirm('Delete orphan user {{.User}}?')"><input type="hidden" name="name" value="{{.Site}}"><button class="btn danger sm">Delete</button></form>{{else}}<span class="hint">has site</span>{{end}}</td>
+      </tr>
     {{else}}
-      <tr><td colspan="4" class="hint">No site users yet.</td></tr>
+      <tr><td colspan="5" class="hint">No site users yet.</td></tr>
     {{end}}
     </tbody>
   </table>
@@ -289,12 +295,13 @@ func (s *server) handleUsers(w http.ResponseWriter, r *http.Request) {
 	var users []hostingUser
 	err := s.callJSON(r.Context(), "hosting_users", nil, &users)
 	sort.Slice(users, func(i, j int) bool { return users[i].Site < users[j].Site })
+	ok, errMsg := notices(r)
 	data := struct {
-		Tab   string
-		Users []hostingUser
-		Error string
-	}{Tab: "users", Users: users}
-	if err != nil {
+		Tab           string
+		Users         []hostingUser
+		Notice, Error string
+	}{Tab: "users", Users: users, Notice: ok, Error: errMsg}
+	if err != nil && data.Error == "" {
 		data.Error = err.Error()
 	}
 	s.chrome("Users").Render(w, xtkui.LangFromRequest(r), usersTmpl, data)
@@ -465,6 +472,16 @@ func (s *server) handleCreate(w http.ResponseWriter, r *http.Request) {
 	redirectMsg(w, r, "/admin/hosting", msg, "")
 }
 
+func (s *server) handleUserDelete(w http.ResponseWriter, r *http.Request) {
+	name := r.FormValue("name")
+	resp, err := s.callAgent(r.Context(), "hosting_user_delete", map[string]string{"name": name})
+	if err != nil || !resp.OK {
+		redirectMsg(w, r, "/admin/hosting/users", "", "delete user: "+agentMsg(resp, err))
+		return
+	}
+	redirectMsg(w, r, "/admin/hosting/users", "Orphan user for "+name+" deleted.", "")
+}
+
 func (s *server) handleAutoUpdate(w http.ResponseWriter, r *http.Request) {
 	name, enabled := r.FormValue("name"), r.FormValue("enabled")
 	resp, err := s.callAgent(r.Context(), "site_autoupdate", map[string]string{"name": name, "enabled": enabled})
@@ -532,6 +549,7 @@ func main() {
 	mux.HandleFunc("POST /admin/hosting/edit", s.handleEditSave)
 	// Users
 	mux.HandleFunc("GET /admin/hosting/users", s.handleUsers)
+	mux.HandleFunc("POST /admin/hosting/users/delete", s.handleUserDelete)
 	// MySQL / PgSQL
 	for _, seg := range []string{"mysql", "pgsql"} {
 		mux.HandleFunc("GET /admin/hosting/"+seg, s.handleDB(seg))
