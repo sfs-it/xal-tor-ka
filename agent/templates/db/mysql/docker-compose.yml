@@ -1,0 +1,14 @@
+# Shared MariaDB instance. GENERATED/rendered by xtk-agent — __ADMIN_PW__ is filled in.
+# Port bound to 127.0.0.1 only (host-local admin/clients); reachable by sites as
+# xtk-db-mysql.db on the xtk-hosting network.
+services:
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment: ["MARIADB_ROOT_PASSWORD=__ADMIN_PW__"]
+    volumes: ["./data:/var/lib/mysql"]
+    ports: ["127.0.0.1:3306:3306"]
+    networks: { xtk-hosting: { aliases: ["xtk-db-mysql.db"] } }
+    deploy: { resources: { limits: { memory: 512M } } }
+    logging: { driver: "json-file", options: { max-size: "10m", max-file: "3" } }
+networks: { xtk-hosting: { external: true } }

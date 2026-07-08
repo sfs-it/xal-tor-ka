@@ -4,7 +4,7 @@
 # so the SQL string interpolation below is safe. Prints the connection (incl. a
 # generated password) on stdout for the caller to inject into the site.
 set -euo pipefail
-: "${XTK_DB:=/opt/xtk-db}"
+: "${XTK_DB:=/opt/xtk-db}"; : "${XTK_TEMPLATES:=/usr/local/lib/xtk-agent/templates}"
 engine="${XTK_P_ENGINE:?}"; name="${XTK_P_NAME:?}"
 [[ "$engine" =~ ^(pg|mysql)$ ]]         || { echo "invalid engine" >&2; exit 2; }
 [[ "$name" =~ ^[a-z][a-z0-9_]{1,30}$ ]] || { echo "invalid db name" >&2; exit 2; }
@@ -14,20 +14,9 @@ mkdir -p "$inst"
 [ -f "$inst/.admin" ] || { head -c32 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c24 > "$inst/.admin"; chmod 600 "$inst/.admin"; }
 admin="$(cat "$inst/.admin")"
 if [ ! -f "$inst/docker-compose.yml" ]; then
-  if [ "$engine" = pg ]; then img=postgres:16-alpine; envl="POSTGRES_PASSWORD=$admin"; vol="./data:/var/lib/postgresql/data"; al=xtk-db-pg.db
-  else img=mariadb:11; envl="MARIADB_ROOT_PASSWORD=$admin"; vol="./data:/var/lib/mysql"; al=xtk-db-mysql.db; fi
-  cat > "$inst/docker-compose.yml" <<YML
-services:
-  db:
-    image: $img
-    restart: unless-stopped
-    environment: ["$envl"]
-    volumes: ["$vol"]
-    networks: { xtk-hosting: { aliases: ["$al"] } }
-    deploy: { resources: { limits: { memory: 512M } } }
-    logging: { driver: "json-file", options: { max-size: "10m", max-file: "3" } }
-networks: { xtk-hosting: { external: true } }
-YML
+  tmpl="$XTK_TEMPLATES/db/$engine/docker-compose.yml"   # shared source of truth (localhost port)
+  [ -f "$tmpl" ] || { echo "no db template for $engine" >&2; exit 5; }
+  sed "s|__ADMIN_PW__|$admin|g" "$tmpl" > "$inst/docker-compose.yml"
 fi
 (cd "$inst" && docker compose -p "$proj" up -d) >/dev/null
 cid="$(cd "$inst" && docker compose -p "$proj" ps -q db)"

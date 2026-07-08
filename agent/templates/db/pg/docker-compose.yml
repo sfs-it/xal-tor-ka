@@ -1,0 +1,14 @@
+# Shared PostgreSQL instance. GENERATED/rendered by xtk-agent — __ADMIN_PW__ is filled in.
+# Port bound to 127.0.0.1 only (host-local admin/clients); reachable by sites as
+# xtk-db-pg.db on the xtk-hosting network.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment: ["POSTGRES_PASSWORD=__ADMIN_PW__"]
+    volumes: ["./data:/var/lib/postgresql/data"]
+    ports: ["127.0.0.1:5432:5432"]
+    networks: { xtk-hosting: { aliases: ["xtk-db-pg.db"] } }
+    deploy: { resources: { limits: { memory: 512M } } }
+    logging: { driver: "json-file", options: { max-size: "10m", max-file: "3" } }
+networks: { xtk-hosting: { external: true } }

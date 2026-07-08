@@ -1,0 +1,3 @@
+{ "description": "List user databases on the shared instance (JSON array). No side effects.",
+  "timeout_seconds": 30,
+  "params": { "engine": { "required": true, "enum": ["pg", "mysql"] } } }
