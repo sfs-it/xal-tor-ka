@@ -27,6 +27,7 @@
   "profile.title": "Мой профиль",
   "profile.email": "Email",
   "profile.access": "Вход",
+  "profile.client_ip": "Подключение с",
   "profile.admin_badge": "администратор",
   "profile.services": "Доступные мне сервисы",
   "profile.admin_all": "Как администратор вы имеете доступ ко всем сервисам.",

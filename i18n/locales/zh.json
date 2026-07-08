@@ -27,6 +27,7 @@
   "profile.title": "我的资料",
   "profile.email": "电子邮箱",
   "profile.access": "登录方式",
+  "profile.client_ip": "连接来源",
   "profile.admin_badge": "管理员",
   "profile.services": "我可访问的服务",
   "profile.admin_all": "作为管理员，您可访问所有服务。",

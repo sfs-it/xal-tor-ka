@@ -27,6 +27,7 @@
   "profile.title": "मेरी प्रोफ़ाइल",
   "profile.email": "ईमेल",
   "profile.access": "साइन-इन",
+  "profile.client_ip": "कनेक्टेड यहाँ से",
   "profile.admin_badge": "प्रशासक",
   "profile.services": "जिन सेवाओं तक मेरी पहुँच है",
   "profile.admin_all": "प्रशासक के रूप में आप सभी सेवाओं तक पहुँच सकते हैं।",

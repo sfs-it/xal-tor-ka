@@ -55,6 +55,7 @@ var profileTmpl = template.Must(template.New("profile").Funcs(xtkui.TmplFuncs).P
   <form method="post" action="/profilo/totp" onsubmit="return confirm('{{T .Lang "profile.2fa_confirm"}}')">
    <button class="btn">{{T .Lang "profile.2fa_regen"}}</button></form>
  </div>{{end}}
+ {{if .ClientIP}}<p class="hint" style="margin-top:1.5rem">{{T .Lang "profile.client_ip"}}: <code>{{.ClientIP}}</code></p>{{end}}
 </main></body></html>`))
 
 var profileQRTmpl = template.Must(template.New("profileqr").Funcs(xtkui.TmplFuncs).Parse(`<!doctype html>
@@ -74,6 +75,7 @@ type profileData struct {
 	Lang                 string
 	Services             []tile
 	Notice, Error        string
+	ClientIP             string // IP as seen by the gatekeeper (same as the admin whitelist uses)
 }
 
 // currentUser returns the fully-authenticated user of the request (session +
@@ -95,6 +97,10 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 	lang := s.lang(r)
 	notice := map[string]string{"pw": i18n.T(lang, "profile.pw_updated")}[r.URL.Query().Get("ok")]
 	errMsg := map[string]string{"pw": i18n.T(lang, "profile.pw_wrong"), "local": i18n.T(lang, "profile.local_only")}[r.URL.Query().Get("err")]
+	ip := ""
+	if c := clientIP(r, s.Cfg.Server.TrustedProxies); c != nil {
+		ip = c.String()
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = profileTmpl.Execute(w, profileData{
 		Email:    u.Email,
@@ -106,6 +112,7 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 		Services: s.tilesFor(u),
 		Notice:   notice,
 		Error:    errMsg,
+		ClientIP: ip,
 	})
 }
 

@@ -27,6 +27,7 @@
   "profile.title": "My profile",
   "profile.email": "Email",
   "profile.access": "Sign-in",
+  "profile.client_ip": "Connected from",
   "profile.admin_badge": "administrator",
   "profile.services": "Services I can access",
   "profile.admin_all": "As an administrator you can access all services.",

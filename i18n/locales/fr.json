@@ -27,6 +27,7 @@
   "profile.title": "Mon profil",
   "profile.email": "E-mail",
   "profile.access": "Connexion",
+  "profile.client_ip": "Connecté depuis",
   "profile.admin_badge": "administrateur",
   "profile.services": "Services auxquels je peux accéder",
   "profile.admin_all": "En tant qu'administrateur, vous pouvez accéder à tous les services.",

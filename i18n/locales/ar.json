@@ -27,6 +27,7 @@
   "profile.title": "ملفي الشخصي",
   "profile.email": "البريد الإلكتروني",
   "profile.access": "تسجيل الدخول",
+  "profile.client_ip": "متصل من",
   "profile.admin_badge": "مسؤول",
   "profile.services": "الخدمات التي يمكنني الوصول إليها",
   "profile.admin_all": "بصفتك مسؤولاً يمكنك الوصول إلى جميع الخدمات.",
