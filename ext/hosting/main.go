@@ -671,7 +671,11 @@ var sshkeyTmpl = xtkui.LocParse("hostingsshkey", subtabsSrc+`<h1>New SSH key · 
   <h3 style="margin-top:1rem">Public key (appended to the user's authorized_keys)</h3>
   <textarea id="pubkey" readonly spellcheck="false" onclick="this.select()" style="width:100%;min-height:3.5rem;font-family:var(--font-mono);font-size:.76rem;padding:.6rem;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);white-space:pre-wrap">{{.Public}}</textarea>
   <div class="actions" style="justify-content:flex-start">
-    <button class="btn primary" type="button" onclick="(function(){var b=new Blob([document.getElementById('privkey').value+'\n\n'+document.getElementById('pubkey').value+'\n'],{type:'application/octet-stream'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='site-{{.Name}}-ed25519.txt';document.body.appendChild(a);a.click();a.remove();})()">Download key file</button>
+    <form method="post" action="/admin/hosting/users/keydownload" style="display:inline">
+      <input type="hidden" name="name" value="{{.Name}}">
+      <textarea name="content" style="display:none">{{.Combo}}</textarea>
+      <button class="btn primary">Download key file</button>
+    </form>
     <a class="btn" href="/admin/hosting/users/keys?name={{.Name}}">Back to SSH keys</a>
   </div>
   <p class="hint" style="margin-top:.8rem">After saving, restrict the file: <code>chmod 600 &lt;saved-key&gt;</code> — OpenSSH ignores world-readable keys. Then connect: <code>sftp -i &lt;saved-key&gt; -P 2222 site-{{.Name}}@&lt;host&gt;</code> (or <code>scp</code>). Key auth needs no password; the SCP/SFTP gateway must be running.</p>
@@ -699,8 +703,31 @@ func (s *server) handleUserSshKey(w http.ResponseWriter, r *http.Request) {
 		priv = strings.TrimSpace(out[:i+len(marker)])
 		pub = strings.TrimSpace(out[i+len(marker):])
 	}
-	data := struct{ Tab, Name, Private, Public, Error string }{Tab: "users", Name: name, Private: priv, Public: pub}
+	data := struct{ Tab, Name, Private, Public, Combo, Error string }{
+		Tab: "users", Name: name, Private: priv, Public: pub, Combo: priv + "\n\n" + pub + "\n",
+	}
 	s.chrome("New SSH key").Render(w, xtkui.LangFromRequest(r), sshkeyTmpl, data)
+}
+
+// handleKeyDownload echoes the posted key back as a file attachment, normalized to
+// LF (browsers submit textarea content with CRLF, which corrupts OpenSSH keys). The
+// key is not stored server-side — it round-trips through this download only.
+func (s *server) handleKeyDownload(w http.ResponseWriter, r *http.Request) {
+	name := r.FormValue("name")
+	safe := strings.Map(func(c rune) rune {
+		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' {
+			return c
+		}
+		return -1
+	}, name)
+	if safe == "" {
+		safe = "site"
+	}
+	content := strings.ReplaceAll(r.FormValue("content"), "\r\n", "\n")
+	content = strings.ReplaceAll(content, "\r", "\n")
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", `attachment; filename="site-`+safe+`-ed25519.txt"`)
+	_, _ = w.Write([]byte(content))
 }
 
 // ---- SSH keys management page (view/edit authorized_keys + generate) ----
@@ -834,6 +861,7 @@ func main() {
 	mux.HandleFunc("POST /admin/hosting/users/sshkey", s.handleUserSshKey)
 	mux.HandleFunc("GET /admin/hosting/users/keys", s.handleUserKeys)
 	mux.HandleFunc("POST /admin/hosting/users/keys", s.handleUserAuthKeysSet)
+	mux.HandleFunc("POST /admin/hosting/users/keydownload", s.handleKeyDownload)
 	// MySQL / PgSQL
 	for _, seg := range []string{"mysql", "pgsql"} {
 		mux.HandleFunc("GET /admin/hosting/"+seg, s.handleDB(seg))
