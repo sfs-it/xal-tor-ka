@@ -10,11 +10,17 @@ Type=simple
 # comes from the NARROW model (a fixed set of root-owned vetted scripts + validated,
 # non-injectable parameters), NOT from sandboxing away the powers it needs.
 #
-# The socket is created 0660; to let the hosting extension connect, create a group
-# (e.g. `xtk-agent`), add the extension's user to it, and pass its gid via
-# --socket-gid <GID> below. Optionally pin the caller with --allow-uid <UID>.
+# The socket lives in a DIRECTORY (/run/xtk-agent, created by RuntimeDirectory) so
+# the hosting-extension container can bind-mount the DIR: on an agent restart the
+# socket inode is recreated, and a dir mount still resolves the new one (a file mount
+# would go stale → "connection refused"). The socket is 0660; to let the extension
+# connect, create a group (e.g. `xtk-agent`), add the extension's user to it, and pass
+# its gid via --socket-gid <GID>. Optionally pin the caller with --allow-uid <UID>.
+RuntimeDirectory=xtk-agent
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
 ExecStart=/usr/local/bin/xtk-agent \
-  --socket /run/xtk-agent.sock \
+  --socket /run/xtk-agent/agent.sock \
   --commands /usr/local/lib/xtk-agent/commands \
   --trusted-uid 0
 Restart=on-failure

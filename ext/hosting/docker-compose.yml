@@ -27,7 +27,9 @@ services:
     group_add:
       - "${XTK_AGENT_GID:-1997}" # the xtk-agent socket group
     volumes:
-      - /run/xtk-agent.sock:/run/xtk-agent.sock
+      # bind-mount the DIR (not the socket file): survives agent restarts that
+      # recreate the socket inode (a file mount would go stale → connection refused).
+      - /run/xtk-agent:/run/xtk-agent
     networks:
       - internal
       - xtk-hosting # reach ephemeral Adminer containers by their alias

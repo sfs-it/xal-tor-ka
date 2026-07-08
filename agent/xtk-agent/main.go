@@ -19,7 +19,7 @@ import (
 )
 
 func main() {
-	socket := flag.String("socket", "/run/xtk-agent.sock", "unix socket to listen on")
+	socket := flag.String("socket", "/run/xtk-agent/agent.sock", "unix socket to listen on (keep it in a dir so callers can bind-mount the dir)")
 	cmdDir := flag.String("commands", "/usr/local/lib/xtk-agent/commands", "directory of vetted command scripts + manifests")
 	trustedUID := flag.Uint("trusted-uid", 0, "required owner uid of every command script (0 = root)")
 	allowUID := flag.Int("allow-uid", -1, "only accept connections from this peer uid (-1 = any; rely on socket perms)")

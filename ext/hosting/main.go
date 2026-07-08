@@ -736,7 +736,7 @@ func (s *server) handleEditSave(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	socket := flag.String("socket", "/run/xtk-agent.sock", "path to the xtk-agent unix socket")
+	socket := flag.String("socket", "/run/xtk-agent/agent.sock", "path to the xtk-agent unix socket (in a bind-mounted dir)")
 	listen := flag.String("listen", ":8090", "internal HTTP listen address")
 	flag.Parse()
 
