@@ -670,15 +670,13 @@ var sshkeyTmpl = xtkui.LocParse("hostingsshkey", subtabsSrc+`<h1>New SSH key · 
   <textarea id="privkey" readonly spellcheck="false" onclick="this.select()" style="width:100%;min-height:12rem;font-family:var(--font-mono);font-size:.76rem;padding:.6rem;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);white-space:pre">{{.Private}}</textarea>
   <h3 style="margin-top:1rem">Public key (appended to the user's authorized_keys)</h3>
   <textarea id="pubkey" readonly spellcheck="false" onclick="this.select()" style="width:100%;min-height:3.5rem;font-family:var(--font-mono);font-size:.76rem;padding:.6rem;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);white-space:pre-wrap">{{.Public}}</textarea>
-  <div class="actions" style="justify-content:flex-start">
-    <form method="post" action="/admin/hosting/users/keydownload" style="display:inline">
-      <input type="hidden" name="name" value="{{.Name}}">
-      <textarea name="content" style="display:none">{{.Combo}}</textarea>
-      <button class="btn primary">Download key file</button>
-    </form>
+  <div class="actions" style="justify-content:flex-start;flex-wrap:wrap">
+    <form method="post" action="/admin/hosting/users/keydownload" style="display:inline"><input type="hidden" name="filename" value="site-{{.Name}}-ed25519"><textarea name="content" style="display:none">{{.Private}}</textarea><button class="btn primary">↓ Private key (OpenSSH)</button></form>
+    <form method="post" action="/admin/hosting/users/keydownload" style="display:inline"><input type="hidden" name="filename" value="site-{{.Name}}-ed25519.pub"><textarea name="content" style="display:none">{{.Public}}</textarea><button class="btn">↓ Public key</button></form>
+    {{if .PPK}}<form method="post" action="/admin/hosting/users/keydownload" style="display:inline"><input type="hidden" name="filename" value="site-{{.Name}}.ppk"><textarea name="content" style="display:none">{{.PPK}}</textarea><button class="btn">↓ PuTTY/WinSCP (.ppk)</button></form>{{end}}
     <a class="btn" href="/admin/hosting/users/keys?name={{.Name}}">Back to SSH keys</a>
   </div>
-  <p class="hint" style="margin-top:.8rem">After saving, restrict the file: <code>chmod 600 &lt;saved-key&gt;</code> — OpenSSH ignores world-readable keys. Then connect: <code>sftp -i &lt;saved-key&gt; -P 2222 site-{{.Name}}@&lt;host&gt;</code> (or <code>scp</code>). Key auth needs no password; the SCP/SFTP gateway must be running.</p>
+  <p class="hint" style="margin-top:.8rem"><b>OpenSSH (WSL/Linux/Mac):</b> save the private key, <code>chmod 600 &lt;file&gt;</code> (OpenSSH ignores world-readable keys), then <code>sftp -i &lt;file&gt; -P 2222 site-{{.Name}}@&lt;host&gt;</code>. <b>WinSCP/PuTTY/FileZilla (Windows):</b> use the <code>.ppk</code>. Key auth needs no password; the SCP/SFTP gateway must be running.</p>
 </div>
 {{end}}`)
 
@@ -696,37 +694,49 @@ func (s *server) handleUserSshKey(w http.ResponseWriter, r *http.Request) {
 		redirectMsg(w, r, "/admin/hosting/users/keys?name="+url.QueryEscape(name), "", "ssh key: "+agentMsg(resp, err))
 		return
 	}
-	const marker = "-----END OPENSSH PRIVATE KEY-----"
 	out := resp.Stdout
-	priv, pub := strings.TrimSpace(out), ""
-	if i := strings.Index(out, marker); i >= 0 {
-		priv = strings.TrimSpace(out[:i+len(marker)])
-		pub = strings.TrimSpace(out[i+len(marker):])
-	}
-	data := struct{ Tab, Name, Private, Public, Combo, Error string }{
-		Tab: "users", Name: name, Private: priv, Public: pub, Combo: priv + "\n\n" + pub + "\n",
+	data := struct{ Tab, Name, Private, Public, PPK, Error string }{
+		Tab:     "users",
+		Name:    name,
+		Private: sshSection(out, "===XTK-PRIV===", "===XTK-PUB==="),
+		Public:  sshSection(out, "===XTK-PUB===", "===XTK-PPK==="),
+		PPK:     sshSection(out, "===XTK-PPK===", ""),
 	}
 	s.chrome("New SSH key").Render(w, xtkui.LangFromRequest(r), sshkeyTmpl, data)
+}
+
+// sshSection extracts the text between two markers (end="" = to end), trimmed.
+func sshSection(s, start, end string) string {
+	i := strings.Index(s, start)
+	if i < 0 {
+		return ""
+	}
+	rest := s[i+len(start):]
+	if end != "" {
+		if j := strings.Index(rest, end); j >= 0 {
+			rest = rest[:j]
+		}
+	}
+	return strings.TrimSpace(rest)
 }
 
 // handleKeyDownload echoes the posted key back as a file attachment, normalized to
 // LF (browsers submit textarea content with CRLF, which corrupts OpenSSH keys). The
 // key is not stored server-side — it round-trips through this download only.
 func (s *server) handleKeyDownload(w http.ResponseWriter, r *http.Request) {
-	name := r.FormValue("name")
-	safe := strings.Map(func(c rune) rune {
-		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' {
+	fn := strings.Map(func(c rune) rune {
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '.' || c == '_' || c == '-' {
 			return c
 		}
 		return -1
-	}, name)
-	if safe == "" {
-		safe = "site"
+	}, r.FormValue("filename"))
+	if fn == "" {
+		fn = "keyfile.txt"
 	}
 	content := strings.ReplaceAll(r.FormValue("content"), "\r\n", "\n")
 	content = strings.ReplaceAll(content, "\r", "\n")
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", `attachment; filename="site-`+safe+`-ed25519.txt"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+fn+`"`)
 	_, _ = w.Write([]byte(content))
 }
 

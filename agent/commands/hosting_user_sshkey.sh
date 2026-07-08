@@ -14,6 +14,9 @@ uid="$(id -u "$user")"; gid="$(id -g "$user")"
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 # values are single quoted args to ssh-keygen — no shell injection
 ssh-keygen -t ed25519 -f "$tmp/id" -N "$pass" -C "$comment" -q
+# PuTTY .ppk (for WinSCP/PuTTY/FileZilla) — only for passphrase-less keys, since
+# puttygen 0.78 can't set an output passphrase non-interactively.
+[ -z "$pass" ] && command -v puttygen >/dev/null && puttygen "$tmp/id" -O private -o "$tmp/id.ppk" 2>/dev/null || true
 install -d -m0700 "$dir/.ssh"
 cat "$tmp/id.pub" >> "$dir/.ssh/authorized_keys"   # append (keep existing keys)
 # sshd reads authorized_keys AS the user (after privsep) → it must be user-owned;
@@ -26,4 +29,7 @@ hgid="$(getent group docker-hosting | cut -d: -f3)"
 # ensure a shadow entry so the account is valid for pubkey; '*' = no password login,
 # NOT locked (leave an existing password hash untouched).
 grep -q "^$user:" "$XTK_SSH/shadow" 2>/dev/null || { printf '%s:*:20000:0:99999:7:::\n' "$user" >> "$XTK_SSH/shadow"; chmod 600 "$XTK_SSH/shadow"; }
-cat "$tmp/id"; cat "$tmp/id.pub"
+# delimited output: private (OpenSSH) / public / ppk (may be empty)
+printf '===XTK-PRIV===\n'; cat "$tmp/id"
+printf '===XTK-PUB===\n';  cat "$tmp/id.pub"
+printf '===XTK-PPK===\n';  [ -f "$tmp/id.ppk" ] && cat "$tmp/id.ppk" || true
