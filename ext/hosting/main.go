@@ -232,6 +232,7 @@ var indexTmpl = xtkui.LocParse("hosting", subtabsSrc+`<h1>Hosts</h1>
               <div class="formgrid">
                 <div><label>Public host</label><input name="host" placeholder="mysite.example.com" required></div>
                 <div><label>Rule</label><select name="rule"><option>public</option><option>authenticated</option><option>whitelist</option></select></div>
+                <div><label>www</label><label class="hint" style="display:inline-flex;align-items:center;gap:.35rem;height:2.2rem"><input type="checkbox" name="www" value="1"> also www.host</label></div>
                 <div><button class="btn primary">Publish backend</button></div>
               </div>
             </form>

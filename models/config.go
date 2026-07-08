@@ -105,6 +105,7 @@ type Backend struct {
 	Description string `json:"description,omitempty"`
 	Host        string `json:"host"`
 	URL         string `json:"url,omitempty"`
+	WWW         bool   `json:"www,omitempty"`      // also serve/cert www.<host> (extra server_name + cert SAN)
 	Disabled    bool   `json:"disabled,omitempty"` // excluded from resolver/proxy/health
 	// IPAllow is an optional per-vhost IP allow-list (CIDRs). When non-empty,
 	// requests whose client IP is not covered are denied (403) before the rule is

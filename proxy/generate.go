@@ -67,7 +67,11 @@ func writeServer(b *strings.Builder, g GenConfig, be models.Backend) {
 		fmt.Fprintf(b, "    ssl_certificate %s/%s.crt;\n", dir, be.Host)
 		fmt.Fprintf(b, "    ssl_certificate_key %s/%s.key;\n", dir, be.Host)
 	}
-	fmt.Fprintf(b, "    server_name %s;\n", be.Host)
+	serverName := be.Host
+	if be.WWW {
+		serverName = be.Host + " www." + be.Host // also answer www.<host>
+	}
+	fmt.Fprintf(b, "    server_name %s;\n", serverName)
 	if g.Resolver != "" {
 		fmt.Fprintf(b, "    resolver %s valid=10s ipv6=off;\n", g.Resolver)
 	}

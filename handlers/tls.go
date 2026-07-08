@@ -11,6 +11,7 @@ import (
 
 	"xaltorka/certmgr"
 	"xaltorka/i18n"
+	"xaltorka/models"
 	"xaltorka/xtkui"
 )
 
@@ -35,6 +36,30 @@ type tlsRow struct {
 	Expiry string
 	Valid  bool
 	Has    bool
+	WWW    bool // backend also serves/certs www.<host>
+}
+
+// hostWWW reports whether the backend for host wants the www.<host> alias.
+func (s *Server) hostWWW(host string) bool {
+	for _, b := range s.Resolver.Backends() {
+		if b.Host == host {
+			return b.WWW
+		}
+	}
+	return false
+}
+
+// setBackendWWW persists the WWW flag on the services.json backend(s) for host and
+// reloads (so the vhost server_name is regenerated before an ACME challenge).
+func (s *Server) setBackendWWW(host string, www bool) error {
+	return s.mutateServices(func(svc *models.Services) error {
+		for i := range svc.Backends {
+			if svc.Backends[i].Host == host {
+				svc.Backends[i].WWW = www
+			}
+		}
+		return nil
+	})
 }
 
 type tlsPageData struct {
@@ -57,8 +82,12 @@ var tlsTmpl = xtkui.LocParse("tls", `<section>
   <td>{{if .Has}}{{.Expiry}}{{else}}—{{end}}</td>
   <td>{{if not .Has}}<span class="tag ro">{{T "admin.tls.status.missing"}}</span>{{else if .Valid}}<span class="tag">{{T "admin.tls.status.valid"}}</span>{{else}}<span class="tag ro">{{T "admin.tls.status.expired"}}</span>{{end}}</td>
   <td><div class="actions">
-   <form class="inline" method="post" action="/admin/tls/issue"><input type="hidden" name="host" value="{{.Host}}"><input type="hidden" name="mode" value="acme"><button class="btn sm">{{T "admin.tls.issue_le"}}</button></form>
-   <form class="inline" method="post" action="/admin/tls/issue"><input type="hidden" name="host" value="{{.Host}}"><input type="hidden" name="mode" value="selfsigned"><button class="btn sm">{{T "admin.tls.issue_ss"}}</button></form>
+   <form class="inline" method="post" action="/admin/tls/issue">
+    <input type="hidden" name="host" value="{{.Host}}">
+    <label class="hint" title="also serve/cert www.{{.Host}}" style="display:inline-flex;align-items:center;gap:.25rem"><input type="checkbox" name="www" value="1"{{if .WWW}} checked{{end}}> www.</label>
+    <button class="btn sm" name="mode" value="acme">{{T "admin.tls.issue_le"}}</button>
+    <button class="btn sm" name="mode" value="selfsigned">{{T "admin.tls.issue_ss"}}</button>
+   </form>
    {{if .Has}}<form class="inline" method="post" action="/admin/tls/del" onsubmit="return confirm('{{T "admin.confirm_del"}}')"><input type="hidden" name="host" value="{{.Host}}"><button class="btn danger sm">{{T "admin.act.delete"}}</button></form>{{end}}
   </div></td></tr>{{end}}
  {{if not .Rows}}<tr><td colspan="5" class="empty">{{T "admin.tls.none"}}</td></tr>{{end}}
@@ -82,7 +111,7 @@ func (s *Server) handleAdminTLS(w http.ResponseWriter, r *http.Request) {
 	data := tlsPageData{}
 	if s.CertMgr != nil {
 		for _, in := range s.CertMgr.List(s.servedHosts()) {
-			row := tlsRow{Host: in.Host, Source: in.Source, Valid: in.Valid, Has: in.Source != certmgr.SourceNone}
+			row := tlsRow{Host: in.Host, Source: in.Source, Valid: in.Valid, Has: in.Source != certmgr.SourceNone, WWW: s.hostWWW(in.Host)}
 			if row.Has {
 				row.Expiry = in.NotAfter.Format("2006-01-02")
 			}
@@ -108,13 +137,21 @@ func (s *Server) handleTLSIssue(w http.ResponseWriter, r *http.Request) {
 		s.tlsRedirect(w, r, "issue_failed", false)
 		return
 	}
+	// Persist the www flag first (drives the vhost server_name) and reload, so the
+	// :80 vhost answers www.<host> for its ACME challenge before we issue.
+	www := r.PostFormValue("www") != ""
+	_ = s.setBackendWWW(host, www)
+	var extra []string
+	if www {
+		extra = []string{"www." + host}
+	}
 	var err error
 	if mode == "acme" {
 		ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 		defer cancel()
-		err = s.CertMgr.IssueACME(ctx, host)
+		err = s.CertMgr.IssueACME(ctx, host, extra...)
 	} else {
-		err = s.CertMgr.IssueSelfSigned(host)
+		err = s.CertMgr.IssueSelfSigned(host, extra...)
 	}
 	if err != nil {
 		slog.Warn("tls issue failed", "host", host, "mode", mode, "err", err)
@@ -136,7 +173,11 @@ func (s *Server) handleTLSRenew(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 	defer cancel()
-	if err := s.CertMgr.IssueACME(ctx, host); err != nil {
+	var extra []string
+	if s.hostWWW(host) {
+		extra = []string{"www." + host}
+	}
+	if err := s.CertMgr.IssueACME(ctx, host, extra...); err != nil {
 		slog.Warn("tls renew failed", "host", host, "err", err)
 		s.tlsRedirect(w, r, "issue_failed", false)
 		return

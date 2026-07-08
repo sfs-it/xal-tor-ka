@@ -76,15 +76,20 @@ func (m *Manager) acmeClient(ctx context.Context) (*acme.Client, error) {
 // and writes it to the shared cert dir. Requires the host to resolve publicly to
 // the gateway with port 80 reachable (NGINX proxies /.well-known/acme-challenge/
 // to this service).
-func (m *Manager) IssueACME(ctx context.Context, host string) error {
+func (m *Manager) IssueACME(ctx context.Context, host string, extra ...string) error {
 	if host == "" {
 		return fmt.Errorf("empty host")
 	}
+	domains := append([]string{host}, extra...) // e.g. [example.com, www.example.com]
 	client, err := m.acmeClient(ctx)
 	if err != nil {
 		return err
 	}
-	order, err := client.AuthorizeOrder(ctx, []acme.AuthzID{{Type: "dns", Value: host}})
+	authz := make([]acme.AuthzID, len(domains))
+	for i, d := range domains {
+		authz[i] = acme.AuthzID{Type: "dns", Value: d}
+	}
+	order, err := client.AuthorizeOrder(ctx, authz)
 	if err != nil {
 		return fmt.Errorf("authorize order: %w", err)
 	}
@@ -130,7 +135,7 @@ func (m *Manager) IssueACME(ctx context.Context, host string) error {
 	}
 	csrDER, err := x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{
 		Subject:  pkix.Name{CommonName: host},
-		DNSNames: []string{host},
+		DNSNames: domains,
 	}, key)
 	if err != nil {
 		return err
@@ -195,9 +200,34 @@ func (m *Manager) renewDue(ctx context.Context, hosts []string, within time.Dura
 			continue
 		}
 		c, cancel := context.WithTimeout(ctx, 2*time.Minute)
-		if err := m.IssueACME(c, h); err != nil {
+		// preserve the current SANs (e.g. www.<host>) across the renewal
+		if err := m.IssueACME(c, h, m.certExtraDomains(h)...); err != nil {
 			slog.Warn("acme renewal failed", "host", h, "err", err)
 		}
 		cancel()
 	}
+}
+
+// certExtraDomains returns the current cert's SANs for host except host itself
+// (e.g. ["www.example.com"]), so a renewal re-issues for the same names.
+func (m *Manager) certExtraDomains(host string) []string {
+	der, err := os.ReadFile(m.certPath(host))
+	if err != nil {
+		return nil
+	}
+	block, _ := pem.Decode(der)
+	if block == nil {
+		return nil
+	}
+	c, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil
+	}
+	var extra []string
+	for _, d := range c.DNSNames {
+		if d != host {
+			extra = append(extra, d)
+		}
+	}
+	return extra
 }

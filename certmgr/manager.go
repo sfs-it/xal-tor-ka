@@ -205,7 +205,7 @@ func (m *Manager) ensureCA() (*x509.Certificate, *ecdsa.PrivateKey, error) {
 }
 
 // IssueSelfSigned issues a host certificate signed by the internal CA.
-func (m *Manager) IssueSelfSigned(host string) error {
+func (m *Manager) IssueSelfSigned(host string, extra ...string) error {
 	if host == "" {
 		return fmt.Errorf("empty host")
 	}
@@ -224,7 +224,7 @@ func (m *Manager) IssueSelfSigned(host string) error {
 		NotAfter:     time.Now().AddDate(0, 0, 825),
 		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		DNSNames:     []string{host},
+		DNSNames:     append([]string{host}, extra...),
 	}
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, ca, &key.PublicKey, caKey)
 	if err != nil {

@@ -98,6 +98,7 @@ var servicesTmpl = xtkui.LocParse("services", `<section>
    <div><label>{{T "admin.f.rule"}}</label><select name="rule"><option>whitelist</option><option>authenticated</option><option>public</option></select></div>
    <div><label>{{T "admin.f.upstream"}}</label><input name="upstream" placeholder="http://10.0.0.5:8080"></div>
    <div><label>{{T "admin.f.url"}}</label><input name="url" placeholder="https://app.example.com"></div>
+   <div><label>www</label><label class="hint" style="display:inline-flex;align-items:center;gap:.35rem;height:2.2rem"><input type="checkbox" name="www" value="1"> also www.&lt;host&gt;</label></div>
    <div><label>{{T "admin.f.ipallow"}}</label><input name="ip_allow" placeholder="203.0.113.0/24"></div>
    <div><button class="btn primary">{{T "btn.add"}}</button></div>
   </div><p class="hint">{{T "admin.rule.help"}}</p></form></div>
@@ -242,6 +243,7 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
     <tr><th>{{T "admin.f.name"}}</th><td><input name="name" value="{{.Name}}"></td><td class="fhelp">{{T "admin.edit.help.name"}}</td></tr>
     <tr><th>{{T "admin.f.host"}}</th><td><input name="host" value="{{.Host}}" required></td><td class="fhelp">{{T "admin.edit.help.host"}}</td></tr>
     <tr><th>{{T "admin.f.url"}}</th><td><input name="url" value="{{.URL}}"></td><td class="fhelp">{{T "admin.edit.help.url"}}</td></tr>
+    <tr><th>www</th><td><label class="hint" style="display:inline-flex;align-items:center;gap:.35rem"><input type="checkbox" name="www" value="1"{{if .WWW}} checked{{end}}> also serve/cert <code>www.{{.Host}}</code></label></td><td class="fhelp">Adds www.&lt;host&gt; to the vhost server_name and (on issue) the certificate SAN.</td></tr>
     <tr><th>{{T "admin.f.path"}}</th><td><input name="path" value="{{.Path}}"></td><td class="fhelp">{{T "admin.edit.help.path"}}</td></tr>
     <tr><th>{{T "admin.f.rule"}}</th><td><select name="rule">
      <option {{if eq .Rule "whitelist"}}selected{{end}}>whitelist</option>
@@ -929,6 +931,7 @@ func (s *Server) handleBackendAdd(w http.ResponseWriter, r *http.Request) {
 		}
 		svc.Backends = append(svc.Backends, models.Backend{
 			ID: id, Name: r.PostFormValue("name"), Host: host, URL: r.PostFormValue("url"),
+			WWW:     r.PostFormValue("www") != "",
 			IPAllow: ipAllow,
 			Routes:  []models.Route{{Path: path, Rule: rule, Upstream: upstream}},
 		})
@@ -1006,12 +1009,12 @@ func (s *Server) handleBackendEditForm(w http.ResponseWriter, r *http.Request) {
 		s.renderAdminPage(w, r, "servizi", adminEditTmpl, struct {
 			ID, Name, Description, Host, URL, Path, Rule, Upstream, IPAllow string
 			NgxTimeout, NgxMaxBody                                          int
-			NgxWS, NgxNoBuf, NgxSelfSigned                                  bool
+			NgxWS, NgxNoBuf, NgxSelfSigned, WWW                             bool
 			NgxCustomLoc, NgxCustomSrv                                      string
 		}{
 			b.ID, b.Name, b.Description, b.Host, b.URL, rt.Path, rt.Rule, rt.Upstream, strings.Join(b.IPAllow, " "),
 			b.Nginx.ProxyTimeout, b.Nginx.MaxBodyMB,
-			b.Nginx.WebSocket, b.Nginx.NoBuffering, b.Nginx.BackendSelfSigned,
+			b.Nginx.WebSocket, b.Nginx.NoBuffering, b.Nginx.BackendSelfSigned, b.WWW,
 			b.Nginx.CustomLocation, b.Nginx.CustomServer,
 		})
 		return
@@ -1058,6 +1061,7 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 			b.Description = r.PostFormValue("description")
 			b.Host = host
 			b.URL = r.PostFormValue("url")
+			b.WWW = r.PostFormValue("www") != ""
 			b.IPAllow = ipAllow
 			b.Nginx = ngx
 			if len(b.Routes) == 0 {
