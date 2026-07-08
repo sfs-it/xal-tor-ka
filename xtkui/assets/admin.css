@@ -212,4 +212,14 @@ ul.hostlist li{margin:.15rem 0}
 .subtabs a:hover{color:var(--accent-ink)}
 .subtabs a.active{color:var(--text);border-bottom-color:var(--accent)}
 
+/* host detail popup (native <dialog>) */
+dialog.dlg{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);color:var(--text);
+  padding:1.3rem 1.5rem;max-width:min(92vw,32rem);width:100%;box-shadow:0 20px 60px rgba(0,0,0,.32)}
+dialog.dlg::backdrop{background:rgba(10,12,18,.5)}
+dialog.dlg h3{margin:.1rem 0 .8rem;padding-inline-end:1.5rem}
+dialog.dlg .meta{color:var(--muted);font-size:.85rem;margin:.25rem 0}
+dialog.dlg .meta code{color:var(--accent-ink)}
+dialog.dlg .dlg-x{position:absolute;top:.55rem;inset-inline-end:.6rem;margin:0}
+dialog.dlg .dlg-x .btn{border:none;background:transparent;padding:.15rem .45rem;font-size:1rem}
+
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}

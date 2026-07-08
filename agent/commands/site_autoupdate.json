@@ -1,0 +1,4 @@
+{ "description": "Set a site's auto_update flag in .xtk-stack (follow template updates when pristine)",
+  "timeout_seconds": 20,
+  "params": { "name": { "required": true, "pattern": "[a-z][a-z0-9-]{1,30}" },
+              "enabled": { "required": true, "enum": ["true", "false"] } } }

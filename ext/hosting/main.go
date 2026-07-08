@@ -45,6 +45,8 @@ type site struct {
 	Running    int    `json:"running"`
 	Template   string `json:"template"`
 	PhpVersion string `json:"php_version"`
+	Db         string `json:"db"`
+	AutoUpdate bool   `json:"auto_update"`
 }
 
 type hostingUser struct {
@@ -194,8 +196,26 @@ var indexTmpl = xtkui.LocParse("hosting", subtabsSrc+`<h1>Hosts</h1>
         <td><code>site-{{.Name}}</code> <span class="hint">uid {{.UID}}</span></td>
         <td>{{if gt .Running 0}}<span class="tag ext">running · {{.Running}}</span>{{else}}<span class="tag ro">stopped</span>{{end}}</td>
         <td class="rowact">
-          <form class="inline" method="post" action="/admin/hosting/up"><input type="hidden" name="name" value="{{.Name}}"><button class="btn sm">Up</button></form>
-          <form class="inline" method="post" action="/admin/hosting/down"><input type="hidden" name="name" value="{{.Name}}"><button class="btn sm">Down</button></form>
+          <button class="btn sm" type="button" onclick="this.nextElementSibling.showModal()">Edit</button>
+          <dialog class="dlg">
+            <form method="dialog" class="dlg-x"><button class="btn sm" aria-label="Close">✕</button></form>
+            <h3>{{.Name}}</h3>
+            <div class="meta">Stack: {{if .Template}}<code>{{.Template}}{{if .PhpVersion}} · {{.PhpVersion}}{{end}}</code>{{else}}<span class="hint">unknown</span>{{end}}</div>
+            <div class="meta">Owner: <code>site-{{.Name}}</code> (uid {{.UID}})</div>
+            <div class="meta">Upstream: <code>{{.Name}}.site:8080</code></div>
+            <div class="meta">Status: {{if gt .Running 0}}<span class="tag ext">running · {{.Running}}</span>{{else}}<span class="tag ro">stopped</span>{{end}}</div>
+            <div class="meta">Database: {{if .Db}}<code>{{.Db}}</code> (shared){{else}}none{{end}}</div>
+            <div class="actions" style="justify-content:flex-start">
+              <form class="inline" method="post" action="/admin/hosting/up"><input type="hidden" name="name" value="{{.Name}}"><button class="btn sm">Start</button></form>
+              <form class="inline" method="post" action="/admin/hosting/down"><input type="hidden" name="name" value="{{.Name}}"><button class="btn sm">Stop</button></form>
+              <form class="inline" method="post" action="/admin/hosting/autoupdate">
+                <input type="hidden" name="name" value="{{.Name}}">
+                <input type="hidden" name="enabled" value="{{if .AutoUpdate}}false{{else}}true{{end}}">
+                <button class="btn sm">{{if .AutoUpdate}}Disable auto-update{{else}}Enable auto-update{{end}}</button>
+              </form>
+            </div>
+            <p class="hint">Auto-update is {{if .AutoUpdate}}<b>on</b> — the site follows template updates while its compose stays pristine.{{else}}<b>off</b>.{{end}}</p>
+          </dialog>
           <a class="btn sm" href="/admin/hosting/edit?name={{.Name}}" title="Edit docker-compose.yml"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" style="vertical-align:-2px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg> Compose</a>
           <form class="inline" method="post" action="/admin/hosting/destroy" onsubmit="return confirm('Destroy {{.Name}}? This removes its data and OS user.')"><input type="hidden" name="name" value="{{.Name}}"><button class="btn danger sm">Destroy</button></form>
         </td>
@@ -445,6 +465,16 @@ func (s *server) handleCreate(w http.ResponseWriter, r *http.Request) {
 	redirectMsg(w, r, "/admin/hosting", msg, "")
 }
 
+func (s *server) handleAutoUpdate(w http.ResponseWriter, r *http.Request) {
+	name, enabled := r.FormValue("name"), r.FormValue("enabled")
+	resp, err := s.callAgent(r.Context(), "site_autoupdate", map[string]string{"name": name, "enabled": enabled})
+	if err != nil || !resp.OK {
+		redirectMsg(w, r, "/admin/hosting", "", "auto-update: "+agentMsg(resp, err))
+		return
+	}
+	redirectMsg(w, r, "/admin/hosting", "Auto-update for "+name+" set to "+enabled+".", "")
+}
+
 var editTmpl = xtkui.LocParse("hostingedit", subtabsSrc+`<h1>Edit compose · <code>{{.Name}}</code></h1>
 {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
 <p class="hint">Editing <code>/opt/sites/{{.Name}}/docker-compose.yml</code>. On save it is validated with
@@ -497,6 +527,7 @@ func main() {
 	mux.HandleFunc("POST /admin/hosting/up", s.action("site_up", "Site %s started."))
 	mux.HandleFunc("POST /admin/hosting/down", s.action("site_down", "Site %s stopped."))
 	mux.HandleFunc("POST /admin/hosting/destroy", s.action("site_destroy", "Site %s destroyed."))
+	mux.HandleFunc("POST /admin/hosting/autoupdate", s.handleAutoUpdate)
 	mux.HandleFunc("GET /admin/hosting/edit", s.handleEdit)
 	mux.HandleFunc("POST /admin/hosting/edit", s.handleEditSave)
 	// Users
