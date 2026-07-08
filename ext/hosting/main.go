@@ -223,6 +223,19 @@ var indexTmpl = xtkui.LocParse("hosting", subtabsSrc+`<h1>Hosts</h1>
               </form>
             </div>
             <p class="hint">Auto-update is {{if .AutoUpdate}}<b>on</b> — the site follows template updates while its compose stays pristine.{{else}}<b>off</b>.{{end}}</p>
+            <h4 style="margin:1rem 0 .3rem;border-top:1px solid var(--line);padding-top:.9rem">Publish</h4>
+            <form method="post" action="/admin/backend/add">
+              <input type="hidden" name="id" value="{{.Name}}">
+              <input type="hidden" name="name" value="{{.Name}} (hosting)">
+              <input type="hidden" name="upstream" value="http://{{.Name}}.site:8080">
+              <input type="hidden" name="path" value="/">
+              <div class="formgrid">
+                <div><label>Public host</label><input name="host" placeholder="mysite.example.com" required></div>
+                <div><label>Rule</label><select name="rule"><option>public</option><option>authenticated</option><option>whitelist</option></select></div>
+                <div><button class="btn primary">Publish backend</button></div>
+              </div>
+            </form>
+            <p class="hint">Creates a gateway backend for <code>{{.Name}}.site:8080</code>. Then point the host's DNS at the gateway and issue a cert in <b>TLS</b>. (Opens the Services page.)</p>
           </dialog>
           <a class="btn sm" href="/admin/hosting/edit?name={{.Name}}" title="Edit docker-compose.yml"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" style="vertical-align:-2px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg> Compose</a>
           <form class="inline" method="post" action="/admin/hosting/destroy" onsubmit="return confirm('Destroy {{.Name}}? This removes its data and OS user.')"><input type="hidden" name="name" value="{{.Name}}"><button class="btn danger sm">Destroy</button></form>
