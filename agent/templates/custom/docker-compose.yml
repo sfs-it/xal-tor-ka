@@ -11,7 +11,7 @@ services:
     restart: unless-stopped
     user: "__UID__:__GID__"
     volumes:
-      - ./www:/var/www/html:ro
+      - ./httpdocs:/var/www/html:ro
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
       xtk-hosting:

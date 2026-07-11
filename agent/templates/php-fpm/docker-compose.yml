@@ -12,7 +12,7 @@ services:
     restart: unless-stopped
     user: "__UID__:__GID__"
     volumes:
-      - ./www:/var/www/html:ro
+      - ./httpdocs:/var/www/html:ro
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
       site:
@@ -27,7 +27,7 @@ services:
     user: "__UID__:__GID__"
     env_file: [./db.env] # DB connection when a shared DB is attached (else just a comment)
     volumes:
-      - ./www:/var/www/html
+      - ./httpdocs:/var/www/html
     networks: [site] # private to this site — NOT on xtk-hosting
     deploy: { resources: { limits: { cpus: "0.50", memory: 256M } } }
     logging: { driver: "json-file", options: { max-size: "10m", max-file: "3" } }

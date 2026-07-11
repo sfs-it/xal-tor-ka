@@ -308,7 +308,7 @@ func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
 
 var usersTmpl = xtkui.LocParse("hostingusers", subtabsSrc+`<h1>Users</h1>
 <p class="hint">OS accounts that own sites (<code>docker-hosting</code>, nologin). File access is
-SCP/SFTP, chrooted to the site dir — upload into <code>www/</code>.</p>
+SCP/SFTP, chrooted to the site dir — upload into <code>httpdocs/</code>.</p>
 {{if .Notice}}<div class="ok">{{.Notice}}</div>{{end}}
 {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
 <section><div class="card">
