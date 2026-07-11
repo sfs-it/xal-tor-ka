@@ -925,6 +925,12 @@ func (s *Server) handleBackendAdd(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, ierr.Error(), http.StatusBadRequest)
 		return
 	}
+	// Already published (e.g. re-publishing a hosting site)? Don't error — show the
+	// existing backend's edit form so the admin sees/changes what's there.
+	if cur, e := config.LoadServices(s.ServicesPath); e == nil && s.idTaken(cur, id) {
+		http.Redirect(w, r, "/admin/backend/edit?id="+url.QueryEscape(id), http.StatusSeeOther)
+		return
+	}
 	err := s.mutateServices(func(svc *models.Services) error {
 		if s.idTaken(*svc, id) {
 			return fmt.Errorf("id already exists")
