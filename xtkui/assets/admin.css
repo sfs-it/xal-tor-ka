@@ -221,5 +221,9 @@ dialog.dlg .meta{color:var(--muted);font-size:.85rem;margin:.25rem 0}
 dialog.dlg .meta code{color:var(--accent-ink)}
 dialog.dlg .dlg-x{position:absolute;top:.55rem;inset-inline-end:.6rem;margin:0}
 dialog.dlg .dlg-x .btn{border:none;background:transparent;padding:.15rem .45rem;font-size:1rem}
+/* forms inside a dialog: single column + wrap long tokens (no horizontal page scroll) */
+dialog.dlg{overflow-wrap:anywhere}
+dialog.dlg .formgrid{grid-template-columns:1fr}
+dialog.dlg code,dialog.dlg input,dialog.dlg select{max-width:100%}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}

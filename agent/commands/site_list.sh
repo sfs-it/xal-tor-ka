@@ -9,7 +9,7 @@ if [ -d "$XTK_SITES" ]; then
     [ -f "$d/docker-compose.yml" ] || continue
     name="$(basename "$d")"
     running="$(cd "$d" && docker compose -p "$name" ps -q 2>/dev/null | wc -l | tr -d ' ')"
-    uid="$(stat -c '%u' "$d")"
+    uid="$(id -u "site-$name" 2>/dev/null || stat -c '%u' "$d")"  # site user's uid (dir is root-owned for the chroot)
     tmpl=""; pv=""; au=false
     if [ -f "$d/.xtk-stack" ]; then
       tmpl="$(sed -n 's/^template=//p' "$d/.xtk-stack")"

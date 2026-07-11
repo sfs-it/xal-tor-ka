@@ -26,7 +26,12 @@ for f in "$dir/docker-compose.yml" "$dir/nginx.conf" "$dir/www/index.php" "$dir/
 done
 # record the chosen stack so the UI can show it and future auto-updates can tell a
 # pristine template from a hand-edited one.
-printf 'template=%s\nphp_version=%s\n' "$tmpl" "$pv" > "$dir/.xtk-stack"
+# php_version only meaningful for php-fpm (empty otherwise → UI shows just the template)
+if [ "$tmpl" = php-fpm ]; then
+  printf 'template=%s\nphp_version=%s\n' "$tmpl" "$pv" > "$dir/.xtk-stack"
+else
+  printf 'template=%s\nphp_version=\n' "$tmpl" > "$dir/.xtk-stack"
+fi
 # chroot-friendly ownership: SFTP ChrootDirectory (%h = the site dir) must be
 # root-owned & not group/world-writable; only www (the site's content) is writable
 # by the site user. Config files stay root-owned (mounted read-only into containers).

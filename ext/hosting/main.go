@@ -227,7 +227,7 @@ var indexTmpl = xtkui.LocParse("hosting", subtabsSrc+`<h1>Hosts</h1>
             <div class="meta">Owner: <code>site-{{.Name}}</code> (uid {{.UID}})</div>
             <div class="meta">Upstream: <code>{{.Name}}.site:8080</code></div>
             <div class="meta">Status: {{if gt .Running 0}}<span class="tag ext">running · {{.Running}}</span>{{else}}<span class="tag ro">stopped</span>{{end}}</div>
-            <div class="meta">Database: {{if .Db}}<code>{{.Db}}</code> (shared){{else}}none{{end}}</div>
+            <div class="meta">Database: {{if .Db}}<code>{{.Db}}</code> (shared) — <a href="/admin/hosting/dbinfo?name={{.Name}}">connection &amp; password →</a>{{else}}none{{end}}</div>
             <div class="actions" style="justify-content:flex-start">
               <form class="inline" method="post" action="/admin/hosting/up"><input type="hidden" name="name" value="{{.Name}}"><button class="btn sm">Start</button></form>
               <form class="inline" method="post" action="/admin/hosting/down"><input type="hidden" name="name" value="{{.Name}}"><button class="btn sm">Stop</button></form>
@@ -740,6 +740,52 @@ func (s *server) handleKeyDownload(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(content))
 }
 
+// ---- DB connection info for a site ----
+
+var dbInfoTmpl = xtkui.LocParse("hostingdbinfo", subtabsSrc+`<h1>Database · <code>site-{{.Name}}</code></h1>
+{{if .Error}}<div class="err">{{.Error}}</div>{{end}}
+{{if .Has}}
+<div class="card">
+  <h3>Connection <span class="hint">(already injected into the site as env)</span></h3>
+  <div class="meta">Database: <code>{{.DbName}}</code></div>
+  <div class="meta">User: <code>{{.User}}</code> &nbsp; Password: <code>{{.Password}}</code></div>
+  <div class="meta">From the site (app reads db.env): host <code>{{.DbHost}}</code> port <code>{{.DbPort}}</code></div>
+  <div class="meta">From the host (admin tools / Adminer): <code>127.0.0.1:{{.LocalPort}}</code></div>
+  <p class="hint">The container already has these as <code>DB_HOST / DB_PORT / DB_NAME / DB_USER / DB_PASSWORD</code>. The <code>%</code> you may see next to the user in Adminer is its <em>allowed-host</em> grant (any host) — <b>not</b> a server address; connect to <code>{{.DbHost}}</code> (from a site) or <code>127.0.0.1:{{.LocalPort}}</code> (from the host).</p>
+  <p><a class="btn" href="/admin/hosting">Back to Hosts</a></p>
+</div>
+{{else}}
+<div class="card"><p class="hint">No database attached to this site.</p><p><a class="btn" href="/admin/hosting">Back to Hosts</a></p></div>
+{{end}}`)
+
+func (s *server) handleDbInfo(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("name")
+	resp, err := s.callAgent(r.Context(), "site_db_info", map[string]string{"name": name})
+	env := map[string]string{}
+	if err == nil && resp.OK {
+		for _, line := range strings.Split(resp.Stdout, "\n") {
+			if k, v, ok := strings.Cut(strings.TrimSpace(line), "="); ok {
+				env[k] = v
+			}
+		}
+	}
+	localPort := "3306"
+	if strings.Contains(env["DB_HOST"], "pg") {
+		localPort = "5432"
+	}
+	data := struct {
+		Tab, Name, DbHost, DbPort, DbName, User, Password, LocalPort, Error string
+		Has                                                                 bool
+	}{
+		Tab: "hosts", Name: name, DbHost: env["DB_HOST"], DbPort: env["DB_PORT"], DbName: env["DB_NAME"],
+		User: env["DB_USER"], Password: env["DB_PASSWORD"], LocalPort: localPort, Has: env["DB_HOST"] != "",
+	}
+	if err != nil {
+		data.Error = err.Error()
+	}
+	s.chrome("Database").Render(w, xtkui.LangFromRequest(r), dbInfoTmpl, data)
+}
+
 // ---- SSH keys management page (view/edit authorized_keys + generate) ----
 
 var keysTmpl = xtkui.LocParse("hostingkeys", subtabsSrc+`<h1>SSH keys · <code>site-{{.Name}}</code></h1>
@@ -860,6 +906,7 @@ func main() {
 	mux.HandleFunc("POST /admin/hosting/down", s.action("site_down", "Site %s stopped."))
 	mux.HandleFunc("POST /admin/hosting/destroy", s.action("site_destroy", "Site %s destroyed."))
 	mux.HandleFunc("POST /admin/hosting/autoupdate", s.handleAutoUpdate)
+	mux.HandleFunc("GET /admin/hosting/dbinfo", s.handleDbInfo)
 	mux.HandleFunc("GET /admin/hosting/edit", s.handleEdit)
 	mux.HandleFunc("POST /admin/hosting/edit", s.handleEditSave)
 	// Users
