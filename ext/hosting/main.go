@@ -254,6 +254,7 @@ var indexTmpl = xtkui.LocParse("hosting", subtabsSrc+`<h1>Hosts</h1>
             <p class="hint">Creates a gateway backend for <code>{{.Name}}.site:8080</code>. Then point the host's DNS at the gateway and issue a cert in <b>TLS</b>. (Opens the Services page.)</p>
           </dialog>
           <a class="btn sm" href="/admin/hosting/edit?name={{.Name}}" title="Edit docker-compose.yml"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" style="vertical-align:-2px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg> Compose</a>
+          <a class="btn sm" href="/admin/hosting/nginx?name={{.Name}}" title="Edit nginx.conf">Nginx</a>
           <form class="inline" method="post" action="/admin/hosting/destroy" onsubmit="return confirm('Destroy {{.Name}}? This removes its data and OS user.')"><input type="hidden" name="name" value="{{.Name}}"><button class="btn danger sm">Destroy</button></form>
         </td>
       </tr>
@@ -882,6 +883,44 @@ func (s *server) handleEditSave(w http.ResponseWriter, r *http.Request) {
 	redirectMsg(w, r, "/admin/hosting", "Compose for "+name+" updated and applied.", "")
 }
 
+var nginxTmpl = xtkui.LocParse("hostingnginx", subtabsSrc+`<h1>Edit nginx · <code>{{.Name}}</code></h1>
+{{if .Error}}<div class="err">{{.Error}}</div>{{end}}
+<p class="hint">Editing the web container's <code>nginx.conf</code>. On save it is validated with
+<code>nginx&nbsp;-t</code> in the container (reverted if invalid) and reloaded. Tip: a canonical
+redirect, e.g. www→apex, inside the <code>server</code> block:
+<br><code>if ($host ~* ^www\.(.*)$) { return 301 $scheme://$1$request_uri; }</code></p>
+<form method="post" action="/admin/hosting/nginx">
+  <input type="hidden" name="name" value="{{.Name}}">
+  <textarea name="content" spellcheck="false" style="width:100%;min-height:26rem;font-family:var(--font-mono);font-size:.82rem;line-height:1.45;padding:.75rem;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);white-space:pre">{{.Content}}</textarea>
+  <div class="actions">
+    <a class="btn" href="/admin/hosting">Cancel</a>
+    <button class="btn primary">Save &amp; reload</button>
+  </div>
+</form>`)
+
+func (s *server) handleNginxEdit(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("name")
+	resp, err := s.callAgent(r.Context(), "site_nginx_get", map[string]string{"name": name})
+	if err != nil || !resp.OK {
+		redirectMsg(w, r, "/admin/hosting", "", "nginx: "+agentMsg(resp, err))
+		return
+	}
+	data := struct{ Tab, Name, Content, Error string }{Tab: "hosts", Name: name, Content: resp.Stdout}
+	s.chrome("Edit nginx").Render(w, xtkui.LangFromRequest(r), nginxTmpl, data)
+}
+
+func (s *server) handleNginxSave(w http.ResponseWriter, r *http.Request) {
+	name := r.FormValue("name")
+	content := r.FormValue("content")
+	resp, err := s.callAgent(r.Context(), "site_nginx_set", map[string]string{"name": name, "content": content})
+	if err != nil || !resp.OK {
+		data := struct{ Tab, Name, Content, Error string }{Tab: "hosts", Name: name, Content: content, Error: agentMsg(resp, err)}
+		s.chrome("Edit nginx").Render(w, xtkui.LangFromRequest(r), nginxTmpl, data)
+		return
+	}
+	redirectMsg(w, r, "/admin/hosting", "nginx.conf for "+name+" updated.", "")
+}
+
 func main() {
 	socket := flag.String("socket", "/run/xtk-agent/agent.sock", "path to the xtk-agent unix socket (in a bind-mounted dir)")
 	listen := flag.String("listen", ":8090", "internal HTTP listen address")
@@ -909,6 +948,8 @@ func main() {
 	mux.HandleFunc("GET /admin/hosting/dbinfo", s.handleDbInfo)
 	mux.HandleFunc("GET /admin/hosting/edit", s.handleEdit)
 	mux.HandleFunc("POST /admin/hosting/edit", s.handleEditSave)
+	mux.HandleFunc("GET /admin/hosting/nginx", s.handleNginxEdit)
+	mux.HandleFunc("POST /admin/hosting/nginx", s.handleNginxSave)
 	// Users
 	mux.HandleFunc("GET /admin/hosting/users", s.handleUsers)
 	mux.HandleFunc("POST /admin/hosting/users/delete", s.handleUserDelete)
