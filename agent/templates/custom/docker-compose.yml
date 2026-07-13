@@ -1,21 +1,25 @@
-# Site "__NAME__" — CUSTOM stack. This is a starting point: edit it via
-# "Edit compose", then Save & apply. Keep this contract so the gateway reaches you:
+# Vhost "__VHOST__" of site "__NAME__" — CUSTOM stack. Starting point: edit it via
+# "Compose", then Save & apply. Runs with --project-directory /opt/sites/__NAME__, so the
+# relative paths resolve from the site root (shared by all vhosts of the site).
+# Keep this contract so the gateway reaches you:
 #   • join the external network "xtk-hosting"
-#   • give your web-facing service the alias "__NAME__.site"
+#   • give your web-facing service the alias "__ALIAS__"
 #   • run as the site user:  user: "__UID__:__GID__"  (unprivileged)
 #   • listen on a port the gateway proxies to (default expectation: 8080)
 #   • publish NO host ports
+#   • write logs to ./logs/__VHOST__ (mounted at /var/log/nginx) so the panel can show them
 services:
   web:
     image: nginxinc/nginx-unprivileged:stable-alpine
     restart: unless-stopped
     user: "__UID__:__GID__"
     volumes:
-      - ./httpdocs:/var/www/html:ro
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./__VHOST__:/var/www/html:ro
+      - ./.vhosts/__VHOST__/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./logs/__VHOST__:/var/log/nginx
     networks:
       xtk-hosting:
-        aliases: ["__NAME__.site"]
+        aliases: ["__ALIAS__"]
     deploy: { resources: { limits: { cpus: "0.50", memory: 128M } } }
     logging: { driver: "json-file", options: { max-size: "10m", max-file: "3" } }
 networks:

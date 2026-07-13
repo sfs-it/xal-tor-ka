@@ -39,9 +39,13 @@
 /CHANGELOG.md
 /HISTORY.md
 /PHONETALK=chat=Xal-Tor-Ka.zip
+/ASSIGNMENTS.md
 
 # SSH key dedicata ai test sulla VPS (mai versionata)
 /.ssh-vps/
 
 # Backup tirati giù dalla VPS (mai versionati)
 /.vps-backups/
+
+# Lineage protocol (memoria di processo dell'agente — non nel repo pubblico)
+.lineage/

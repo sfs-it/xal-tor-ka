@@ -18,7 +18,8 @@ while IFS=: read -r user _ uid ugid _ home _; do
       '!'*) scp=off;; '$'*) scp=on;;
     esac
   fi
+  keys="$(grep -cE '^(ssh-|ecdsa-|sk-)' "$XTK_SITES/$site/.ssh/authorized_keys" 2>/dev/null || true)"; keys="${keys:-0}"
   [ $first -eq 1 ] || printf ','; first=0
-  printf '{"user":"%s","uid":%s,"site":"%s","home":"%s","orphan":%s,"scp":"%s"}' "$user" "$uid" "$site" "$home" "$orphan" "$scp"
+  printf '{"user":"%s","uid":%s,"site":"%s","home":"%s","orphan":%s,"scp":"%s","keys":%s}' "$user" "$uid" "$site" "$home" "$orphan" "$scp" "$keys"
 done < <(getent passwd)
 printf ']\n'

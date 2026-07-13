@@ -214,16 +214,48 @@ ul.hostlist li{margin:.15rem 0}
 
 /* host detail popup (native <dialog>) */
 dialog.dlg{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);color:var(--text);
-  padding:1.3rem 1.5rem;max-width:min(92vw,32rem);width:100%;box-shadow:0 20px 60px rgba(0,0,0,.32)}
+  padding:1.3rem 1.5rem;max-width:min(92vw,32rem);width:100%;box-shadow:0 20px 60px rgba(0,0,0,.32);
+  text-align:start} /* reset: the dialog sits inside td.rowact (text-align:end) and would inherit it */
 dialog.dlg::backdrop{background:rgba(10,12,18,.5)}
 dialog.dlg h3{margin:.1rem 0 .8rem;padding-inline-end:1.5rem}
 dialog.dlg .meta{color:var(--muted);font-size:.85rem;margin:.25rem 0}
 dialog.dlg .meta code{color:var(--accent-ink)}
 dialog.dlg .dlg-x{position:absolute;top:.55rem;inset-inline-end:.6rem;margin:0}
-dialog.dlg .dlg-x .btn{border:none;background:transparent;padding:.15rem .45rem;font-size:1rem}
+dialog.dlg .dlg-x .btn{border:none;background:transparent;color:var(--muted);padding:.1rem .4rem;font-size:1.05rem;line-height:1;border-radius:6px}
+dialog.dlg .dlg-x .btn:hover{color:var(--text);background:var(--panel-2)}
 /* forms inside a dialog: single column + wrap long tokens (no horizontal page scroll) */
 dialog.dlg{overflow-wrap:anywhere}
 dialog.dlg .formgrid{grid-template-columns:1fr}
 dialog.dlg code,dialog.dlg input,dialog.dlg select{max-width:100%}
+
+/* hosting: expandable host cards (Hosts tab) */
+.hostlist{display:flex;flex-direction:column;gap:.7rem}
+.hostcard{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);overflow:hidden}
+.hostcard>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:1rem;padding:.85rem 1.1rem;flex-wrap:wrap}
+.hostcard>summary::-webkit-details-marker{display:none}
+.hostcard>summary::before{content:"\25B8";color:var(--muted);font-size:.8rem;transition:transform .15s}
+.hostcard[open]>summary::before{transform:rotate(90deg)}
+.hostcard>summary:hover{background:var(--panel-2)}
+.hc-name{font-weight:650;font-size:1rem}
+.hc-stack{color:var(--muted);font-size:.82rem;font-family:var(--font-mono)}
+.hc-owner{color:var(--muted);font-size:.82rem}
+.hc-badges{margin-inline-start:auto;display:flex;gap:.4rem;align-items:center}
+.hc-body{padding:0 1.1rem 1.1rem;border-top:1px solid var(--line)}
+.hc-legacy{margin:.9rem 0;padding:.6rem .8rem;border:1px solid var(--line);border-radius:9px;background:var(--panel-2);font-size:.85rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap}
+.vhosts{display:flex;flex-direction:column;gap:.6rem;margin-top:.9rem}
+.vhost{border:1px solid var(--line);border-radius:9px;padding:.75rem .85rem;background:var(--panel-2)}
+.vh-head{display:flex;gap:.55rem;align-items:center;flex-wrap:wrap;margin-bottom:.4rem}
+.vh-head b{font-size:.95rem}
+.vh-head code{font-size:.8rem;color:var(--muted)}
+.vh-info{display:flex;gap:1.2rem;flex-wrap:wrap;font-size:.82rem;color:var(--muted);margin-bottom:.6rem}
+.vh-info code{color:var(--accent-ink)}
+.vh-act{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
+.hc-addvhost{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.9rem;padding-top:.9rem;border-top:1px dashed var(--line)}
+.hc-addvhost input,.hc-addvhost select{padding:.3rem .5rem;font-size:.85rem}
+.hc-addvhost>input{width:12rem}
+.hc-sumact{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
+.hc-foot{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:center;margin-top:.9rem;padding-top:.8rem;border-top:1px solid var(--line);font-size:.83rem;color:var(--muted)}
+.hc-siteact{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
+@media(max-width:640px){.hc-badges{margin-inline-start:0}.hostcard>summary{gap:.5rem}}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}

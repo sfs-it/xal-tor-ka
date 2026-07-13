@@ -1,0 +1,9 @@
+{
+  "description": "Toggle a vhost's auto_update flag in its .xtk-stack",
+  "timeout_seconds": 15,
+  "params": {
+    "name":    { "required": true, "pattern": "[a-z][a-z0-9-]{1,30}" },
+    "vhost":   { "required": true, "pattern": "[a-z][a-z0-9-]{1,30}" },
+    "enabled": { "required": true, "enum": ["true", "false"] }
+  }
+}

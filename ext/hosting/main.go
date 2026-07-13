@@ -41,14 +41,28 @@ func randToken(prefix string) string {
 	return prefix + hex.EncodeToString(b)
 }
 
-type site struct {
-	Name       string `json:"name"`
-	UID        int    `json:"uid"`
-	Running    int    `json:"running"`
+// vhost is one docker (web[+php]) of a site: its own docroot, logs, stack and gateway
+// upstream. Emitted nested inside each site by site_list.
+type vhost struct {
+	Vhost      string `json:"vhost"`
 	Template   string `json:"template"`
 	PhpVersion string `json:"php_version"`
 	Db         string `json:"db"`
 	AutoUpdate bool   `json:"auto_update"`
+	Running    int    `json:"running"`
+	Upstream   string `json:"upstream"` // http://<alias>:8080
+}
+
+type site struct {
+	Name       string  `json:"name"`
+	UID        int     `json:"uid"`
+	Running    int     `json:"running"`     // total across vhosts
+	Template   string  `json:"template"`    // flat = httpdocs (backward-compat)
+	PhpVersion string  `json:"php_version"` // flat = httpdocs
+	Db         string  `json:"db"`          // flat = httpdocs
+	AutoUpdate bool    `json:"auto_update"` // flat = httpdocs
+	Legacy     bool    `json:"legacy"`      // true = single-docker, not yet migrated
+	Vhosts     []vhost `json:"vhosts"`
 }
 
 type hostingUser struct {
@@ -57,7 +71,8 @@ type hostingUser struct {
 	Site   string `json:"site"`
 	Home   string `json:"home"`
 	Orphan bool   `json:"orphan"`
-	Scp    string `json:"scp"` // on | off | none
+	Scp    string `json:"scp"`  // on | off | none
+	Keys   int    `json:"keys"` // count of authorized_keys entries
 }
 
 type sshdStatus struct {
@@ -207,62 +222,99 @@ func (s *server) listSites(ctx context.Context) ([]site, error) {
 var indexTmpl = xtkui.LocParse("hosting", subtabsSrc+`<h1>Hosts</h1>
 {{if .Notice}}<div class="ok">{{.Notice}}</div>{{end}}
 {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
-<section>
-  <table>
-    <thead><tr><th>Site</th><th>Stack</th><th>Upstream</th><th>Owner</th><th>Status</th><th></th></tr></thead>
-    <tbody>
-    {{range .Sites}}
-      <tr{{if not .Running}} class="off"{{end}}>
-        <td><b>{{.Name}}</b></td>
-        <td>{{if .Template}}<code>{{.Template}}{{if .PhpVersion}} · {{.PhpVersion}}{{end}}</code>{{else}}<span class="hint">—</span>{{end}}</td>
-        <td><code>{{.Name}}.site:8080</code></td>
-        <td><code>site-{{.Name}}</code> <span class="hint">uid {{.UID}}</span></td>
-        <td>{{if gt .Running 0}}<span class="tag ext">running · {{.Running}}</span>{{else}}<span class="tag ro">stopped</span>{{end}}</td>
-        <td class="rowact">
-          <button class="btn sm" type="button" onclick="this.nextElementSibling.showModal()">Edit</button>
-          <dialog class="dlg">
-            <form method="dialog" class="dlg-x"><button class="btn sm" aria-label="Close">✕</button></form>
-            <h3>{{.Name}}</h3>
-            <div class="meta">Stack: {{if .Template}}<code>{{.Template}}{{if .PhpVersion}} · {{.PhpVersion}}{{end}}</code>{{else}}<span class="hint">unknown</span>{{end}}</div>
-            <div class="meta">Owner: <code>site-{{.Name}}</code> (uid {{.UID}})</div>
-            <div class="meta">Upstream: <code>{{.Name}}.site:8080</code></div>
-            <div class="meta">Status: {{if gt .Running 0}}<span class="tag ext">running · {{.Running}}</span>{{else}}<span class="tag ro">stopped</span>{{end}}</div>
-            <div class="meta">Database: {{if .Db}}<code>{{.Db}}</code> (shared) — <a href="/admin/hosting/dbinfo?name={{.Name}}">connection &amp; password →</a>{{else}}none{{end}}</div>
-            <div class="actions" style="justify-content:flex-start">
-              <form class="inline" method="post" action="/admin/hosting/up"><input type="hidden" name="name" value="{{.Name}}"><button class="btn sm">Start</button></form>
-              <form class="inline" method="post" action="/admin/hosting/down"><input type="hidden" name="name" value="{{.Name}}"><button class="btn sm">Stop</button></form>
-              <form class="inline" method="post" action="/admin/hosting/autoupdate">
-                <input type="hidden" name="name" value="{{.Name}}">
-                <input type="hidden" name="enabled" value="{{if .AutoUpdate}}false{{else}}true{{end}}">
-                <button class="btn sm">{{if .AutoUpdate}}Disable auto-update{{else}}Enable auto-update{{end}}</button>
+<section class="hostlist">
+{{range .Sites}}{{$site := .}}
+  <details class="hostcard"{{if gt .Running 0}} open{{end}}>
+    <summary>
+      <span class="hc-name">{{.Name}}</span>
+      <span class="hc-stack">{{if .Template}}{{.Template}}{{if .PhpVersion}} · {{.PhpVersion}}{{end}}{{else}}—{{end}}</span>
+      <span class="hc-owner"><code>site-{{.Name}}</code> · uid {{.UID}}</span>
+      <span class="hc-badges">{{if gt .Running 0}}<span class="tag ext">running · {{.Running}}</span>{{else}}<span class="tag ro">stopped</span>{{end}}{{if .Legacy}} <span class="tag ro">legacy</span>{{end}}</span>
+      <span class="hc-sumact">
+        <button class="btn sm" type="submit" form="su-{{.Name}}" onclick="event.stopPropagation()">Start all</button>
+        <button class="btn sm" type="submit" form="sd-{{.Name}}" onclick="event.stopPropagation()">Stop all</button>
+        <button class="btn danger sm" type="submit" form="sx-{{.Name}}" onclick="event.stopPropagation()">Destroy</button>
+      </span>
+    </summary>
+    <div class="hc-body">
+      <form id="su-{{.Name}}" method="post" action="/admin/hosting/up"><input type="hidden" name="name" value="{{.Name}}"></form>
+      <form id="sd-{{.Name}}" method="post" action="/admin/hosting/down"><input type="hidden" name="name" value="{{.Name}}"></form>
+      <form id="sx-{{.Name}}" method="post" action="/admin/hosting/destroy" onsubmit="return confirm('Destroy {{.Name}} and ALL its vhosts + OS user?')"><input type="hidden" name="name" value="{{.Name}}"></form>
+      {{if .Legacy}}
+      <div class="hc-legacy">⚠ Single-docker (legacy) layout.
+        <form class="inline" method="post" action="/admin/hosting/migrate"><input type="hidden" name="name" value="{{.Name}}"><button class="btn sm">Migrate to multi-vhost</button></form>
+        <span class="hint">— unlocks per-vhost logs and adding more vhosts.</span>
+      </div>
+      {{end}}
+      <div class="vhosts">
+      {{range .Vhosts}}
+        <div class="vhost">
+          <div class="vh-head">
+            <b>{{.Vhost}}</b>
+            <code>{{.Template}}{{if .PhpVersion}} · {{.PhpVersion}}{{end}}</code>
+            {{if gt .Running 0}}<span class="tag ext">running · {{.Running}}</span>{{else}}<span class="tag ro">stopped</span>{{end}}
+            {{if .AutoUpdate}}<span class="tag" title="follows template updates">auto-update</span>{{end}}
+          </div>
+          <div class="vh-info">
+            <span>upstream <code>{{.Upstream}}</code></span>
+            <span>DB {{if .Db}}<code>{{.Db}}</code> · <a href="/admin/hosting/dbinfo?name={{$site.Name}}&amp;vhost={{.Vhost}}">connection →</a>{{else}}<span class="hint">none</span>{{end}}</span>
+            <span>logs <code>logs/{{.Vhost}}/</code></span>
+          </div>
+          <div class="vh-act">
+            <a class="btn sm" href="/admin/hosting/edit?name={{$site.Name}}{{if not $site.Legacy}}&amp;vhost={{.Vhost}}{{end}}">Compose</a>
+            <a class="btn sm" href="/admin/hosting/nginx?name={{$site.Name}}{{if not $site.Legacy}}&amp;vhost={{.Vhost}}{{end}}">Nginx</a>
+            <button class="btn sm" type="button" onclick="this.nextElementSibling.showModal()">Publish</button>
+            <dialog class="dlg">
+              <form method="dialog" class="dlg-x"><button class="btn sm" aria-label="Close">✕</button></form>
+              <h3>Publish {{$site.Name}}/{{.Vhost}}</h3>
+              <div class="meta">Upstream <code>{{.Upstream}}</code> <span class="hint">(managed by hosting — fixed)</span></div>
+              <form method="post" action="/admin/backend/add">
+                <input type="hidden" name="id" value="{{if eq .Vhost "httpdocs"}}{{$site.Name}}{{else}}{{$site.Name}}-{{.Vhost}}{{end}}">
+                <input type="hidden" name="name" value="{{$site.Name}}/{{.Vhost}} (hosting)">
+                <input type="hidden" name="upstream" value="{{.Upstream}}">
+                <input type="hidden" name="path" value="/">
+                <input type="hidden" name="hosting_site" value="{{$site.Name}}">
+                <input type="hidden" name="hosting_vhost" value="{{.Vhost}}">
+                <div class="formgrid">
+                  <div><label>Public host</label><input name="host" placeholder="mysite.example.com" required autofocus></div>
+                  <div><label>Rule</label><select name="rule"><option>public</option><option>authenticated</option><option>whitelist</option></select></div>
+                  <div><label class="hint" style="display:inline-flex;align-items:center;gap:.4rem"><input type="checkbox" name="www" value="1"> also www.host</label></div>
+                  <div><button class="btn primary">Publish backend</button></div>
+                </div>
               </form>
-            </div>
-            <p class="hint">Auto-update is {{if .AutoUpdate}}<b>on</b> — the site follows template updates while its compose stays pristine.{{else}}<b>off</b>.{{end}}</p>
-            <h4 style="margin:1rem 0 .3rem;border-top:1px solid var(--line);padding-top:.9rem">Publish</h4>
-            <form method="post" action="/admin/backend/add">
-              <input type="hidden" name="id" value="{{.Name}}">
-              <input type="hidden" name="name" value="{{.Name}} (hosting)">
-              <input type="hidden" name="upstream" value="http://{{.Name}}.site:8080">
-              <input type="hidden" name="path" value="/">
-              <div class="formgrid">
-                <div><label>Public host</label><input name="host" placeholder="mysite.example.com" required></div>
-                <div><label>Rule</label><select name="rule"><option>public</option><option>authenticated</option><option>whitelist</option></select></div>
-                <div><label>www</label><label class="hint" style="display:inline-flex;align-items:center;gap:.35rem;height:2.2rem"><input type="checkbox" name="www" value="1"> also www.host</label></div>
-                <div><button class="btn primary">Publish backend</button></div>
-              </div>
-            </form>
-            <p class="hint">Creates a gateway backend for <code>{{.Name}}.site:8080</code>. Then point the host's DNS at the gateway and issue a cert in <b>TLS</b>. (Opens the Services page.)</p>
-          </dialog>
-          <a class="btn sm" href="/admin/hosting/edit?name={{.Name}}" title="Edit docker-compose.yml"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" style="vertical-align:-2px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg> Compose</a>
-          <a class="btn sm" href="/admin/hosting/nginx?name={{.Name}}" title="Edit nginx.conf">Nginx</a>
-          <form class="inline" method="post" action="/admin/hosting/destroy" onsubmit="return confirm('Destroy {{.Name}}? This removes its data and OS user.')"><input type="hidden" name="name" value="{{.Name}}"><button class="btn danger sm">Destroy</button></form>
-        </td>
-      </tr>
-    {{else}}
-      <tr><td colspan="6" class="hint">No sites yet.</td></tr>
-    {{end}}
-    </tbody>
-  </table>
+              <p class="hint">Creates a gateway backend. Then set the host's DNS and issue TLS in Services.</p>
+            </dialog>
+            <form class="inline" method="post" action="/admin/hosting/vhost/up"><input type="hidden" name="name" value="{{$site.Name}}"><input type="hidden" name="vhost" value="{{.Vhost}}"><button class="btn sm">Start</button></form>
+            <form class="inline" method="post" action="/admin/hosting/vhost/down"><input type="hidden" name="name" value="{{$site.Name}}"><input type="hidden" name="vhost" value="{{.Vhost}}"><button class="btn sm">Stop</button></form>
+            <form class="inline" method="post" action="/admin/hosting/vhost/autoupdate"><input type="hidden" name="name" value="{{$site.Name}}"><input type="hidden" name="vhost" value="{{.Vhost}}"><input type="hidden" name="enabled" value="{{if .AutoUpdate}}false{{else}}true{{end}}"><button class="btn sm">{{if .AutoUpdate}}Auto-update off{{else}}Auto-update on{{end}}</button></form>
+            {{if and (not $site.Legacy) (ne .Vhost "httpdocs")}}<form class="inline" method="post" action="/admin/hosting/vhost/destroy" onsubmit="return confirm('Destroy vhost {{.Vhost}}?')"><input type="hidden" name="name" value="{{$site.Name}}"><input type="hidden" name="vhost" value="{{.Vhost}}"><button class="btn danger sm">Destroy</button></form>{{end}}
+          </div>
+        </div>
+      {{end}}
+      </div>
+      {{if not .Legacy}}
+      <form class="hc-addvhost" method="post" action="/admin/hosting/vhost/create">
+        <input type="hidden" name="name" value="{{.Name}}">
+        <input name="vhost" placeholder="new vhost (e.g. app)" pattern="[a-z][a-z0-9-]{1,30}" required>
+        <select name="stack">
+          <option value="php-fpm:8.3">PHP-FPM 8.3</option>
+          <option value="php-fpm:8.2">PHP-FPM 8.2</option>
+          <option value="php-fpm:8.1">PHP-FPM 8.1</option>
+          <option value="php-fpm:7.4">PHP-FPM 7.4</option>
+          <option value="static">Static</option>
+          <option value="custom">Custom</option>
+        </select>
+        <button class="btn sm primary">+ Add vhost</button>
+      </form>
+      {{end}}
+      <div class="hc-foot">
+        <span>Owner <a href="/admin/hosting/users#u-{{.Name}}"><code>site-{{.Name}}</code></a> · <a href="/admin/hosting/users/keys?name={{.Name}}">SSH keys</a></span>
+      </div>
+    </div>
+  </details>
+{{else}}
+  <p class="hint">No sites yet.</p>
+{{end}}
 </section>
 <section>
   <div class="card addcard" style="margin-top:1rem">
@@ -323,7 +375,7 @@ SCP/SFTP, chrooted to the site dir — upload into <code>httpdocs/</code>.</p>
     <thead><tr><th>Site</th><th>OS user</th><th>uid</th><th>SCP</th><th></th></tr></thead>
     <tbody>
     {{range .Users}}
-      <tr{{if .Orphan}} class="off"{{end}}>
+      <tr id="u-{{.Site}}"{{if .Orphan}} class="off"{{end}}>
         <td><b>{{.Site}}</b>{{if .Orphan}} <span class="tag ro">orphan</span>{{end}}</td>
         <td><code>{{.User}}</code></td><td><code>{{.UID}}</code></td>
         <td>{{if eq .Scp "on"}}<span class="tag ext">enabled</span>{{else if eq .Scp "off"}}<span class="tag ro">disabled</span>{{else}}<span class="hint">no password</span>{{end}}</td>
@@ -333,14 +385,15 @@ SCP/SFTP, chrooted to the site dir — upload into <code>httpdocs/</code>.</p>
             <form method="dialog" class="dlg-x"><button class="btn sm" aria-label="Close">✕</button></form>
             <h3>{{.User}}</h3>
             <div class="meta">Site: <code>{{.Site}}</code>{{if .Orphan}} <span class="tag ro">orphan</span>{{end}} · uid <code>{{.UID}}</code></div>
-            <div class="meta">SCP access: {{if eq .Scp "on"}}<b>enabled</b>{{else if eq .Scp "off"}}<b>disabled</b>{{else}}no password set{{end}}</div>
+            <div class="meta">SCP access: {{if eq .Scp "on"}}<b>enabled</b>{{else if eq .Scp "off"}}<b>disabled</b>{{else}}no password set{{end}} · <b>{{.Keys}}</b> SSH key{{if ne .Keys 1}}s{{end}}</div>
+            <div class="meta hint">An SSH key works instead of a password for SCP/SFTP.</div>
             <form method="post" action="/admin/hosting/users/passwd" style="margin:.9rem 0 .3rem">
               <input type="hidden" name="name" value="{{.Site}}">
-              <div class="formgrid"><div><label>Set SCP password (min 8)</label><input type="password" name="password" minlength="8" required></div>
+              <div class="formgrid"><div><label>Set SCP password (min 8)</label><input type="password" name="password" minlength="8" required autofocus></div>
               <div><button class="btn primary">Set password</button></div></div>
             </form>
             <div class="actions" style="justify-content:flex-start">
-              <a class="btn sm" href="/admin/hosting/users/keys?name={{.Site}}">SSH keys</a>
+              <a class="btn sm" href="/admin/hosting/users/keys?name={{.Site}}">SSH keys{{if .Keys}} ({{.Keys}}){{end}}</a>
               {{if ne .Scp "none"}}<form class="inline" method="post" action="/admin/hosting/users/lock"><input type="hidden" name="name" value="{{.Site}}"><input type="hidden" name="locked" value="{{if eq .Scp "on"}}true{{else}}false{{end}}"><button class="btn sm">{{if eq .Scp "on"}}Disable SCP{{else}}Enable SCP{{end}}</button></form>{{end}}
               {{if .Orphan}}<form class="inline" method="post" action="/admin/hosting/users/delete" onsubmit="return confirm('Delete orphan user {{.User}}?')"><input type="hidden" name="name" value="{{.Site}}"><button class="btn danger sm">Delete user</button></form>{{end}}
             </div>
@@ -743,7 +796,7 @@ func (s *server) handleKeyDownload(w http.ResponseWriter, r *http.Request) {
 
 // ---- DB connection info for a site ----
 
-var dbInfoTmpl = xtkui.LocParse("hostingdbinfo", subtabsSrc+`<h1>Database · <code>site-{{.Name}}</code></h1>
+var dbInfoTmpl = xtkui.LocParse("hostingdbinfo", subtabsSrc+`<h1>Database · <code>site-{{.Name}}{{if .Vhost}}/{{.Vhost}}{{end}}</code></h1>
 {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
 {{if .Has}}
 <div class="card">
@@ -760,8 +813,12 @@ var dbInfoTmpl = xtkui.LocParse("hostingdbinfo", subtabsSrc+`<h1>Database · <co
 {{end}}`)
 
 func (s *server) handleDbInfo(w http.ResponseWriter, r *http.Request) {
-	name := r.URL.Query().Get("name")
-	resp, err := s.callAgent(r.Context(), "site_db_info", map[string]string{"name": name})
+	name, vh := r.URL.Query().Get("name"), r.URL.Query().Get("vhost")
+	cmd, params := "site_db_info", map[string]string{"name": name}
+	if vh != "" {
+		cmd, params = "vhost_db_info", map[string]string{"name": name, "vhost": vh}
+	}
+	resp, err := s.callAgent(r.Context(), cmd, params)
 	env := map[string]string{}
 	if err == nil && resp.OK {
 		for _, line := range strings.Split(resp.Stdout, "\n") {
@@ -775,10 +832,10 @@ func (s *server) handleDbInfo(w http.ResponseWriter, r *http.Request) {
 		localPort = "5432"
 	}
 	data := struct {
-		Tab, Name, DbHost, DbPort, DbName, User, Password, LocalPort, Error string
-		Has                                                                 bool
+		Tab, Name, Vhost, DbHost, DbPort, DbName, User, Password, LocalPort, Error string
+		Has                                                                        bool
 	}{
-		Tab: "hosts", Name: name, DbHost: env["DB_HOST"], DbPort: env["DB_PORT"], DbName: env["DB_NAME"],
+		Tab: "hosts", Name: name, Vhost: vh, DbHost: env["DB_HOST"], DbPort: env["DB_PORT"], DbName: env["DB_NAME"],
 		User: env["DB_USER"], Password: env["DB_PASSWORD"], LocalPort: localPort, Has: env["DB_HOST"] != "",
 	}
 	if err != nil {
@@ -847,12 +904,86 @@ func (s *server) handleAutoUpdate(w http.ResponseWriter, r *http.Request) {
 	redirectMsg(w, r, "/admin/hosting", "Auto-update for "+name+" set to "+enabled+".", "")
 }
 
-var editTmpl = xtkui.LocParse("hostingedit", subtabsSrc+`<h1>Edit compose · <code>{{.Name}}</code></h1>
+func (s *server) handleVhostAutoUpdate(w http.ResponseWriter, r *http.Request) {
+	name, vh, enabled := r.FormValue("name"), r.FormValue("vhost"), r.FormValue("enabled")
+	resp, err := s.callAgent(r.Context(), "vhost_autoupdate", map[string]string{"name": name, "vhost": vh, "enabled": enabled})
+	if err != nil || !resp.OK {
+		redirectMsg(w, r, "/admin/hosting", "", "auto-update: "+agentMsg(resp, err))
+		return
+	}
+	redirectMsg(w, r, "/admin/hosting", "Auto-update for "+vhostLabel(name, vh)+" set to "+enabled+".", "")
+}
+
+// editData backs both the compose and nginx editors; Vhost is empty for a legacy
+// (un-migrated) site's top-level file, set for a per-vhost file.
+type editData struct{ Tab, Name, Vhost, Content, Error string }
+
+// vhostLabel renders "name" or "name/vhost" for headings and flash messages.
+func vhostLabel(name, vh string) string {
+	if vh == "" {
+		return name
+	}
+	return name + "/" + vh
+}
+
+// vhostAction runs a name+vhost agent command (up/down/destroy) and returns to Hosts.
+func (s *server) vhostAction(cmd, okMsg string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		name, vh := r.FormValue("name"), r.FormValue("vhost")
+		resp, err := s.callAgent(r.Context(), cmd, map[string]string{"name": name, "vhost": vh})
+		if err != nil || !resp.OK {
+			redirectMsg(w, r, "/admin/hosting", "", cmd+": "+agentMsg(resp, err))
+			return
+		}
+		redirectMsg(w, r, "/admin/hosting", fmt.Sprintf(okMsg, vhostLabel(name, vh)), "")
+	}
+}
+
+func (s *server) handleVhostCreate(w http.ResponseWriter, r *http.Request) {
+	name, vh := r.FormValue("name"), r.FormValue("vhost")
+	parts := strings.Split(r.FormValue("stack"), ":")
+	tmpl, pv := parts[0], ""
+	if len(parts) > 1 {
+		pv = parts[1]
+	}
+	if tmpl == "" {
+		tmpl = "php-fpm"
+	}
+	params := map[string]string{"name": name, "vhost": vh, "template": tmpl}
+	if pv != "" {
+		params["php_version"] = pv
+	}
+	if resp, err := s.callAgent(r.Context(), "vhost_create", params); err != nil || !resp.OK {
+		redirectMsg(w, r, "/admin/hosting", "", "add vhost: "+agentMsg(resp, err))
+		return
+	}
+	if resp, err := s.callAgent(r.Context(), "vhost_up", map[string]string{"name": name, "vhost": vh}); err != nil || !resp.OK {
+		redirectMsg(w, r, "/admin/hosting", "", "vhost created but start failed: "+agentMsg(resp, err))
+		return
+	}
+	if tmpl == "custom" {
+		http.Redirect(w, r, "/admin/hosting/edit?name="+url.QueryEscape(name)+"&vhost="+url.QueryEscape(vh), http.StatusSeeOther)
+		return
+	}
+	redirectMsg(w, r, "/admin/hosting", "Vhost "+vhostLabel(name, vh)+" added and started.", "")
+}
+
+func (s *server) handleMigrate(w http.ResponseWriter, r *http.Request) {
+	name := r.FormValue("name")
+	resp, err := s.callAgent(r.Context(), "vhost_migrate", map[string]string{"name": name})
+	if err != nil || !resp.OK {
+		redirectMsg(w, r, "/admin/hosting", "", "migrate: "+agentMsg(resp, err))
+		return
+	}
+	redirectMsg(w, r, "/admin/hosting", "Site "+name+" migrated to the multi-vhost layout.", "")
+}
+
+var editTmpl = xtkui.LocParse("hostingedit", subtabsSrc+`<h1>Compose · <code>{{.Name}}{{if .Vhost}}/{{.Vhost}}{{end}}</code></h1>
 {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
-<p class="hint">Editing <code>/opt/sites/{{.Name}}/docker-compose.yml</code>. On save it is validated with
-<code>docker&nbsp;compose&nbsp;config</code> (reverted if invalid) and re-applied with <code>up&nbsp;-d</code>.</p>
+<p class="hint">On save it is validated with <code>docker&nbsp;compose&nbsp;config</code> (reverted if invalid) and re-applied with <code>up&nbsp;-d</code>.</p>
 <form method="post" action="/admin/hosting/edit">
   <input type="hidden" name="name" value="{{.Name}}">
+  <input type="hidden" name="vhost" value="{{.Vhost}}">
   <textarea name="content" spellcheck="false" style="width:100%;min-height:26rem;font-family:var(--font-mono);font-size:.82rem;line-height:1.45;padding:.75rem;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);white-space:pre">{{.Content}}</textarea>
   <div class="actions">
     <a class="btn" href="/admin/hosting">Cancel</a>
@@ -861,36 +992,41 @@ var editTmpl = xtkui.LocParse("hostingedit", subtabsSrc+`<h1>Edit compose · <co
 </form>`)
 
 func (s *server) handleEdit(w http.ResponseWriter, r *http.Request) {
-	name := r.URL.Query().Get("name")
-	resp, err := s.callAgent(r.Context(), "site_compose_get", map[string]string{"name": name})
+	name, vh := r.URL.Query().Get("name"), r.URL.Query().Get("vhost")
+	cmd, params := "site_compose_get", map[string]string{"name": name}
+	if vh != "" {
+		cmd, params = "vhost_compose_get", map[string]string{"name": name, "vhost": vh}
+	}
+	resp, err := s.callAgent(r.Context(), cmd, params)
 	if err != nil || !resp.OK {
-		redirectMsg(w, r, "/admin/hosting", "", "edit: "+agentMsg(resp, err))
+		redirectMsg(w, r, "/admin/hosting", "", "compose: "+agentMsg(resp, err))
 		return
 	}
-	data := struct{ Tab, Name, Content, Error string }{Tab: "hosts", Name: name, Content: resp.Stdout}
-	s.chrome("Edit compose").Render(w, xtkui.LangFromRequest(r), editTmpl, data)
+	s.chrome("Compose").Render(w, xtkui.LangFromRequest(r), editTmpl, editData{Tab: "hosts", Name: name, Vhost: vh, Content: resp.Stdout})
 }
 
 func (s *server) handleEditSave(w http.ResponseWriter, r *http.Request) {
-	name := r.FormValue("name")
-	content := r.FormValue("content")
-	resp, err := s.callAgent(r.Context(), "site_compose_set", map[string]string{"name": name, "content": content})
+	name, vh, content := r.FormValue("name"), r.FormValue("vhost"), r.FormValue("content")
+	cmd, params := "site_compose_set", map[string]string{"name": name, "content": content}
+	if vh != "" {
+		cmd, params = "vhost_compose_set", map[string]string{"name": name, "vhost": vh, "content": content}
+	}
+	resp, err := s.callAgent(r.Context(), cmd, params)
 	if err != nil || !resp.OK {
-		data := struct{ Tab, Name, Content, Error string }{Tab: "hosts", Name: name, Content: content, Error: agentMsg(resp, err)}
-		s.chrome("Edit compose").Render(w, xtkui.LangFromRequest(r), editTmpl, data)
+		s.chrome("Compose").Render(w, xtkui.LangFromRequest(r), editTmpl, editData{Tab: "hosts", Name: name, Vhost: vh, Content: content, Error: agentMsg(resp, err)})
 		return
 	}
-	redirectMsg(w, r, "/admin/hosting", "Compose for "+name+" updated and applied.", "")
+	redirectMsg(w, r, "/admin/hosting", "Compose for "+vhostLabel(name, vh)+" updated and applied.", "")
 }
 
-var nginxTmpl = xtkui.LocParse("hostingnginx", subtabsSrc+`<h1>Edit nginx · <code>{{.Name}}</code></h1>
+var nginxTmpl = xtkui.LocParse("hostingnginx", subtabsSrc+`<h1>Nginx · <code>{{.Name}}{{if .Vhost}}/{{.Vhost}}{{end}}</code></h1>
 {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
-<p class="hint">Editing the web container's <code>nginx.conf</code>. On save it is validated with
-<code>nginx&nbsp;-t</code> in the container (reverted if invalid) and reloaded. Tip: a canonical
-redirect, e.g. www→apex, inside the <code>server</code> block:
+<p class="hint">The vhost's <code>nginx.conf</code>. On save it is validated with <code>nginx&nbsp;-t</code> in the
+container (reverted if invalid) and reloaded. Tip: a canonical www→apex redirect inside the <code>server</code> block:
 <br><code>if ($host ~* ^www\.(.*)$) { return 301 $scheme://$1$request_uri; }</code></p>
 <form method="post" action="/admin/hosting/nginx">
   <input type="hidden" name="name" value="{{.Name}}">
+  <input type="hidden" name="vhost" value="{{.Vhost}}">
   <textarea name="content" spellcheck="false" style="width:100%;min-height:26rem;font-family:var(--font-mono);font-size:.82rem;line-height:1.45;padding:.75rem;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);white-space:pre">{{.Content}}</textarea>
   <div class="actions">
     <a class="btn" href="/admin/hosting">Cancel</a>
@@ -899,26 +1035,31 @@ redirect, e.g. www→apex, inside the <code>server</code> block:
 </form>`)
 
 func (s *server) handleNginxEdit(w http.ResponseWriter, r *http.Request) {
-	name := r.URL.Query().Get("name")
-	resp, err := s.callAgent(r.Context(), "site_nginx_get", map[string]string{"name": name})
+	name, vh := r.URL.Query().Get("name"), r.URL.Query().Get("vhost")
+	cmd, params := "site_nginx_get", map[string]string{"name": name}
+	if vh != "" {
+		cmd, params = "vhost_nginx_get", map[string]string{"name": name, "vhost": vh}
+	}
+	resp, err := s.callAgent(r.Context(), cmd, params)
 	if err != nil || !resp.OK {
 		redirectMsg(w, r, "/admin/hosting", "", "nginx: "+agentMsg(resp, err))
 		return
 	}
-	data := struct{ Tab, Name, Content, Error string }{Tab: "hosts", Name: name, Content: resp.Stdout}
-	s.chrome("Edit nginx").Render(w, xtkui.LangFromRequest(r), nginxTmpl, data)
+	s.chrome("Nginx").Render(w, xtkui.LangFromRequest(r), nginxTmpl, editData{Tab: "hosts", Name: name, Vhost: vh, Content: resp.Stdout})
 }
 
 func (s *server) handleNginxSave(w http.ResponseWriter, r *http.Request) {
-	name := r.FormValue("name")
-	content := r.FormValue("content")
-	resp, err := s.callAgent(r.Context(), "site_nginx_set", map[string]string{"name": name, "content": content})
+	name, vh, content := r.FormValue("name"), r.FormValue("vhost"), r.FormValue("content")
+	cmd, params := "site_nginx_set", map[string]string{"name": name, "content": content}
+	if vh != "" {
+		cmd, params = "vhost_nginx_set", map[string]string{"name": name, "vhost": vh, "content": content}
+	}
+	resp, err := s.callAgent(r.Context(), cmd, params)
 	if err != nil || !resp.OK {
-		data := struct{ Tab, Name, Content, Error string }{Tab: "hosts", Name: name, Content: content, Error: agentMsg(resp, err)}
-		s.chrome("Edit nginx").Render(w, xtkui.LangFromRequest(r), nginxTmpl, data)
+		s.chrome("Nginx").Render(w, xtkui.LangFromRequest(r), nginxTmpl, editData{Tab: "hosts", Name: name, Vhost: vh, Content: content, Error: agentMsg(resp, err)})
 		return
 	}
-	redirectMsg(w, r, "/admin/hosting", "nginx.conf for "+name+" updated.", "")
+	redirectMsg(w, r, "/admin/hosting", "nginx.conf for "+vhostLabel(name, vh)+" updated.", "")
 }
 
 func main() {
@@ -950,6 +1091,12 @@ func main() {
 	mux.HandleFunc("POST /admin/hosting/edit", s.handleEditSave)
 	mux.HandleFunc("GET /admin/hosting/nginx", s.handleNginxEdit)
 	mux.HandleFunc("POST /admin/hosting/nginx", s.handleNginxSave)
+	mux.HandleFunc("POST /admin/hosting/migrate", s.handleMigrate)
+	mux.HandleFunc("POST /admin/hosting/vhost/create", s.handleVhostCreate)
+	mux.HandleFunc("POST /admin/hosting/vhost/up", s.vhostAction("vhost_up", "Vhost %s started."))
+	mux.HandleFunc("POST /admin/hosting/vhost/down", s.vhostAction("vhost_down", "Vhost %s stopped."))
+	mux.HandleFunc("POST /admin/hosting/vhost/destroy", s.vhostAction("vhost_destroy", "Vhost %s destroyed."))
+	mux.HandleFunc("POST /admin/hosting/vhost/autoupdate", s.handleVhostAutoUpdate)
 	// Users
 	mux.HandleFunc("GET /admin/hosting/users", s.handleUsers)
 	mux.HandleFunc("POST /admin/hosting/users/delete", s.handleUserDelete)

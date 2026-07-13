@@ -1,0 +1,8 @@
+{
+  "description": "docker compose up for one vhost of a site",
+  "timeout_seconds": 120,
+  "params": {
+    "name":  { "required": true, "pattern": "[a-z][a-z0-9-]{1,30}" },
+    "vhost": { "required": true, "pattern": "[a-z][a-z0-9-]{1,30}" }
+  }
+}

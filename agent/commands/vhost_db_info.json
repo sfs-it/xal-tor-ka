@@ -1,0 +1,8 @@
+{
+  "description": "Read the DB_* connection fields from a vhost's db.env",
+  "timeout_seconds": 15,
+  "params": {
+    "name":  { "required": true, "pattern": "[a-z][a-z0-9-]{1,30}" },
+    "vhost": { "required": true, "pattern": "[a-z][a-z0-9-]{1,30}" }
+  }
+}

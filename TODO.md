@@ -2,7 +2,46 @@
 
 ## In corso
 
-_(nessuna voce attiva — prossimo passo da decidere: vedi candidati in «Da fare»)_
+* [ ] **2026-07-11 —** Tappa B — hosting **multi-vhost + logs** (refactor a stadi, architettura approvata)
+  Modello: *site* = utente OS + dir chroot; dentro N *vhost*, ognuno la sua docker (web[+php]),
+  docroot, logs, PHP, backend gateway. Layout `/opt/sites/<name>/{<vhost>/, logs/<vhost>/,
+  .vhosts/<vhost>/{compose,nginx,db.env,.xtk-stack}}`. httpdocs mantiene project/alias legacy
+  (`<name>`/`<name>.site`) → zero-downtime sui siti pubblicati. Compose girano con
+  `--project-directory <site root>`. Stadi:
+  - [x] **1a** — agente fondazione: `_vhost_lib.sh` (render_vhost + helper), 3 template (compose+nginx)
+    ripathati + mount logs + alias per-vhost, `site_create`→site+vhost httpdocs, `site_*` layout-aware
+    (fallback legacy), `vhost_create/up/down/status/destroy` + manifest. Validato: bash -n, JSON,
+    shellcheck, `docker compose config` con --project-directory. **Deployato sulla VPS +
+    smoke-test superato** (2026-07-11): sito php-fpm + 2° vhost static, up, HTTP 200 su
+    entrambi gli alias, logs per-vhost scritti, ownership chroot-safe, fallback legacy ok,
+    cruft ripulito. Lezione pagata → guardrail `deploy-agent-scripts-chown-root`.
+  - [x] **1b** — editor per-vhost: `vhost_compose_get/set`, `vhost_nginx_get/set`, `vhost_env_set`,
+    `vhost_db_info`, `vhost_autoupdate` (+ manifest). **Deployato + smoke-test** (2026-07-12):
+    nginx valido→reload, invalido→revert (serve ancora 200); env_set/db_info roundtrip; autoupdate.
+  - [x] **2** — `site_list` annidato (`vhosts[]` per site + campi flat retro-compatibili = httpdocs;
+    sito legacy reso come 1 vhost httpdocs sintetico). **Deployato + verificato** (2026-07-12).
+    Agente a 43 comandi; UI viva non tocca `vhosts` (`callJSON` usa Unmarshal semplice).
+  - [~] **3** — `vhost_migrate` scritto + **provato sulla VPS** su sito legacy sintetico
+    (2026-07-12): content-preserving, stesso project/alias (zero re-publish), logs aggiunti,
+    idempotente, rollback su config invalida, sblocca l'aggiunta di vhost. Agente a 44 comandi.
+    **RESTA**: migrare i 5 siti reali — sarà **guidato per-sito dalla UI** (non batch), quando l'operatore vuole.
+  - [~] **4a** — UI extension: struct `site`→`[]vhost`+`legacy`, Hosts tab a **card espandibili**
+    (`<details>`), info+azioni per-vhost (Compose/Nginx/Start/Stop/Publish/auto-update/Destroy),
+    «Add vhost», «Migrate» per-sito. Fix A (SSH key count), B (pv normalizzata: niente `static·8.3`),
+    D (riga publish che sforava rimossa). **Deployato sulla VPS + render verificato coi dati vivi**
+    (2026-07-13). Da testare in browser dall'operatore.
+  - [~] **4b-1** — marker *managed-by-hosting*: `models.Backend.Hosting *HostingRef` (schema config
+    cambiato → rebuild; retro-compatibile, backend senza `hosting`=nil, nessuna migrazione). Publish
+    dal card marca il backend (`hosting_site`/`hosting_vhost`). In **Servizi** il backend managed ha
+    **upstream readonly** + banner «Gestito da Hosting → vai al servizio in hosting», e il save
+    preserva l'upstream (difesa server-side). i18n: chiavi in `en`+`it`; **restano le altre 8 locale**.
+    **Deployato + verificato** (core sano, marker nei form). 2026-07-13.
+  - [ ] **4b-2** — editing pubblicazione **inline nella card** (l'ask primario: non entrare in Servizi):
+    l'estensione deve LEGGERE i backend del core (mount read-only di `services.json`, o endpoint) per
+    mostrare lo stato pubblicato per-vhost (dominio/regola/TLS) + form inline che POSTa a
+    `/admin/backend/edit` (browser autenticato). Finché manca, il card mostra sempre «Publish».
+  - [ ] **5** — logs per-vhost (`logtail` + viewer UI).
+  - [ ] **6** — verifica end-to-end sulla VPS + pulizia + `make rebuild` + note CHANGELOG.
 
 ## Da fare
 

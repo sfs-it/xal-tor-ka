@@ -1,0 +1,8 @@
+{
+  "description": "Remove one vhost (docker + docroot + logs + config); refuses httpdocs",
+  "timeout_seconds": 120,
+  "params": {
+    "name":  { "required": true, "pattern": "[a-z][a-z0-9-]{1,30}" },
+    "vhost": { "required": true, "pattern": "[a-z][a-z0-9-]{1,30}" }
+  }
+}

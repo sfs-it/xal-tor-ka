@@ -1,0 +1,7 @@
+{
+  "description": "Migrate a legacy single-docker site to the multi-vhost layout (httpdocs vhost), preserving its compose/nginx and keeping the legacy project name + gateway alias",
+  "timeout_seconds": 180,
+  "params": {
+    "name": { "required": true, "pattern": "[a-z][a-z0-9-]{1,30}" }
+  }
+}
