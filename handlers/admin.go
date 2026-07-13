@@ -235,6 +235,7 @@ var monitoringTmpl = xtkui.LocParse("mon", `<section>
 </section>`)
 
 var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}»</h1>
+{{if .Managed}}<div class="hint" style="border:1px solid var(--line);border-radius:9px;padding:.7rem .9rem;margin:.3rem 0 1rem;display:flex;gap:.8rem;align-items:center;flex-wrap:wrap">🏠 <span>{{T "admin.edit.managed"}}</span> <a class="btn sm" href="/admin/hosting">{{T "admin.edit.gotohosting"}} →</a></div>{{end}}
  <div class="card">
   <form method="post" action="/admin/backend/edit">
    <input type="hidden" name="id" value="{{.ID}}">
@@ -249,7 +250,7 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
      <option {{if eq .Rule "whitelist"}}selected{{end}}>whitelist</option>
      <option {{if eq .Rule "authenticated"}}selected{{end}}>authenticated</option>
      <option {{if eq .Rule "public"}}selected{{end}}>public</option></select></td><td class="fhelp">{{T "admin.rule.help"}}</td></tr>
-    <tr><th>{{T "admin.f.upstream"}}</th><td><input name="upstream" value="{{.Upstream}}" required></td><td class="fhelp">{{T "admin.edit.help.upstream"}}</td></tr>
+    <tr><th>{{T "admin.f.upstream"}}</th><td><input name="upstream" value="{{.Upstream}}"{{if .Managed}} readonly{{else}} required{{end}}></td><td class="fhelp">{{if .Managed}}{{T "admin.edit.upstream.managed"}}{{else}}{{T "admin.edit.help.upstream"}}{{end}}</td></tr>
     <tr><th>{{T "admin.f.desc"}}</th><td colspan="2"><input name="description" value="{{.Description}}" placeholder="{{T "admin.edit.help.desc"}}"></td></tr>
     <tr><th>{{T "admin.col.ipallow"}}</th><td><input name="ip_allow" value="{{.IPAllow}}" placeholder="203.0.113.0/24 10.0.0.5"></td><td class="fhelp">{{T "admin.edit.help.ipallow"}}</td></tr>
    </tbody></table>
@@ -931,6 +932,12 @@ func (s *Server) handleBackendAdd(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/backend/edit?id="+url.QueryEscape(id), http.StatusSeeOther)
 		return
 	}
+	// When the Hosting panel publishes a vhost it tags the backend as hosting-managed
+	// (its upstream <site[-vhost]>.site:8080 is owned there and locked in Services).
+	var hostingRef *models.HostingRef
+	if hs := r.PostFormValue("hosting_site"); hs != "" {
+		hostingRef = &models.HostingRef{Site: hs, Vhost: r.PostFormValue("hosting_vhost")}
+	}
 	err := s.mutateServices(func(svc *models.Services) error {
 		if s.idTaken(*svc, id) {
 			return fmt.Errorf("id already exists")
@@ -940,6 +947,7 @@ func (s *Server) handleBackendAdd(w http.ResponseWriter, r *http.Request) {
 			WWW:     r.PostFormValue("www") != "",
 			IPAllow: ipAllow,
 			Routes:  []models.Route{{Path: path, Rule: rule, Upstream: upstream}},
+			Hosting: hostingRef,
 		})
 		return nil
 	})
@@ -1015,12 +1023,12 @@ func (s *Server) handleBackendEditForm(w http.ResponseWriter, r *http.Request) {
 		s.renderAdminPage(w, r, "servizi", adminEditTmpl, struct {
 			ID, Name, Description, Host, URL, Path, Rule, Upstream, IPAllow string
 			NgxTimeout, NgxMaxBody                                          int
-			NgxWS, NgxNoBuf, NgxSelfSigned, WWW                             bool
+			NgxWS, NgxNoBuf, NgxSelfSigned, WWW, Managed                    bool
 			NgxCustomLoc, NgxCustomSrv                                      string
 		}{
 			b.ID, b.Name, b.Description, b.Host, b.URL, rt.Path, rt.Rule, rt.Upstream, strings.Join(b.IPAllow, " "),
 			b.Nginx.ProxyTimeout, b.Nginx.MaxBodyMB,
-			b.Nginx.WebSocket, b.Nginx.NoBuffering, b.Nginx.BackendSelfSigned, b.WWW,
+			b.Nginx.WebSocket, b.Nginx.NoBuffering, b.Nginx.BackendSelfSigned, b.WWW, b.Hosting != nil,
 			b.Nginx.CustomLocation, b.Nginx.CustomServer,
 		})
 		return
@@ -1073,7 +1081,11 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 			if len(b.Routes) == 0 {
 				b.Routes = []models.Route{{}}
 			}
-			b.Routes[0] = models.Route{Path: path, Rule: rule, Upstream: upstream}
+			up := upstream
+			if b.Hosting != nil {
+				up = b.Routes[0].Upstream // hosting owns the upstream; ignore any posted change
+			}
+			b.Routes[0] = models.Route{Path: path, Rule: rule, Upstream: up}
 			return nil
 		}
 		return fmt.Errorf("backend not found")

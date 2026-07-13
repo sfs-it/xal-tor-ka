@@ -114,6 +114,16 @@ type Backend struct {
 	Routes  []Route   `json:"routes"`
 	Health  Health    `json:"health"`
 	Nginx   NginxOpts `json:"nginx,omitempty"` // per-vhost NGINX tuning (optional)
+	// Hosting, when set, marks this backend as owned by the hosting extension: its
+	// upstream is fixed (<site[-vhost]>.site:8080) and belongs to the Hosting panel.
+	// The Services editor locks the upstream and links back to Hosting.
+	Hosting *HostingRef `json:"hosting,omitempty"`
+}
+
+// HostingRef ties a backend to the hosting site/vhost that owns it.
+type HostingRef struct {
+	Site  string `json:"site"`
+	Vhost string `json:"vhost"`
 }
 
 // NginxOpts are optional per-vhost NGINX knobs surfaced in the admin "NGINX
