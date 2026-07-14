@@ -43,10 +43,11 @@ code{background:var(--panel-2);border:1px solid var(--line);padding:.05rem .35re
   padding:.75rem max(1.5rem,calc((100% - 1040px)/2))}
 .brand{font-weight:800;font-size:1.05rem;letter-spacing:.01em;color:var(--ink);display:flex;align-items:baseline;gap:.45rem}
 .brand a{color:inherit}
+.brand .subver{display:inline-flex;flex-direction:column;align-items:flex-start;gap:.2rem;line-height:1.12}
 .brand .sub{font-weight:500;color:var(--muted);font-size:.82rem;text-transform:uppercase;letter-spacing:.14em}
 .brand .ver{font-family:var(--font-mono);font-weight:600;color:var(--accent-ink);background:var(--accent-weak);
   border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);
-  padding:.02rem .4rem;border-radius:999px;font-size:.66rem;letter-spacing:.02em;align-self:center}
+  padding:.02rem .4rem;border-radius:999px;font-size:.66rem;letter-spacing:.02em;align-self:flex-start}
 .topnav{display:flex;align-items:center;gap:1.2rem;margin-inline-start:auto}
 .topnav a{color:var(--muted);font-size:.9rem;font-weight:500;position:relative;padding:.15rem 0}
 .topnav a:hover{color:var(--ink);text-decoration:none}
@@ -247,13 +248,27 @@ dialog.dlg code,dialog.dlg input,dialog.dlg select{max-width:100%}
 .vh-head{display:flex;gap:.55rem;align-items:center;flex-wrap:wrap;margin-bottom:.4rem}
 .vh-head b{font-size:.95rem}
 .vh-head code{font-size:.8rem;color:var(--muted)}
-.vh-info{display:flex;gap:1.2rem;flex-wrap:wrap;font-size:.82rem;color:var(--muted);margin-bottom:.6rem}
+.vh-info{display:flex;gap:1.2rem;flex-wrap:wrap;align-items:center;font-size:.82rem;color:var(--muted);margin-bottom:0}
 .vh-info code{color:var(--accent-ink)}
-.vh-act{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
+/* per-vhost action groups: primary (Publish/SSL/Start/Stop/Destroy) on the header row,
+   config (Compose/Auto-update/Nginx) on the info row — both pushed to the right */
+.vh-act-h,.vh-act-i{margin-inline-start:auto;display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
+@media(max-width:640px){.vh-act-h,.vh-act-i{margin-inline-start:0}}
 .hc-addvhost{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.9rem;padding-top:.9rem;border-top:1px dashed var(--line)}
+.hc-addvhost{flex-wrap:nowrap}
 .hc-addvhost input,.hc-addvhost select{padding:.3rem .5rem;font-size:.85rem}
-.hc-addvhost>input{width:12rem}
+.hc-addvhost>input{width:11rem;flex:0 1 11rem}
+.hc-addvhost select{width:auto;flex:0 1 auto}
+.hc-addvhost button{flex:0 0 auto;white-space:nowrap}
 .hc-sumact{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
+/* Publish/SSL button colour = state: green active/valid, red disabled/expired, black none */
+.btn.st-up{background:#2e9e5b;border-color:#2e9e5b;color:#fff}
+.btn.st-up:hover{background:#278a4d;border-color:#278a4d}
+.btn.st-down{background:#d64545;border-color:#d64545;color:#fff}
+.btn.st-down:hover{background:#c23a3a;border-color:#c23a3a}
+.btn.st-none{background:#23262e;border-color:#23262e;color:#fff}
+.btn.st-none:hover{background:#333844;border-color:#333844}
+@media(max-width:640px){.hc-addvhost{flex-wrap:wrap}}
 .hc-foot{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:center;margin-top:.9rem;padding-top:.8rem;border-top:1px solid var(--line);font-size:.83rem;color:var(--muted)}
 .hc-siteact{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
 @media(max-width:640px){.hc-badges{margin-inline-start:0}.hostcard>summary{gap:.5rem}}

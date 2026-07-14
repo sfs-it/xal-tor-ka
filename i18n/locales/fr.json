@@ -118,6 +118,8 @@
   "admin.monitoring": "Supervision",
   "admin.tls": "TLS",
   "admin.hosting": "Hébergement",
+  "admin.hosting_off.title": "Module d'hébergement non activé",
+  "admin.hosting_off.body": "Le module d'hébergement pilote un agent hôte privilégié (utilisateurs OS, dockers, vhosts). Pour l'activer, exécutez ceci sur l'hôte (pas d'ici) :",
   "admin.tls.h2": "Certificats",
   "admin.tls.manage": "Gérer SSL",
   "admin.nginx.h": "Paramètres NGINX",

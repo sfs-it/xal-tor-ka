@@ -36,8 +36,10 @@ import (
 	"xaltorka/health"
 	"xaltorka/matrix"
 	"xaltorka/models"
+	"xaltorka/notify"
 	"xaltorka/providers"
 	"xaltorka/proxy"
+	"xaltorka/remote"
 	"xaltorka/version"
 )
 
@@ -202,6 +204,21 @@ func run() error {
 
 	go checker.Start(ctx)
 
+	// Remote control (optional): an inbound channel (Telegram now, IMAP+DKIM later) that
+	// runs VETTED read-only commands, plus a startup notification. Fail-closed and
+	// disabled unless configured.
+	if bundle.Config.RemoteControl.Enabled {
+		notifier := notify.New(bundle.Config.Monitoring.Alerting, bundle.Secrets)
+		commands := map[string]func(string) string{
+			"ping":     func(string) string { return "pong" },
+			"version":  func(string) string { return "Xal-Tor-Ka " + version.Version },
+			"status":   func(string) string { return remoteStatus(checker, srvHandlers.Resolver.Backends()) },
+			"backends": func(string) string { return remoteBackends(checker) },
+		}
+		remote.New(bundle.Config.RemoteControl, bundle.Secrets.Telegram.BotToken, commands, slog.Default()).Start(ctx)
+		notifier.Send("Xal-Tor-Ka", "gateway started · "+version.Version)
+	}
+
 	// Renew ACME certs approaching expiry (self-signed ones are left as-is).
 	go certMgr.StartRenewal(ctx, func() []string {
 		var hs []string
@@ -235,6 +252,34 @@ func run() error {
 	}
 	slog.Info("server stopped")
 	return nil
+}
+
+// remoteStatus is the read-only "status" remote command: version + up/down backend count.
+func remoteStatus(c *health.Checker, backends []models.Backend) string {
+	up, down := 0, 0
+	for _, s := range c.Snapshot() {
+		switch s.State {
+		case health.StateUp:
+			up++
+		case health.StateDown, health.StateUnreachable:
+			down++
+		}
+	}
+	return fmt.Sprintf("Xal-Tor-Ka %s\nbackends: %d configured · %d up · %d down",
+		version.Version, len(backends), up, down)
+}
+
+// remoteBackends is the read-only "backends" remote command: per-backend health.
+func remoteBackends(c *health.Checker) string {
+	snap := c.Snapshot()
+	if len(snap) == 0 {
+		return "no monitored backends"
+	}
+	var b strings.Builder
+	for _, s := range snap {
+		fmt.Fprintf(&b, "%s (%s): %s\n", s.BackendID, s.Host, s.State)
+	}
+	return strings.TrimRight(b.String(), "\n")
 }
 
 // runCert issues, renews or lists TLS certificates from the CLI: ACME/Let's

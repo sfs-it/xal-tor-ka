@@ -4,16 +4,11 @@
 package health
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
-	"net/http"
-	"net/smtp"
-	"net/url"
-	"strings"
-	"time"
 
 	"xaltorka/models"
+	"xaltorka/notify"
 )
 
 // NewAlerter builds the alerter from the monitoring config + secrets. It always
@@ -62,22 +57,7 @@ type telegramAlerter struct {
 }
 
 func (t *telegramAlerter) Notify(cur Status, prev State) {
-	api := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", t.token)
-	form := url.Values{"chat_id": {t.chatID}, "text": {message(cur, prev)}}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, api, strings.NewReader(form.Encode()))
-	if err != nil {
-		slog.Error("telegram alert build failed", "err", err)
-		return
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		slog.Error("telegram alert send failed", "err", err)
-		return
-	}
-	resp.Body.Close()
+	notify.SendTelegram(t.token, t.chatID, message(cur, prev))
 }
 
 type emailAlerter struct {
@@ -86,21 +66,5 @@ type emailAlerter struct {
 }
 
 func (e *emailAlerter) Notify(cur Status, prev State) {
-	host := e.cfg.SMTPHost
-	addr := host
-	if !strings.Contains(host, ":") {
-		addr = host + ":587"
-		host = strings.Split(host, ":")[0]
-	} else {
-		host = strings.Split(host, ":")[0]
-	}
-	var authMech smtp.Auth
-	if e.sec.Username != "" {
-		authMech = smtp.PlainAuth("", e.sec.Username, e.sec.Password, host)
-	}
-	body := fmt.Sprintf("Subject: Xal-Tor-Ka alert\r\nFrom: %s\r\nTo: %s\r\n\r\n%s\r\n",
-		e.cfg.From, strings.Join(e.cfg.To, ", "), message(cur, prev))
-	if err := smtp.SendMail(addr, authMech, e.cfg.From, e.cfg.To, []byte(body)); err != nil {
-		slog.Error("email alert send failed", "err", err)
-	}
+	notify.SendEmail(e.cfg, e.sec, "Xal-Tor-Ka alert", message(cur, prev))
 }

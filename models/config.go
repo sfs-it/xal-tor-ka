@@ -22,7 +22,10 @@ type Config struct {
 	SecretsFile  string        `json:"secrets_file"`
 	ServicesFile string        `json:"services_file"`
 	Monitoring   MonitoringCfg `json:"monitoring"`
-	Backends     []Backend     `json:"backends"`
+	// RemoteControl (optional) enables receiving vetted commands + sending notifications
+	// over Telegram/email. Disabled by default; fail-closed.
+	RemoteControl RemoteControlCfg `json:"remote_control,omitempty"`
+	Backends      []Backend        `json:"backends"`
 }
 
 // ServerCfg holds the HTTP listen address and proxy trust settings.
@@ -94,6 +97,37 @@ type EmailCfg struct {
 	SMTPHost string   `json:"smtp_host"`
 	From     string   `json:"from"`
 	To       []string `json:"to"`
+}
+
+// RemoteControlCfg configures inbound remote control (receive vetted commands + send
+// notifications) over Telegram and email. Disabled by default; every channel is
+// fail-closed — only allow-listed senders, only a vetted command allow-list.
+type RemoteControlCfg struct {
+	Enabled       bool          `json:"enabled"`
+	AllowCommands []string      `json:"allow_commands,omitempty"` // vetted command names; empty = built-in read-only set
+	Telegram      TelegramInCfg `json:"telegram"`
+	Email         EmailInCfg    `json:"email"`
+}
+
+// TelegramInCfg receives commands via the Telegram bot (token reused from Secrets).
+// Only the listed chat IDs may issue commands.
+type TelegramInCfg struct {
+	Enabled      bool     `json:"enabled"`
+	AllowChatIDs []string `json:"allow_chat_ids,omitempty"`
+	PollSeconds  int      `json:"poll_seconds,omitempty"` // getUpdates interval (default 5s)
+}
+
+// EmailInCfg receives commands from a dedicated IMAP spool folder. Messages must be
+// DKIM-valid and from an allow-listed sender/domain (password in Secrets.IMAP).
+type EmailInCfg struct {
+	Enabled     bool     `json:"enabled"`
+	IMAPHost    string   `json:"imap_host,omitempty"`
+	IMAPPort    int      `json:"imap_port,omitempty"`
+	User        string   `json:"user,omitempty"`
+	Folder      string   `json:"folder,omitempty"`       // spool folder; empty = INBOX
+	RequireDKIM bool     `json:"require_dkim,omitempty"` // verify the DKIM signature (recommended)
+	AllowFrom   []string `json:"allow_from,omitempty"`   // allowed senders/domains (DKIM-verified)
+	PollSeconds int      `json:"poll_seconds,omitempty"` // fetch interval (default 30s)
 }
 
 // Backend is a service behind the reverse proxy, with per-path rules. Name/URL
@@ -209,6 +243,12 @@ type Secrets struct {
 	Telegram          TelegramSecret            `json:"telegram"`
 	SMTP              SMTPSecret                `json:"smtp"`
 	ACME              ACMESecret                `json:"acme"`
+	IMAP              IMAPSecret                `json:"imap"`
+}
+
+// IMAPSecret holds the IMAP password for the remote-control email channel.
+type IMAPSecret struct {
+	Password string `json:"password"`
 }
 
 // ProviderSecret is the OIDC client secret of a provider, keyed by provider id.

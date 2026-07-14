@@ -12,8 +12,10 @@ package main
 import (
 	"context"
 	crand "crypto/rand"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -22,6 +24,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -45,16 +48,23 @@ func randToken(prefix string) string {
 // upstream. Emitted nested inside each site by site_list.
 type vhost struct {
 	Vhost      string `json:"vhost"`
+	Domain     string `json:"domain"` // public domain (display + publish); empty = show the vhost slug
 	Template   string `json:"template"`
 	PhpVersion string `json:"php_version"`
 	Db         string `json:"db"`
 	AutoUpdate bool   `json:"auto_update"`
 	Running    int    `json:"running"`
 	Upstream   string `json:"upstream"` // http://<alias>:8080
+	Published  string `json:"-"`        // ext-computed: up | down | none (gateway backend state)
+	SSL        string `json:"-"`        // ext-computed: up | down | none (TLS cert state)
+	PubHost    string `json:"-"`        // the backend's public host (for the SSL link + cert lookup)
+	PubRule    string `json:"-"`        // current backend rule (to pre-fill the Publish dialog)
+	PubWWW     bool   `json:"-"`        // current backend www flag (pre-checks the www box)
 }
 
 type site struct {
 	Name       string  `json:"name"`
+	Domain     string  `json:"domain"` // primary domain (= httpdocs vhost's); empty = show the slug
 	UID        int     `json:"uid"`
 	Running    int     `json:"running"`     // total across vhosts
 	Template   string  `json:"template"`    // flat = httpdocs (backward-compat)
@@ -63,6 +73,9 @@ type site struct {
 	AutoUpdate bool    `json:"auto_update"` // flat = httpdocs
 	Legacy     bool    `json:"legacy"`      // true = single-docker, not yet migrated
 	Vhosts     []vhost `json:"vhosts"`
+	Published  string  `json:"-"` // ext-computed: state of the httpdocs vhost's backend
+	SSL        string  `json:"-"` // ext-computed: TLS cert state of the httpdocs vhost
+	PubHost    string  `json:"-"` // the httpdocs vhost's published host
 }
 
 type hostingUser struct {
@@ -107,10 +120,88 @@ type adminerSession struct {
 }
 
 type server struct {
-	socket  string
-	log     *slog.Logger
-	mu      sync.Mutex
-	adminer map[string]*adminerSession // token → session
+	socket       string
+	servicesPath string // read-only path to the core's services.json (backend state)
+	certsPath    string // read-only path to the certs dir (SSL button state)
+	log          *slog.Logger
+	mu           sync.Mutex
+	adminer      map[string]*adminerSession // token → session
+}
+
+// bkInfo is what the Hosts tab needs about a gateway backend: its state, the public
+// host it serves (for the cert + SSL link), and its current rule/www (to pre-fill the
+// Publish dialog so re-publishing preserves them).
+type bkInfo struct {
+	State, Host, Rule string
+	WWW               bool
+}
+
+// backendStates reads the core's services.json (mounted read-only) and returns a map
+// upstream -> bkInfo for every backend route. A vhost is matched by its upstream
+// (http://<alias>:8080), so this works for backends published from Hosting AND legacy
+// backends published before the Hosting marker existed. Degrades to an empty map if the
+// file is absent/unreadable.
+func (s *server) backendStates() map[string]bkInfo {
+	out := map[string]bkInfo{}
+	if s.servicesPath == "" {
+		return out
+	}
+	data, err := os.ReadFile(s.servicesPath)
+	if err != nil {
+		return out
+	}
+	var f struct {
+		Backends []struct {
+			Disabled bool   `json:"disabled"`
+			Host     string `json:"host"`
+			WWW      bool   `json:"www"`
+			Routes   []struct {
+				Upstream string `json:"upstream"`
+				Rule     string `json:"rule"`
+			} `json:"routes"`
+		} `json:"backends"`
+	}
+	if json.Unmarshal(data, &f) != nil {
+		return out
+	}
+	for _, b := range f.Backends {
+		st := "up"
+		if b.Disabled {
+			st = "down"
+		}
+		for _, rt := range b.Routes {
+			if rt.Upstream != "" {
+				out[rt.Upstream] = bkInfo{State: st, Host: b.Host, Rule: rt.Rule, WWW: b.WWW}
+			}
+		}
+	}
+	return out
+}
+
+// certState reports the TLS certificate state for host: "up" (a valid cert exists),
+// "down" (a cert exists but has expired), "none" (no cert / not published). Reads only
+// the world-readable <host>.crt from the certs mount; the 0600 private keys stay
+// unreadable to this non-root container. Degrades to "none" if unreadable.
+func (s *server) certState(host string) string {
+	if host == "" || s.certsPath == "" {
+		return "none"
+	}
+	data, err := os.ReadFile(filepath.Join(s.certsPath, host+".crt"))
+	if err != nil {
+		return "none"
+	}
+	blk, _ := pem.Decode(data)
+	if blk == nil {
+		return "none"
+	}
+	c, err := x509.ParseCertificate(blk.Bytes)
+	if err != nil {
+		return "none"
+	}
+	if time.Now().Before(c.NotAfter) {
+		return "up"
+	}
+	return "down"
 }
 
 // callAgent runs one vetted command over the unix socket (one request per connection).
@@ -216,6 +307,25 @@ func (s *server) listSites(ctx context.Context) ([]site, error) {
 		return nil, err
 	}
 	sort.Slice(sites, func(i, j int) bool { return sites[i].Name < sites[j].Name })
+	states := s.backendStates()
+	for i := range sites {
+		sites[i].Published, sites[i].SSL = "none", "none"
+		for j := range sites[i].Vhosts {
+			v := &sites[i].Vhosts[j]
+			info := states[v.Upstream]
+			v.Published = info.State
+			if v.Published == "" {
+				v.Published = "none"
+			}
+			v.PubHost = info.Host
+			v.PubRule = info.Rule
+			v.PubWWW = info.WWW
+			v.SSL = s.certState(info.Host)
+			if v.Vhost == "httpdocs" {
+				sites[i].Published, sites[i].SSL, sites[i].PubHost = v.Published, v.SSL, info.Host
+			}
+		}
+	}
 	return sites, nil
 }
 
@@ -226,11 +336,13 @@ var indexTmpl = xtkui.LocParse("hosting", subtabsSrc+`<h1>Hosts</h1>
 {{range .Sites}}{{$site := .}}
   <details class="hostcard"{{if gt .Running 0}} open{{end}}>
     <summary>
-      <span class="hc-name">{{.Name}}</span>
+      <span class="hc-name">{{if .Domain}}{{.Domain}}{{else}}{{.Name}}{{end}}</span>
       <span class="hc-stack">{{if .Template}}{{.Template}}{{if .PhpVersion}} · {{.PhpVersion}}{{end}}{{else}}—{{end}}</span>
       <span class="hc-owner"><code>site-{{.Name}}</code> · uid {{.UID}}</span>
       <span class="hc-badges">{{if gt .Running 0}}<span class="tag ext">running · {{.Running}}</span>{{else}}<span class="tag ro">stopped</span>{{end}}{{if .Legacy}} <span class="tag ro">legacy</span>{{end}}</span>
       <span class="hc-sumact">
+        <button class="btn sm st-{{if .Published}}{{.Published}}{{else}}none{{end}}" type="button" onclick="event.stopPropagation();document.getElementById('pub-{{.Name}}-httpdocs').showModal()" title="gateway backend: {{if eq .Published "up"}}published (active){{else if eq .Published "down"}}disabled{{else}}not published{{end}}">Publish</button>
+        <a class="btn sm st-{{if .SSL}}{{.SSL}}{{else}}none{{end}}" href="/admin/tls{{if .Domain}}?site={{.Name}}{{end}}" onclick="event.stopPropagation()" title="TLS certificate: {{if eq .SSL "up"}}valid{{else if eq .SSL "down"}}expired{{else}}none{{end}} — for {{if .Domain}}{{.Domain}}{{else}}{{.Name}}{{end}} and its vhosts">SSL</a>
         <button class="btn sm" type="submit" form="su-{{.Name}}" onclick="event.stopPropagation()">Start all</button>
         <button class="btn sm" type="submit" form="sd-{{.Name}}" onclick="event.stopPropagation()">Stop all</button>
         <button class="btn danger sm" type="submit" form="sx-{{.Name}}" onclick="event.stopPropagation()">Destroy</button>
@@ -250,52 +362,55 @@ var indexTmpl = xtkui.LocParse("hosting", subtabsSrc+`<h1>Hosts</h1>
       {{range .Vhosts}}
         <div class="vhost">
           <div class="vh-head">
-            <b>{{.Vhost}}</b>
+            <b>{{if .Domain}}{{.Domain}}{{else}}{{.Vhost}}{{end}}</b>{{if .Domain}} <span class="hint">{{.Vhost}}</span>{{end}}
             <code>{{.Template}}{{if .PhpVersion}} · {{.PhpVersion}}{{end}}</code>
             {{if gt .Running 0}}<span class="tag ext">running · {{.Running}}</span>{{else}}<span class="tag ro">stopped</span>{{end}}
-            {{if .AutoUpdate}}<span class="tag" title="follows template updates">auto-update</span>{{end}}
+            <span class="vh-act-h">
+              <button class="btn sm st-{{if .Published}}{{.Published}}{{else}}none{{end}}" type="button" onclick="document.getElementById('pub-{{$site.Name}}-{{.Vhost}}').showModal()" title="gateway backend: {{if eq .Published "up"}}published (active){{else if eq .Published "down"}}disabled{{else}}not published{{end}}">Publish</button>
+              <a class="btn sm st-{{if .SSL}}{{.SSL}}{{else}}none{{end}}" href="/admin/tls{{if .PubHost}}#h-{{.PubHost}}{{end}}" title="TLS certificate: {{if eq .SSL "up"}}valid{{else if eq .SSL "down"}}expired{{else}}none{{end}}">SSL</a>
+              <form class="inline" method="post" action="/admin/hosting/vhost/up"><input type="hidden" name="name" value="{{$site.Name}}"><input type="hidden" name="vhost" value="{{.Vhost}}"><button class="btn sm">Start</button></form>
+              <form class="inline" method="post" action="/admin/hosting/vhost/down"><input type="hidden" name="name" value="{{$site.Name}}"><input type="hidden" name="vhost" value="{{.Vhost}}"><button class="btn sm">Stop</button></form>
+              <form class="inline" method="post" action="/admin/hosting/vhost/destroy" onsubmit="return confirm('Destroy vhost {{.Vhost}}?')"><input type="hidden" name="name" value="{{$site.Name}}"><input type="hidden" name="vhost" value="{{.Vhost}}"><button class="btn danger sm"{{if eq .Vhost "httpdocs"}} disabled title="the first vhost can't be destroyed — use Destroy site"{{end}}>Destroy</button></form>
+            </span>
           </div>
           <div class="vh-info">
             <span>upstream <code>{{.Upstream}}</code></span>
             <span>DB {{if .Db}}<code>{{.Db}}</code> · <a href="/admin/hosting/dbinfo?name={{$site.Name}}&amp;vhost={{.Vhost}}">connection →</a>{{else}}<span class="hint">none</span>{{end}}</span>
             <span>logs <code>logs/{{.Vhost}}/</code></span>
+            <span class="vh-act-i">
+              <a class="btn sm" href="/admin/hosting/edit?name={{$site.Name}}{{if not $site.Legacy}}&amp;vhost={{.Vhost}}{{end}}">Compose</a>
+              <form class="inline" method="post" action="/admin/hosting/vhost/autoupdate"><input type="hidden" name="name" value="{{$site.Name}}"><input type="hidden" name="vhost" value="{{.Vhost}}"><input type="hidden" name="enabled" value="{{if .AutoUpdate}}false{{else}}true{{end}}"><button class="btn sm">{{if .AutoUpdate}}Auto-update off{{else}}Auto-update on{{end}}</button></form>
+              <a class="btn sm" href="/admin/hosting/nginx?name={{$site.Name}}{{if not $site.Legacy}}&amp;vhost={{.Vhost}}{{end}}">Nginx</a>
+            </span>
           </div>
-          <div class="vh-act">
-            <a class="btn sm" href="/admin/hosting/edit?name={{$site.Name}}{{if not $site.Legacy}}&amp;vhost={{.Vhost}}{{end}}">Compose</a>
-            <a class="btn sm" href="/admin/hosting/nginx?name={{$site.Name}}{{if not $site.Legacy}}&amp;vhost={{.Vhost}}{{end}}">Nginx</a>
-            <button class="btn sm" type="button" onclick="this.nextElementSibling.showModal()">Publish</button>
-            <dialog class="dlg">
-              <form method="dialog" class="dlg-x"><button class="btn sm" aria-label="Close">✕</button></form>
-              <h3>Publish {{$site.Name}}/{{.Vhost}}</h3>
-              <div class="meta">Upstream <code>{{.Upstream}}</code> <span class="hint">(managed by hosting — fixed)</span></div>
-              <form method="post" action="/admin/backend/add">
-                <input type="hidden" name="id" value="{{if eq .Vhost "httpdocs"}}{{$site.Name}}{{else}}{{$site.Name}}-{{.Vhost}}{{end}}">
-                <input type="hidden" name="name" value="{{$site.Name}}/{{.Vhost}} (hosting)">
-                <input type="hidden" name="upstream" value="{{.Upstream}}">
-                <input type="hidden" name="path" value="/">
-                <input type="hidden" name="hosting_site" value="{{$site.Name}}">
-                <input type="hidden" name="hosting_vhost" value="{{.Vhost}}">
-                <div class="formgrid">
-                  <div><label>Public host</label><input name="host" placeholder="mysite.example.com" required autofocus></div>
-                  <div><label>Rule</label><select name="rule"><option>public</option><option>authenticated</option><option>whitelist</option></select></div>
-                  <div><label class="hint" style="display:inline-flex;align-items:center;gap:.4rem"><input type="checkbox" name="www" value="1"> also www.host</label></div>
-                  <div><button class="btn primary">Publish backend</button></div>
-                </div>
-              </form>
-              <p class="hint">Creates a gateway backend. Then set the host's DNS and issue TLS in Services.</p>
-            </dialog>
-            <form class="inline" method="post" action="/admin/hosting/vhost/up"><input type="hidden" name="name" value="{{$site.Name}}"><input type="hidden" name="vhost" value="{{.Vhost}}"><button class="btn sm">Start</button></form>
-            <form class="inline" method="post" action="/admin/hosting/vhost/down"><input type="hidden" name="name" value="{{$site.Name}}"><input type="hidden" name="vhost" value="{{.Vhost}}"><button class="btn sm">Stop</button></form>
-            <form class="inline" method="post" action="/admin/hosting/vhost/autoupdate"><input type="hidden" name="name" value="{{$site.Name}}"><input type="hidden" name="vhost" value="{{.Vhost}}"><input type="hidden" name="enabled" value="{{if .AutoUpdate}}false{{else}}true{{end}}"><button class="btn sm">{{if .AutoUpdate}}Auto-update off{{else}}Auto-update on{{end}}</button></form>
-            {{if and (not $site.Legacy) (ne .Vhost "httpdocs")}}<form class="inline" method="post" action="/admin/hosting/vhost/destroy" onsubmit="return confirm('Destroy vhost {{.Vhost}}?')"><input type="hidden" name="name" value="{{$site.Name}}"><input type="hidden" name="vhost" value="{{.Vhost}}"><button class="btn danger sm">Destroy</button></form>{{end}}
-          </div>
+          <dialog class="dlg" id="pub-{{$site.Name}}-{{.Vhost}}">
+            <form method="dialog" class="dlg-x"><button class="btn sm" aria-label="Close">✕</button></form>
+            <h3>Publish {{if .Domain}}{{.Domain}}{{else if .PubHost}}{{.PubHost}}{{else}}{{$site.Name}}/{{.Vhost}}{{end}}</h3>
+            <div class="meta">Upstream <code>{{.Upstream}}</code> <span class="hint">(managed by hosting — fixed)</span></div>
+            <form method="post" action="/admin/backend/add">
+              <input type="hidden" name="id" value="{{if eq .Vhost "httpdocs"}}{{$site.Name}}{{else}}{{$site.Name}}-{{.Vhost}}{{end}}">
+              <input type="hidden" name="name" value="{{$site.Name}}/{{.Vhost}} (hosting)">
+              <input type="hidden" name="upstream" value="{{.Upstream}}">
+              <input type="hidden" name="path" value="/">
+              <input type="hidden" name="hosting_site" value="{{$site.Name}}">
+              <input type="hidden" name="hosting_vhost" value="{{.Vhost}}">
+              <div class="formgrid">
+                <div><label>Public host (this vhost's domain)</label><input name="host" value="{{if .Domain}}{{.Domain}}{{else}}{{.PubHost}}{{end}}" placeholder="mysite.example.com" required autofocus></div>
+                <div><label>Rule</label><select name="rule"><option{{if eq .PubRule "public"}} selected{{end}}>public</option><option{{if eq .PubRule "authenticated"}} selected{{end}}>authenticated</option><option{{if eq .PubRule "whitelist"}} selected{{end}}>whitelist</option></select></div>
+                <div><label class="hint" style="display:inline-flex;align-items:center;gap:.4rem"><input type="checkbox" name="www" value="1"{{if .PubWWW}} checked{{end}}> also serve &amp; cert <b>www.</b></label></div>
+                <div><button class="btn primary">Publish backend</button></div>
+              </div>
+            </form>
+            <p class="hint">Creates the gateway backend for this vhost's domain (plus <code>www.</code> if ticked — that's where www is managed). Then issue the certificate with the <b>SSL</b> button.</p>
+          </dialog>
         </div>
       {{end}}
       </div>
       {{if not .Legacy}}
       <form class="hc-addvhost" method="post" action="/admin/hosting/vhost/create">
         <input type="hidden" name="name" value="{{.Name}}">
-        <input name="vhost" placeholder="new vhost (e.g. app)" pattern="[a-z][a-z0-9-]{1,30}" required>
+        <input name="vhost" placeholder="name (e.g. app)" pattern="[a-z][a-z0-9-]{1,30}" required>
+        <input name="domain" placeholder="domain (optional)" pattern="[a-z0-9]([a-z0-9.-]*[a-z0-9])?">
         <select name="stack">
           <option value="php-fpm:8.3">PHP-FPM 8.3</option>
           <option value="php-fpm:8.2">PHP-FPM 8.2</option>
@@ -308,7 +423,7 @@ var indexTmpl = xtkui.LocParse("hosting", subtabsSrc+`<h1>Hosts</h1>
       </form>
       {{end}}
       <div class="hc-foot">
-        <span>Owner <a href="/admin/hosting/users#u-{{.Name}}"><code>site-{{.Name}}</code></a> · <a href="/admin/hosting/users/keys?name={{.Name}}">SSH keys</a></span>
+        <span>Owner <a href="/admin/hosting/users?open={{.Name}}"><code>site-{{.Name}}</code></a> · <a href="/admin/hosting/users/keys?name={{.Name}}">SSH keys</a></span>
       </div>
     </div>
   </details>
@@ -320,7 +435,7 @@ var indexTmpl = xtkui.LocParse("hosting", subtabsSrc+`<h1>Hosts</h1>
   <div class="card addcard" style="margin-top:1rem">
     <h3>New site</h3>
     <form method="post" action="/admin/hosting/create"><div class="formgrid">
-      <div><label>Name</label><input name="name" placeholder="a-z0-9-" pattern="[a-z][a-z0-9-]{1,30}" required></div>
+      <div><label>Domain</label><input name="domain" placeholder="example.com" pattern="[a-z0-9]([a-z0-9.-]*[a-z0-9])?" required></div>
       <div style="grid-column:span 2"><label>Stack</label><select name="stack">
         <option value="php-fpm:8.3">NGINX + PHP-FPM 8.3</option>
         <option value="php-fpm:8.3:mysql">NGINX + PHP-FPM 8.3 + MySQL (shared)</option>
@@ -335,9 +450,9 @@ var indexTmpl = xtkui.LocParse("hosting", subtabsSrc+`<h1>Hosts</h1>
       </select></div>
       <div><button class="btn primary">Create &amp; start</button></div>
     </div></form>
-    <p class="hint">Provisions an isolated site (own OS user in <code>docker-hosting</code>), starts it on the
-    <code>xtk-hosting</code> network, reachable at <code>&lt;name&gt;.site:8080</code>. Add a backend in
-    Services to publish it.</p>
+    <p class="hint">Enter the site's <b>domain</b> — the internal names (OS user, docker, DB) are derived from it
+    automatically. Provisions an isolated site (own OS user in <code>docker-hosting</code>) on the
+    <code>xtk-hosting</code> network, started and ready to publish.</p>
   </div>
 </section>`)
 
@@ -380,8 +495,8 @@ SCP/SFTP, chrooted to the site dir — upload into <code>httpdocs/</code>.</p>
         <td><code>{{.User}}</code></td><td><code>{{.UID}}</code></td>
         <td>{{if eq .Scp "on"}}<span class="tag ext">enabled</span>{{else if eq .Scp "off"}}<span class="tag ro">disabled</span>{{else}}<span class="hint">no password</span>{{end}}</td>
         <td class="rowact">
-          <button class="btn sm" type="button" onclick="this.nextElementSibling.showModal()">Edit</button>
-          <dialog class="dlg">
+          <button class="btn sm" type="button" onclick="document.getElementById('ud-{{.Site}}').showModal()">Edit</button>
+          <dialog class="dlg" id="ud-{{.Site}}">
             <form method="dialog" class="dlg-x"><button class="btn sm" aria-label="Close">✕</button></form>
             <h3>{{.User}}</h3>
             <div class="meta">Site: <code>{{.Site}}</code>{{if .Orphan}} <span class="tag ro">orphan</span>{{end}} · uid <code>{{.UID}}</code></div>
@@ -405,7 +520,8 @@ SCP/SFTP, chrooted to the site dir — upload into <code>httpdocs/</code>.</p>
     {{end}}
     </tbody>
   </table>
-</section>`)
+</section>
+<script>(function(){var o=new URLSearchParams(location.search).get("open");if(!o)return;var d=document.getElementById("ud-"+o);if(d&&d.showModal)d.showModal();})();</script>`)
 
 func (s *server) handleUsers(w http.ResponseWriter, r *http.Request) {
 	var users []hostingUser
@@ -618,8 +734,45 @@ func kvFields(s string) map[string]string {
 	return m
 }
 
+// slugify derives an internal, dot-free site slug from a public domain: strip a
+// leading "www.", collapse any run of non-[a-z0-9] to a single dash, trim dashes,
+// ensure it starts with a letter and fits the site-name pattern [a-z][a-z0-9-]{1,30}.
+func slugify(domain string) string {
+	s := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(domain)), "www.")
+	var b strings.Builder
+	dash := false
+	for _, c := range s {
+		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
+			b.WriteRune(c)
+			dash = false
+		} else if !dash && b.Len() > 0 {
+			b.WriteByte('-')
+			dash = true
+		}
+	}
+	slug := strings.Trim(b.String(), "-")
+	if len(slug) > 30 {
+		slug = strings.Trim(slug[:30], "-")
+	}
+	if slug != "" && (slug[0] < 'a' || slug[0] > 'z') {
+		slug = "s" + slug
+		if len(slug) > 31 {
+			slug = slug[:31]
+		}
+	}
+	return slug
+}
+
 func (s *server) handleCreate(w http.ResponseWriter, r *http.Request) {
-	name := r.FormValue("name")
+	domain := strings.ToLower(strings.TrimSpace(r.FormValue("domain")))
+	name := r.FormValue("name") // optional explicit slug; otherwise derived from the domain
+	if name == "" {
+		name = slugify(domain)
+	}
+	if name == "" {
+		redirectMsg(w, r, "/admin/hosting", "", "create: a domain is required")
+		return
+	}
 	// "stack" encodes template[:php_version[:db]] — e.g. "php-fpm:8.2:mysql". Colons
 	// only (never '+', which form-encoding turns into a space).
 	parts := strings.Split(r.FormValue("stack"), ":")
@@ -634,6 +787,9 @@ func (s *server) handleCreate(w http.ResponseWriter, r *http.Request) {
 		tmpl = "php-fpm"
 	}
 	params := map[string]string{"name": name, "template": tmpl}
+	if domain != "" {
+		params["domain"] = domain
+	}
 	if pv != "" {
 		params["php_version"] = pv
 	}
@@ -941,6 +1097,7 @@ func (s *server) vhostAction(cmd, okMsg string) http.HandlerFunc {
 
 func (s *server) handleVhostCreate(w http.ResponseWriter, r *http.Request) {
 	name, vh := r.FormValue("name"), r.FormValue("vhost")
+	domain := strings.ToLower(strings.TrimSpace(r.FormValue("domain")))
 	parts := strings.Split(r.FormValue("stack"), ":")
 	tmpl, pv := parts[0], ""
 	if len(parts) > 1 {
@@ -950,6 +1107,9 @@ func (s *server) handleVhostCreate(w http.ResponseWriter, r *http.Request) {
 		tmpl = "php-fpm"
 	}
 	params := map[string]string{"name": name, "vhost": vh, "template": tmpl}
+	if domain != "" {
+		params["domain"] = domain
+	}
 	if pv != "" {
 		params["php_version"] = pv
 	}
@@ -1065,10 +1225,12 @@ func (s *server) handleNginxSave(w http.ResponseWriter, r *http.Request) {
 func main() {
 	socket := flag.String("socket", "/run/xtk-agent/agent.sock", "path to the xtk-agent unix socket (in a bind-mounted dir)")
 	listen := flag.String("listen", ":8090", "internal HTTP listen address")
+	services := flag.String("services", "/etc/xaltorka/services.json", "read-only path to the core's services.json (backend state)")
+	certs := flag.String("certs", "/etc/xaltorka/certs", "read-only path to the certs dir (SSL button state)")
 	flag.Parse()
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	s := &server{socket: *socket, log: log, adminer: map[string]*adminerSession{}}
+	s := &server{socket: *socket, servicesPath: *services, certsPath: *certs, log: log, adminer: map[string]*adminerSession{}}
 	// clean up any Adminer containers orphaned by a previous run, then reap idle ones.
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

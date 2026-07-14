@@ -12,10 +12,11 @@ source "$(dirname "$0")/_vhost_lib.sh"
 # top_* live in the calling loop. <vdir> holds .xtk-stack, db.env and docker-compose.yml
 # (the vhost config dir for the new layout, or the site root for a legacy site).
 add_vhost() {
-  local vhost="$1" vdir="$2" tmpl="" pv="" au=false db="" proj al running
+  local vhost="$1" vdir="$2" tmpl="" pv="" au=false db="" dom="" proj al running
   if [ -f "$vdir/.xtk-stack" ]; then
     tmpl="$(sed -n 's/^template=//p' "$vdir/.xtk-stack")"
     pv="$(sed -n 's/^php_version=//p' "$vdir/.xtk-stack")"
+    dom="$(sed -n 's/^domain=//p' "$vdir/.xtk-stack")"
     [ "$(sed -n 's/^auto_update=//p' "$vdir/.xtk-stack")" = true ] && au=true
   fi
   [ "$tmpl" = php-fpm ] || pv=""   # php_version is meaningful only for php-fpm (fixes stale "static · 8.3")
@@ -25,10 +26,10 @@ add_vhost() {
   proj="$(vhost_project "$name" "$vhost")"; al="$(vhost_alias "$name" "$vhost")"
   running="$( { docker compose --project-directory "$XTK_SITES/$name" -f "$vdir/docker-compose.yml" -p "$proj" ps -q 2>/dev/null || true; } | wc -l | tr -d ' ')"
   [ "$vfirst" -eq 1 ] || vhosts+=','; vfirst=0
-  vhosts+="$(printf '{"vhost":"%s","template":"%s","php_version":"%s","db":"%s","auto_update":%s,"running":%s,"upstream":"http://%s:8080"}' \
-    "$vhost" "$tmpl" "$pv" "$db" "$au" "$running" "$al")"
+  vhosts+="$(printf '{"vhost":"%s","domain":"%s","template":"%s","php_version":"%s","db":"%s","auto_update":%s,"running":%s,"upstream":"http://%s:8080"}' \
+    "$vhost" "$dom" "$tmpl" "$pv" "$db" "$au" "$running" "$al")"
   total=$((total + running))
-  if [ "$vhost" = httpdocs ]; then top_tmpl="$tmpl"; top_pv="$pv"; top_db="$db"; top_au="$au"; fi
+  if [ "$vhost" = httpdocs ]; then top_tmpl="$tmpl"; top_pv="$pv"; top_db="$db"; top_au="$au"; top_dom="$dom"; fi
 }
 
 first=1; printf '['
@@ -37,7 +38,7 @@ if [ -d "$XTK_SITES" ]; then
     name="$(basename "$d")"
     [[ "$name" =~ ^[a-z][a-z0-9-]{1,30}$ ]] || continue
     uid="$(id -u "site-$name" 2>/dev/null || stat -c '%u' "$d")"
-    vhosts=""; total=0; vfirst=1; top_tmpl=""; top_pv=""; top_db=""; top_au=false; legacy=true
+    vhosts=""; total=0; vfirst=1; top_tmpl=""; top_pv=""; top_db=""; top_au=false; top_dom=""; legacy=true
     if [ -d "$d/.vhosts" ]; then
       legacy=false
       for vd in "$d"/.vhosts/*/; do
@@ -50,8 +51,8 @@ if [ -d "$XTK_SITES" ]; then
       continue
     fi
     [ $first -eq 1 ] || printf ','; first=0
-    printf '{"name":"%s","uid":%s,"running":%s,"template":"%s","php_version":"%s","db":"%s","auto_update":%s,"legacy":%s,"vhosts":[%s]}' \
-      "$name" "$uid" "$total" "$top_tmpl" "$top_pv" "$top_db" "$top_au" "$legacy" "$vhosts"
+    printf '{"name":"%s","uid":%s,"domain":"%s","running":%s,"template":"%s","php_version":"%s","db":"%s","auto_update":%s,"legacy":%s,"vhosts":[%s]}' \
+      "$name" "$uid" "$top_dom" "$total" "$top_tmpl" "$top_pv" "$top_db" "$top_au" "$legacy" "$vhosts"
   done
 fi
 printf ']\n'

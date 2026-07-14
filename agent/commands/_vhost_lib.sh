@@ -28,7 +28,7 @@ vhost_alias()   { if [ "$2" = httpdocs ]; then echo "$1.site"; else echo "$1-$2.
 # site dir, renders the template, and sets ownership. Echoes the gateway alias on
 # success (its only stdout). Returns 2 (bad template) / 3 (vhost exists) on error.
 render_vhost() {
-  local name="$1" vhost="$2" tmpl="$3" pv="$4" uid="$5" gid="$6"
+  local name="$1" vhost="$2" tmpl="$3" pv="$4" uid="$5" gid="$6" domain="${7:-}"
   local dir="$XTK_SITES/$name" src="$XTK_TEMPLATES/$tmpl"
   local vdir="$dir/.vhosts/$vhost" docroot="$dir/$vhost" logs="$dir/logs/$vhost"
   local al; al="$(vhost_alias "$name" "$vhost")"
@@ -53,9 +53,9 @@ render_vhost() {
   # record the stack so the UI can show it and auto-update can tell pristine from edited.
   # php_version is meaningful only for php-fpm (empty otherwise).
   if [ "$tmpl" = php-fpm ]; then
-    printf 'template=%s\nphp_version=%s\nauto_update=false\n' "$tmpl" "$pv" > "$vdir/.xtk-stack"
+    printf 'template=%s\nphp_version=%s\nauto_update=false\ndomain=%s\n' "$tmpl" "$pv" "$domain" > "$vdir/.xtk-stack"
   else
-    printf 'template=%s\nphp_version=\nauto_update=false\n' "$tmpl" > "$vdir/.xtk-stack"
+    printf 'template=%s\nphp_version=\nauto_update=false\ndomain=%s\n' "$tmpl" "$domain" > "$vdir/.xtk-stack"
   fi
 
   # ownership: config stays root-owned (mounted read-only); only the docroot and the

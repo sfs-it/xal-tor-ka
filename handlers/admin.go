@@ -70,17 +70,16 @@ var overviewTmpl = xtkui.LocParse("ov", `<h1>{{T "admin.title"}}</h1>
 var servicesTmpl = xtkui.LocParse("services", `<section>
  <h2>{{T "admin.svc.h2"}}</h2>
  <p class="hint">{{T "admin.svc.hint"}}</p>
- <table><thead><tr><th>{{T "admin.col.service"}}</th><th>{{T "admin.col.host"}}</th><th>{{T "admin.col.rule"}}</th><th>{{T "admin.col.upstream"}}</th><th>{{T "admin.col.ipallow"}}</th><th></th></tr></thead><tbody>
+ <table><thead><tr><th>{{T "admin.col.service"}}</th><th>{{T "admin.col.host"}} / {{T "admin.col.upstream"}}</th><th>{{T "admin.col.rule"}}</th><th>{{T "admin.col.ipallow"}}</th><th></th></tr></thead><tbody>
  {{range .ConfigBackends}}<tr><td>{{.ID}} <span class="tag ro">config</span></td>
-   <td><a href="//{{.Host}}" target="_blank" rel="noopener"><code>{{.Host}}</code></a></td>
+   <td><a href="//{{.Host}}" target="_blank" rel="noopener"><code>{{.Host}}</code></a>{{range .Routes}}<div class="hint"><code>{{.Upstream}}</code></div>{{end}}</td>
    <td>{{range .Routes}}<span class="tag">{{.Rule}}</span> {{end}}</td>
-   <td>{{range .Routes}}<code>{{.Upstream}}</code><br>{{end}}</td><td></td><td class="rowact"><a class="btn sm" href="/admin/tls#h-{{.Host}}">{{T "admin.tls.manage"}}</a></td></tr>{{end}}
+   <td></td><td class="rowact"><a class="btn sm" href="/admin/tls#h-{{.Host}}">{{T "admin.tls.manage"}}</a></td></tr>{{end}}
  {{range .ServiceBackends}}<tr{{if .Disabled}} class="off"{{end}}>
    <td><b>{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</b>{{if .Disabled}} <span class="tag ro">off</span>{{end}}{{if .Description}}<div class="hint">{{.Description}}</div>{{end}}</td>
-   <td><a href="//{{.Host}}" target="_blank" rel="noopener"><code>{{.Host}}</code></a></td>
+   <td><a href="//{{.Host}}" target="_blank" rel="noopener"><code>{{.Host}}</code></a>{{range .Routes}}<div class="hint"><code>{{.Upstream}}</code></div>{{end}}</td>
    <td>{{range .Routes}}<span class="tag">{{.Rule}}</span> {{end}}</td>
-   <td>{{range .Routes}}<code>{{.Upstream}}</code><br>{{end}}</td>
-   <td>{{if .IPAllow}}🔒 {{range .IPAllow}}<code>{{.}}</code> {{end}}{{end}}</td>
+   <td>{{if .IPAllow}}🔒 <code>{{index .IPAllow 0}}</code>{{if gt (len .IPAllow) 1}} <span class="hint" title="{{len .IPAllow}} IP">…</span>{{end}}{{end}}</td>
    <td class="rowact">
     <a class="btn sm" href="/admin/backend/edit?id={{.ID}}">{{T "admin.act.edit"}}</a>
     <a class="btn sm" href="/admin/tls#h-{{.Host}}">{{T "admin.tls.manage"}}</a>
@@ -103,6 +102,16 @@ var servicesTmpl = xtkui.LocParse("services", `<section>
    <div><button class="btn primary">{{T "btn.add"}}</button></div>
   </div><p class="hint">{{T "admin.rule.help"}}</p></form></div>
 </section>
+{{if not .HostingEnabled}}
+<section>
+ <div class="card addcard" style="border-color:var(--accent)">
+  <h3>{{T "admin.hosting_off.title"}}</h3>
+  <p class="hint">{{T "admin.hosting_off.body"}}</p>
+  <pre style="background:var(--accent-weak);padding:.5rem .7rem;border-radius:.5rem;overflow-x:auto;margin:.5rem 0"><code>sudo deploy/agent/install.sh --dev</code></pre>
+  <p class="hint"><code>deploy/agent/install.sh --help</code> · <code>make hosting-install</code></p>
+ </div>
+</section>
+{{end}}
 <section>
  <h2>{{T "admin.links.h2"}}</h2><p class="hint">{{T "admin.links.hint"}}</p>
  <table><thead><tr><th>{{T "admin.col.name"}}</th><th>{{T "admin.col.url"}}</th><th>{{T "admin.col.visibility"}}</th><th></th></tr></thead><tbody>
@@ -322,7 +331,8 @@ func (s *Server) handleAdminServices(w http.ResponseWriter, r *http.Request) {
 		ConfigBackends  []models.Backend
 		ServiceBackends []models.Backend
 		Links           []models.Link
-	}{s.BaseBackends, svc.Backends, svc.Links})
+		HostingEnabled  bool
+	}{s.BaseBackends, svc.Backends, svc.Links, s.HostingUpstream != ""})
 }
 
 func (s *Server) handleAdminDocker(w http.ResponseWriter, r *http.Request) {

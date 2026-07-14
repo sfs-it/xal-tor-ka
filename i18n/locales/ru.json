@@ -118,6 +118,8 @@
   "admin.monitoring": "Мониторинг",
   "admin.tls": "TLS",
   "admin.hosting": "Хостинг",
+  "admin.hosting_off.title": "Модуль хостинга не активирован",
+  "admin.hosting_off.body": "Модуль хостинга управляет привилегированным агентом хоста (пользователи ОС, docker, vhost). Чтобы включить, выполните на хосте (не отсюда):",
   "admin.tls.h2": "Сертификаты",
   "admin.tls.manage": "Управление SSL",
   "admin.nginx.h": "Настройки NGINX",

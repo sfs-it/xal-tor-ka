@@ -118,6 +118,8 @@
   "admin.monitoring": "Monitorización",
   "admin.tls": "TLS",
   "admin.hosting": "Hosting",
+  "admin.hosting_off.title": "Módulo de hosting no activado",
+  "admin.hosting_off.body": "El módulo de hosting controla un agente de host privilegiado (usuarios del SO, dockers, vhosts). Para activarlo, ejecútalo en el host (no desde aquí):",
   "admin.tls.h2": "Certificados",
   "admin.tls.manage": "Gestionar SSL",
   "admin.nginx.h": "Configuración NGINX",

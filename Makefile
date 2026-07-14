@@ -54,6 +54,9 @@ logs: ## Segue i log dello stack
 rebuild: ## Ricostruisce le immagini e riavvia
 	$(COMPOSE) up -d --build --force-recreate
 
+hosting-install: ## Installa l'agente hosting privilegiato + alza il modulo (sudo, sul host). ARGS="--dev" per sandbox
+	sudo deploy/agent/install.sh --overlay $(ARGS)
+
 ps: ## Stato dei servizi
 	$(COMPOSE) ps
 

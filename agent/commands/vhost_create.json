@@ -4,6 +4,7 @@
   "params": {
     "name":        { "required": true,  "pattern": "[a-z][a-z0-9-]{1,30}" },
     "vhost":       { "required": true,  "pattern": "[a-z][a-z0-9-]{1,30}" },
+    "domain":      { "required": false, "pattern": "[a-z0-9]([a-z0-9.-]*[a-z0-9])?" },
     "template":    { "required": false, "enum": ["php-fpm", "static", "custom"] },
     "php_version": { "required": false, "enum": ["8.3", "8.2", "8.1", "7.4"] }
   }

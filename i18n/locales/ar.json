@@ -118,6 +118,8 @@
   "admin.monitoring": "المراقبة",
   "admin.tls": "TLS",
   "admin.hosting": "الاستضافة",
+  "admin.hosting_off.title": "وحدة الاستضافة غير مُفعَّلة",
+  "admin.hosting_off.body": "تُشغّل وحدة الاستضافة وكيل مضيف مُمتاز (مستخدمو النظام، docker، vhosts). لتفعيلها، شغّل هذا على المضيف (وليس من هنا):",
   "admin.tls.h2": "الشهادات",
   "admin.tls.manage": "إدارة SSL",
   "admin.nginx.h": "إعدادات NGINX",

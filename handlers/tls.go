@@ -7,6 +7,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"xaltorka/certmgr"
@@ -28,6 +29,48 @@ func (s *Server) servedHosts() []string {
 		out = append(out, b.Host)
 	}
 	return out
+}
+
+// servedHostsForSite returns the served hosts of the backends managed by the hosting
+// site `site` (its domain + child vhosts) — used to scope the TLS page from Hosting.
+func (s *Server) servedHostsForSite(site string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, b := range s.Resolver.Backends() {
+		if b.Host == "" || seen[b.Host] || !backendBelongsToSite(b, site) {
+			continue
+		}
+		seen[b.Host] = true
+		out = append(out, b.Host)
+	}
+	return out
+}
+
+// backendBelongsToSite reports whether a gateway backend is served by hosting site
+// `site`. Marked backends carry the Hosting reference; legacy ones (published before
+// the marker existed) are matched by their upstream alias (<site>.site or
+// <site>-<vhost>.site) — so the TLS filter finds them too.
+func backendBelongsToSite(b models.Backend, site string) bool {
+	if b.Hosting != nil {
+		return b.Hosting.Site == site
+	}
+	for _, rt := range b.Routes {
+		h := upstreamHost(rt.Upstream)
+		if h == site+".site" || (strings.HasPrefix(h, site+"-") && strings.HasSuffix(h, ".site")) {
+			return true
+		}
+	}
+	return false
+}
+
+// upstreamHost extracts the host from an upstream URL like http://alias.site:8080.
+func upstreamHost(u string) string {
+	u = strings.TrimPrefix(u, "http://")
+	u = strings.TrimPrefix(u, "https://")
+	if i := strings.IndexAny(u, ":/"); i >= 0 {
+		u = u[:i]
+	}
+	return u
 }
 
 type tlsRow struct {
@@ -66,6 +109,7 @@ type tlsPageData struct {
 	Rows        []tlsRow
 	CAAvailable bool
 	Email       string
+	Site        string // when set, the list is scoped to a hosting site (domain + vhosts)
 	HasMsg      bool
 	Msg         string // i18n key suffix under admin.tls.*
 	MsgOK       bool
@@ -74,6 +118,7 @@ type tlsPageData struct {
 var tlsTmpl = xtkui.LocParse("tls", `<section>
  <h2>{{T "admin.tls.h2"}}</h2>
  <p class="hint">{{T "admin.tls.hint"}}</p>
+ {{if .Site}}<p class="hint">🏠 {{T "admin.tls.site_scope"}} <b>{{.Site}}</b>. <a href="/admin/tls">{{T "admin.tls.show_all"}} →</a></p>{{end}}
  {{if .HasMsg}}<div class="{{if .MsgOK}}ok{{else}}err{{end}}">{{T (print "admin.tls." .Msg)}}</div>{{end}}
  <table><thead><tr><th>{{T "admin.col.host"}}</th><th>{{T "admin.tls.col.source"}}</th><th>{{T "admin.tls.col.expiry"}}</th><th>{{T "admin.tls.col.status"}}</th><th></th></tr></thead><tbody>
  {{range .Rows}}<tr id="h-{{.Host}}">
@@ -109,8 +154,12 @@ func (s *Server) handleAdminTLS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := tlsPageData{}
+	hosts := s.servedHosts()
+	if site := r.URL.Query().Get("site"); site != "" {
+		hosts, data.Site = s.servedHostsForSite(site), site
+	}
 	if s.CertMgr != nil {
-		for _, in := range s.CertMgr.List(s.servedHosts()) {
+		for _, in := range s.CertMgr.List(hosts) {
 			row := tlsRow{Host: in.Host, Source: in.Source, Valid: in.Valid, Has: in.Source != certmgr.SourceNone, WWW: s.hostWWW(in.Host)}
 			if row.Has {
 				row.Expiry = in.NotAfter.Format("2006-01-02")

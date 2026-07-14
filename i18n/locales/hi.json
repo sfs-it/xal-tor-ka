@@ -118,6 +118,8 @@
   "admin.monitoring": "निगरानी",
   "admin.tls": "TLS",
   "admin.hosting": "होस्टिंग",
+  "admin.hosting_off.title": "होस्टिंग मॉड्यूल सक्रिय नहीं",
+  "admin.hosting_off.body": "होस्टिंग मॉड्यूल एक विशेषाधिकार-प्राप्त होस्ट एजेंट चलाता है (OS उपयोगकर्ता, docker, vhost)। सक्षम करने के लिए इसे होस्ट पर चलाएँ (यहाँ से नहीं):",
   "admin.tls.h2": "प्रमाणपत्र",
   "admin.tls.manage": "SSL प्रबंधन",
   "admin.nginx.h": "NGINX सेटिंग्स",

@@ -46,6 +46,17 @@
 ## Da fare
 
 * [ ] **2026-06-23 —** Alerting: verificare invio reale Telegram/email con credenziali (codice pronto, non testato)
+* [~] **2026-07-14 —** Remote control / notifiche remote (log-system + comandi)
+  - [x] **A** — pkg `notify` (send Telegram/email estratto e riusato da health), config
+    `RemoteControlCfg`+`Secrets.IMAP` (schema config → rebuild; retro-compatibile, disabilitato
+    di default), notifier + notifica di avvio. build/vet/test verdi.
+  - [x] **B** — pkg `remote`: receiver **Telegram** (getUpdates) fail-closed (solo `allow_chat_ids`,
+    solo comandi vettati, audit), comandi **read-only**: `ping/version/status/backends/help`.
+  - [ ] **C** — receiver **email**: IMAP spool folder + **DKIM** validato (dep `emersion/go-imap`
+    + `go-msgauth`), `allow_from`.
+  - [ ] **D** — comandi **mutanti** (restart/disable/renew, gated) + UI di configurazione.
+  - Attivazione: in `config.json` `remote_control{enabled, telegram{enabled, allow_chat_ids[]}}` +
+    bot token in secrets (riusa quello alerting), poi `make rebuild`.
 * [ ] **2026-06-29 —** OIDC: provare con credenziali **reali** Google/Microsoft (l'exchange/verifica id_token è già coperto da test mock-IdP; manca la prova live)
 * [ ] **2026-06-30 —** Portabilità: **field-test deploy host/LXD** (systemd + `nginx -s reload` + `PROXY_RESOLVER`/`PROXY_UPSTREAM`) — scaffolding pronto, non provato su macchina reale
 

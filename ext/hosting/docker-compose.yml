@@ -30,6 +30,14 @@ services:
       # bind-mount the DIR (not the socket file): survives agent restarts that
       # recreate the socket inode (a file mount would go stale → connection refused).
       - /run/xtk-agent:/run/xtk-agent
+      # read-only view of the core's services.json, so the Hosts tab can colour each
+      # vhost's Publish state (published+enabled / disabled / not published). The UI
+      # only reads backend id/disabled/host/routes — it never writes here.
+      - ./services.json:/etc/xaltorka/services.json:ro
+      # read-only view of the certs dir, to colour the SSL button (valid / expired /
+      # none). Only the world-readable <host>.crt are read; the 0600 private keys stay
+      # unreadable to this container's non-root user.
+      - ./certs:/etc/xaltorka/certs:ro
     networks:
       - internal
       - xtk-hosting # reach ephemeral Adminer containers by their alias

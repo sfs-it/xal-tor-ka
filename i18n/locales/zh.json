@@ -118,6 +118,8 @@
   "admin.monitoring": "监控",
   "admin.tls": "TLS",
   "admin.hosting": "托管",
+  "admin.hosting_off.title": "托管模块未启用",
+  "admin.hosting_off.body": "托管模块通过特权主机代理运行（创建系统用户、docker、vhost）。要启用，请在主机上运行（不要从这里）：",
   "admin.tls.h2": "证书",
   "admin.tls.manage": "管理 SSL",
   "admin.nginx.h": "NGINX 设置",

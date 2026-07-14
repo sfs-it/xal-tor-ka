@@ -118,6 +118,8 @@
   "admin.monitoring": "Überwachung",
   "admin.tls": "TLS",
   "admin.hosting": "Hosting",
+  "admin.hosting_off.title": "Hosting-Modul nicht aktiviert",
+  "admin.hosting_off.body": "Das Hosting-Modul steuert einen privilegierten Host-Agenten (OS-Benutzer, Docker, vhosts). Zum Aktivieren auf dem Host ausführen (nicht von hier):",
   "admin.tls.h2": "Zertifikate",
   "admin.tls.manage": "SSL verwalten",
   "admin.nginx.h": "NGINX-Einstellungen",

@@ -169,11 +169,15 @@ func (c Chrome) Topbar(lang string) string {
 	}
 	var b strings.Builder
 	b.WriteString(`<header class="topbar"><div class="brand"><a href="` + template.HTMLEscapeString(c.BrandHref) + `" style="color:inherit;text-decoration:none">` + template.HTMLEscapeString(c.BrandText) + `</a>`)
-	if c.SubtitleKey != "" {
-		b.WriteString(`<span class="sub">` + template.HTMLEscapeString(i18n.T(lang, c.SubtitleKey)) + `</span>`)
-	}
-	if c.Version != "" {
-		b.WriteString(`<span class="ver">` + template.HTMLEscapeString(c.Version) + `</span>`)
+	if c.SubtitleKey != "" || c.Version != "" {
+		b.WriteString(`<span class="subver">`)
+		if c.SubtitleKey != "" {
+			b.WriteString(`<span class="sub">` + template.HTMLEscapeString(i18n.T(lang, c.SubtitleKey)) + `</span>`)
+		}
+		if c.Version != "" {
+			b.WriteString(`<span class="ver">` + template.HTMLEscapeString(c.Version) + `</span>`)
+		}
+		b.WriteString(`</span>`)
 	}
 	b.WriteString(`</div><nav class="topnav">`)
 	b.WriteString(nav.String())
