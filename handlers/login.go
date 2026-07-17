@@ -6,6 +6,7 @@ package handlers
 import (
 	"errors"
 	"html/template"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"time"
@@ -86,6 +87,11 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 			renderHTML(w, loginTmpl, s.loginData(r, next, "err.internal"), http.StatusInternalServerError)
 			return
 		}
+		// Local rejected → try the enabled LDAP/AD providers (bind). LDAP is
+		// single-factor, so a successful bind completes the session immediately.
+		if s.ldapLogin(w, r, email, password, next) {
+			return
+		}
 		s.auditFail(r, "login", "email="+email)
 		renderHTML(w, loginTmpl, s.loginData(r, next, "err.bad_credentials"), http.StatusUnauthorized)
 		return
@@ -104,6 +110,32 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/login/totp?next="+url.QueryEscape(next), http.StatusSeeOther)
+}
+
+// ldapLogin tries the enabled LDAP/AD providers with the given credentials. On
+// the first successful bind it creates a *completed* (single-factor) session —
+// LDAP users have no local TOTP secret — sets the cookie, redirects, and returns
+// true. Returns false if no provider authenticates the user; an unreachable or
+// misconfigured server is logged and treated as a non-match (fail-closed).
+func (s *Server) ldapLogin(w http.ResponseWriter, r *http.Request, email, password, next string) bool {
+	for _, lp := range s.LDAP {
+		if _, err := lp.Authenticate(email, password); err != nil {
+			if !errors.Is(err, providers.ErrInvalidCredentials) {
+				slog.Warn("ldap login: provider unreachable/misconfigured", "id", lp.ID(), "err", err)
+			}
+			continue
+		}
+		sess, err := s.Sessions.Create(email, lp.ID())
+		if err != nil {
+			renderHTML(w, loginTmpl, s.loginData(r, next, "err.internal"), http.StatusInternalServerError)
+			return true
+		}
+		s.setSession(w, sess.ID)
+		s.Sessions.Complete2FA(sess.ID) // a successful bind is the single factor
+		http.Redirect(w, r, next, http.StatusSeeOther)
+		return true
+	}
+	return false
 }
 
 func (s *Server) handleTOTPForm(w http.ResponseWriter, r *http.Request) {

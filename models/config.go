@@ -67,11 +67,18 @@ type AdminCfg struct {
 // ProviderCfg declares an authentication provider (secret lives in Secrets).
 type ProviderCfg struct {
 	ID       string `json:"id"`
-	Type     string `json:"type"`           // oidc|local
+	Type     string `json:"type"`           // oidc|local|ldap
 	Name     string `json:"name,omitempty"` // login button label (default: id)
 	Enabled  bool   `json:"enabled"`
 	Issuer   string `json:"issuer,omitempty"`
 	ClientID string `json:"client_id,omitempty"`
+	// LDAP (type "ldap"): bind-based auth against a directory / Active Directory.
+	// See docs/next-gen-auth-sources.md. No secret required for direct-bind.
+	LDAPURL                string `json:"ldap_url,omitempty"`                 // ldaps://host:636 or ldap://host:389
+	LDAPBindDNTemplate     string `json:"ldap_bind_dn_template,omitempty"`    // %s = username, e.g. "%s@corp.example.com"
+	LDAPBaseDN             string `json:"ldap_base_dn,omitempty"`             // optional (future: search / group mapping)
+	LDAPStartTLS           bool   `json:"ldap_start_tls,omitempty"`           // upgrade a plain :389 connection to TLS
+	LDAPInsecureSkipVerify bool   `json:"ldap_insecure_skip_verify,omitempty"` // skip cert verification — labs only
 }
 
 // MonitoringCfg groups the monitoring/alerting configuration.

@@ -41,6 +41,21 @@ func BuildOIDC(provs []models.ProviderCfg, sec models.Secrets, externalURL strin
 	return out
 }
 
+// BuildLDAP constructs the enabled LDAP providers from a provider set. LDAP is
+// credential-based (bind), tried by the login handler after Local. Incomplete
+// providers (no url / bind template) are skipped — fail-closed.
+func BuildLDAP(provs []models.ProviderCfg) []*providers.LDAP {
+	var out []*providers.LDAP
+	for _, p := range provs {
+		if p.Type != "ldap" || !p.Enabled || p.LDAPURL == "" || p.LDAPBindDNTemplate == "" {
+			continue
+		}
+		out = append(out, providers.NewLDAP(p.ID, p.LDAPURL, p.LDAPBindDNTemplate, p.LDAPStartTLS, p.LDAPInsecureSkipVerify))
+		slog.Info("ldap provider enabled", "id", p.ID, "url", p.LDAPURL, "start_tls", p.LDAPStartTLS)
+	}
+	return out
+}
+
 // mergeProviders overlays the runtime (services.json) providers on top of the base
 // (config.json) ones, matched by id: a runtime entry with an existing id replaces
 // the base one, a new id is appended.

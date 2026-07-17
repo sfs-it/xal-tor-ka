@@ -38,6 +38,8 @@ type Server struct {
 	Sessions auth.SessionStore
 	Resolver *matrix.Resolver
 	Local    *providers.Local
+	// LDAP holds the enabled LDAP/AD providers, tried at login after Local (may be empty).
+	LDAP []*providers.LDAP
 	// OIDC holds the enabled OpenID Connect providers, keyed by id (may be empty).
 	OIDC    map[string]*providers.OIDC
 	Proxy   *proxy.Manager   // generates the NGINX backends config (may be nil)
@@ -354,7 +356,7 @@ var listingTmpl = template.Must(template.New("listing").Funcs(xtkui.TmplFuncs).P
  <div class="grid">
  {{range .Tiles}}<a class="card" href="{{.URL}}"{{if .External}} target="_blank" rel="noopener"{{end}}>
    <div class="row"><h3>{{.Name}}</h3><span class="tag {{if .External}}ext{{end}}">{{if .External}}{{T $.Lang "tag.external"}}{{else}}{{T $.Lang "tag.proxy"}}{{end}}</span></div>
-   {{if .Description}}<div class="meta">{{.Description}}</div>{{end}}</a>
+   {{if .Description}}<div class="meta">{{.Description}}</div>{{else if .Host}}<div class="meta"><code>{{.Host}}</code></div>{{end}}</a>
  {{else}}<p class="empty">{{T .Lang "listing.empty"}}</p>{{end}}
  </div>
 </main></body></html>`))
@@ -363,6 +365,7 @@ type tile struct {
 	Name        string
 	URL         string
 	Description string
+	Host        string
 	External    bool
 }
 
@@ -398,7 +401,7 @@ func (s *Server) tilesFor(u models.User) []tile {
 		if url == "" {
 			url = "//" + be.Host
 		}
-		ts = append(ts, tile{Name: name, URL: url, External: false})
+		ts = append(ts, tile{Name: name, URL: url, Host: be.Host, External: false})
 	}
 	for _, l := range s.currentLinks() {
 		if l.Disabled {

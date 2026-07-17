@@ -131,6 +131,7 @@ func run() error {
 		Sessions:          store,
 		Resolver:          matrix.NewResolver(&bundle.Config),
 		Local:             providers.NewLocal(dir),
+		LDAP:              handlers.BuildLDAP(bundle.Config.Providers),
 		OIDC:              handlers.BuildOIDC(bundle.Config.Providers, bundle.Secrets, bundle.Config.Server.ExternalURL),
 		UpstreamLocalhost: upstreamLocal,
 		UsersPath:         resolvePath(*configDir, bundle.Config.UsersFile, "users.json"),
