@@ -1,0 +1,7 @@
+{
+  "description": "Apply upgrades for the named OS packages only (upgrade-only, no new installs, no reboot). Param: packages = space-separated package names.",
+  "timeout_seconds": 600,
+  "params": {
+    "packages": { "required": true, "pattern": "[a-z0-9][a-z0-9+.-]+( [a-z0-9][a-z0-9+.-]+)*" }
+  }
+}

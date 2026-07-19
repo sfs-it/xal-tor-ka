@@ -115,14 +115,22 @@ func writeServer(b *strings.Builder, g GenConfig, be models.Backend) {
 	// the backend's domain → reliable host-only cookie (no cross-subdomain SSO,
 	// which is unreliable on *.localhost). In production, for SSO, use a real
 	// parent domain + session.cookie_domain.
-	for _, p := range []string{"/login", "/auth/", "/logout", "/listing", "/assets/"} {
-		fmt.Fprintf(b, "    location %s {\n", p)
-		fmt.Fprintf(b, "        proxy_pass http://%s;\n", g.Upstream)
-		b.WriteString("        proxy_set_header Host $host;\n")
-		b.WriteString("        proxy_set_header X-Real-IP $remote_addr;\n")
-		b.WriteString("        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n")
-		b.WriteString("        proxy_set_header X-Forwarded-Proto $scheme;\n")
-		b.WriteString("    }\n\n")
+	//
+	// These reserved paths are served by the gate ONLY when this backend actually uses
+	// the gate's auth UI (it has a non-public route). A FULLY-PUBLIC backend is pure
+	// pass-through: it owns ALL its paths — including /assets/ — so a site whose asset
+	// dir collides with the gate's (e.g. a Vite/PWA build) works without a manual
+	// stopgap. (Without this, a public site's /assets/ was routed to the gate → 404.)
+	if backendUsesAuth(be) {
+		for _, p := range []string{"/login", "/auth/", "/logout", "/listing", "/assets/"} {
+			fmt.Fprintf(b, "    location %s {\n", p)
+			fmt.Fprintf(b, "        proxy_pass http://%s;\n", g.Upstream)
+			b.WriteString("        proxy_set_header Host $host;\n")
+			b.WriteString("        proxy_set_header X-Real-IP $remote_addr;\n")
+			b.WriteString("        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n")
+			b.WriteString("        proxy_set_header X-Forwarded-Proto $scheme;\n")
+			b.WriteString("    }\n\n")
+		}
 	}
 
 	for i, rt := range be.Routes {
@@ -134,6 +142,18 @@ func writeServer(b *strings.Builder, g GenConfig, be models.Backend) {
 	b.WriteString("    location @login { return 302 /login?next=$request_uri; }\n")
 	b.WriteString("    location @forbidden { return 403; }\n")
 	b.WriteString("}\n\n")
+}
+
+// backendUsesAuth reports whether any of the backend's routes require the gate's auth
+// (rule != "public"). Only then does the host need the gate's reserved paths (/login,
+// /assets/, …); a fully-public backend is pure pass-through.
+func backendUsesAuth(be models.Backend) bool {
+	for _, rt := range be.Routes {
+		if rt.Rule != "public" {
+			return true
+		}
+	}
+	return false
 }
 
 func writeLocation(b *strings.Builder, g GenConfig, rt models.Route, idx int, n models.NginxOpts) {

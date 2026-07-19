@@ -1,0 +1,7 @@
+{
+  "description": "Dry-run (simulate) a selective upgrade of the named packages: report what apt would upgrade and what it would REMOVE, without changing anything. Param: packages.",
+  "timeout_seconds": 120,
+  "params": {
+    "packages": { "required": true, "pattern": "[a-z0-9][a-z0-9+.-]+( [a-z0-9][a-z0-9+.-]+)*" }
+  }
+}

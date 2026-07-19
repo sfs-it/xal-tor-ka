@@ -25,7 +25,27 @@ type Config struct {
 	// RemoteControl (optional) enables receiving vetted commands + sending notifications
 	// over Telegram/email. Disabled by default; fail-closed.
 	RemoteControl RemoteControlCfg `json:"remote_control,omitempty"`
-	Backends      []Backend        `json:"backends"`
+	// OSUpdates (optional) enables checking/notifying (and optionally auto-applying)
+	// host OS package updates via the vetted agent. Disabled by default.
+	OSUpdates OSUpdatesCfg `json:"os_updates,omitempty"`
+	Backends  []Backend    `json:"backends"`
+}
+
+// OSUpdatesCfg configures host OS package-update checking, notification, and optional
+// automatic application (via the vetted agent's os_updates_* commands). Fail-safe:
+// the check is read-only; applying never reboots on its own.
+type OSUpdatesCfg struct {
+	// Automation level. "" or "off" = disabled; "notify" = check + notify only (no
+	// apply); "security" = auto-apply security updates; "all" = auto-apply everything.
+	Automation string `json:"automation,omitempty"`
+	// Notify: send a notification when updates are found.
+	Notify bool `json:"notify,omitempty"`
+	// NotifyOn: "any" (any available update) or "security" (only when security updates exist).
+	NotifyOn string `json:"notify_on,omitempty"`
+	// Channels selects notification channels ("telegram", "email"); empty = all configured.
+	Channels []string `json:"channels,omitempty"`
+	// PollHours is the check interval in hours (default 24).
+	PollHours int `json:"poll_hours,omitempty"`
 }
 
 // ServerCfg holds the HTTP listen address and proxy trust settings.

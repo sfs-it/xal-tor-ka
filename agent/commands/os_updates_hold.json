@@ -1,0 +1,8 @@
+{
+  "description": "Hold (no-update) or release OS packages via apt-mark. Params: action (hold|unhold), packages (space-separated names).",
+  "timeout_seconds": 60,
+  "params": {
+    "action":   { "required": true, "enum": ["hold", "unhold"] },
+    "packages": { "required": true, "pattern": "[a-z0-9][a-z0-9+.-]+( [a-z0-9][a-z0-9+.-]+)*" }
+  }
+}

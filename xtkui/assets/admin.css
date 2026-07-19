@@ -274,3 +274,10 @@ dialog.dlg code,dialog.dlg input,dialog.dlg select{max-width:100%}
 @media(max-width:640px){.hc-badges{margin-inline-start:0}.hostcard>summary{gap:.5rem}}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* TLS: sottodomini annidati come sotto-righe sotto il dominio padre */
+tr.tls-sub td:first-child{padding-inline-start:1.6rem}
+.tls-branch{color:var(--muted)}
+
+/* Bottoni disabilitati: aspetto spento (delete su host senza cert, Destroy del primo vhost, ecc.) */
+.btn:disabled,.btn[disabled]{opacity:.45;cursor:not-allowed}

@@ -64,7 +64,11 @@ install -d /usr/local/lib/xtk-agent
 cp -a "$REPO/agent/commands"  /usr/local/lib/xtk-agent/
 cp -a "$REPO/agent/templates" /usr/local/lib/xtk-agent/
 chown -R root:root /usr/local/lib/xtk-agent          # GUARDRAIL: l'agente rifiuta script non-root
-chmod +x /usr/local/lib/xtk-agent/commands/*.sh
+# GUARDRAIL: modo ESATTO 0755, non `chmod +x`. L'agente rifiuta anche gli script
+# group/other-writable (fail-closed anti-manomissione): un sorgente 664 + `chmod +x`
+# diventa 775 → rifiutato → i comandi (es. site_list) falliscono in silenzio e il
+# pannello hosting mostra "No sites". Regressione pagata in prod il 2026-07-17.
+chmod 0755 /usr/local/lib/xtk-agent/commands/*.sh
 cmds=(/usr/local/lib/xtk-agent/commands/*.sh)
 echo "  ${#cmds[@]} comandi · templates: $(printf '%s ' /usr/local/lib/xtk-agent/templates/*/ | xargs -n1 basename 2>/dev/null | tr '\n' ' ')"
 
@@ -83,13 +87,21 @@ ls -l /run/xtk-agent/agent.sock 2>&1 || { echo "  socket non pronto → journalc
 if [ "$OVERLAY" = 1 ]; then
   log "6/6 modulo hosting (rete + overlay compose)"
   docker network inspect xtk-hosting >/dev/null 2>&1 || docker network create xtk-hosting
-  ( cd "$REPO" && XTK_AGENT_GID="$GID" docker compose -f docker-compose.yml -f ext/hosting/docker-compose.yml up -d --build )
-  echo "  UI hosting su · il core espone /admin/hosting e mostra la voce di menù Hosting"
+  # Rende l'overlay STICKY: persiste COMPOSE_FILE nel .env così OGNI futuro
+  # `docker compose up`/`restart`/`make up` include il modulo hosting. Senza,
+  # un `up` "nudo" ricrea il core senza HOSTING_UPSTREAM → /admin/hosting cade in
+  # 404 (regressione SILENZIOSA, già pagata in produzione il 2026-07-17).
+  env_file="$REPO/.env"; touch "$env_file"
+  grep -q '^COMPOSE_FILE=' "$env_file" \
+    || printf 'COMPOSE_FILE=docker-compose.yml:ext/hosting/docker-compose.yml\n' >> "$env_file"
+  ( cd "$REPO" && XTK_AGENT_GID="$GID" docker compose up -d --build )   # usa COMPOSE_FILE dal .env
+  echo "  UI hosting su · COMPOSE_FILE persistito nel .env → /admin/hosting resta registrato ad ogni restart"
 else
   log "6/6 modulo hosting: SALTATO (--overlay per alzarlo)"
   echo "  poi, dal repo:"
   echo "    docker network create xtk-hosting"
-  echo "    XTK_AGENT_GID=$GID docker compose -f docker-compose.yml -f ext/hosting/docker-compose.yml up -d --build"
+  echo "    printf 'COMPOSE_FILE=docker-compose.yml:ext/hosting/docker-compose.yml\\n' >> .env   # rende l'overlay sticky"
+  echo "    XTK_AGENT_GID=$GID docker compose up -d --build"
 fi
 
 log "FATTO"

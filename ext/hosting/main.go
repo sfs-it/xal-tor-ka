@@ -292,6 +292,7 @@ const subtabsSrc = `<nav class="subtabs">
 <a href="/admin/hosting/users"{{if eq .Tab "users"}} class="active"{{end}}>Users</a>
 <a href="/admin/hosting/mysql"{{if eq .Tab "mysql"}} class="active"{{end}}>MySQL</a>
 <a href="/admin/hosting/pgsql"{{if eq .Tab "pgsql"}} class="active"{{end}}>PgSQL</a>
+<a href="/admin/hosting/system"{{if eq .Tab "system"}} class="active"{{end}}>System</a>
 </nav>
 `
 
@@ -540,6 +541,210 @@ func (s *server) handleUsers(w http.ResponseWriter, r *http.Request) {
 		data.Error = err.Error()
 	}
 	s.chrome("Users").Render(w, xtkui.LangFromRequest(r), usersTmpl, data)
+}
+
+// ---------------------------------------------------------------- System (OS updates) tab
+
+type osUpdate struct {
+	Name      string `json:"name"`
+	Current   string `json:"current"`
+	Candidate string `json:"candidate"`
+	Security  bool   `json:"security"`
+	Held      bool   `json:"held"`
+}
+
+type osUpdatesResult struct {
+	Total          int        `json:"total"`
+	Security       int        `json:"security"`
+	Held           int        `json:"held"`
+	RebootRequired bool       `json:"reboot_required"`
+	Packages       []osUpdate `json:"packages"`
+	Note           string     `json:"note,omitempty"`
+}
+
+var systemTmpl = xtkui.LocParse("hostingsystem", subtabsSrc+`<h1>System updates</h1>
+<p class="hint">Available OS package updates on the host, checked via the vetted agent — the check is <b>read-only</b> (<code>apt</code>).</p>
+{{if .Notice}}<div class="ok">{{.Notice}}</div>{{end}}
+{{if .Error}}<div class="err">{{.Error}}</div>{{end}}
+<section><div class="card">
+  <div class="row">
+    <h3>{{if .Res.Total}}{{.Res.Total}} update{{if ne .Res.Total 1}}s{{end}} available{{else}}System up to date{{end}}</h3>
+    {{if .Res.Security}}<span class="tag ro">{{.Res.Security}} security</span>{{end}}
+    {{if .Res.RebootRequired}}<span class="tag ro">reboot required</span>{{end}}
+  </div>
+  {{if .Res.Note}}<div class="meta hint">{{.Res.Note}}</div>{{else}}<div class="meta hint">Applying updates is admin-gated and never reboots on its own.</div>{{end}}
+</div></section>
+{{if .Res.Packages}}
+<section>
+  <div class="actions" style="justify-content:flex-start;margin-bottom:.7rem">
+    <button class="btn primary sm" type="button" onclick="xtkApply()">Apply selected…</button>
+    <button class="btn sm" type="button" onclick="xtkSel('all')">Select all</button>
+    <button class="btn sm" type="button" onclick="xtkSel('sec')">Select security</button>
+    <button class="btn sm" type="button" onclick="xtkSel('none')">Clear</button>
+  </div>
+  <table>
+    <thead><tr><th style="width:2.2rem"></th><th>Package</th><th>Current</th><th>Candidate</th><th></th><th></th></tr></thead>
+    <tbody>
+    {{range .Res.Packages}}
+      <tr{{if .Held}} class="off"{{end}}>
+        <td>{{if not .Held}}<input type="checkbox" name="pkg" value="{{.Name}}"{{if .Security}} data-sec="1"{{end}} aria-label="select {{.Name}}">{{end}}</td>
+        <td><code>{{.Name}}</code></td><td><code>{{.Current}}</code></td><td><code>{{.Candidate}}</code></td>
+        <td>{{if .Security}}<span class="tag ro">security</span>{{end}}{{if .Held}}<span class="tag ro">held</span>{{end}}</td>
+        <td class="rowact"><form class="inline" method="post" action="/admin/hosting/system/hold"><input type="hidden" name="pkg" value="{{.Name}}"><input type="hidden" name="action" value="{{if .Held}}unhold{{else}}hold{{end}}"><button class="btn sm" title="{{if .Held}}release the no-update hold{{else}}pin this version (no update){{end}}">{{if .Held}}Release{{else}}Hold{{end}}</button></form></td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+</section>
+<form id="applyForm" method="post" action="/admin/hosting/system/preview" style="display:none"></form>
+<script>
+function xtkSel(mode){document.querySelectorAll('input[name=pkg]').forEach(function(c){
+ if(mode==='all')c.checked=true;else if(mode==='none')c.checked=false;else if(mode==='sec')c.checked=c.dataset.sec==='1';});}
+function xtkApply(){var ch=Array.prototype.slice.call(document.querySelectorAll('input[name=pkg]:checked'));
+ if(!ch.length){alert('Select at least one package.');return;}
+ var f=document.getElementById('applyForm');f.innerHTML='';
+ ch.forEach(function(c){var i=document.createElement('input');i.type='hidden';i.name='pkg';i.value=c.value;f.appendChild(i);});
+ f.submit();}
+</script>
+{{end}}`)
+
+func (s *server) handleSystem(w http.ResponseWriter, r *http.Request) {
+	var res osUpdatesResult
+	err := s.callJSON(r.Context(), "os_updates_check", nil, &res)
+	ok, errMsg := notices(r)
+	data := struct {
+		Tab           string
+		Res           osUpdatesResult
+		Notice, Error string
+	}{Tab: "system", Res: res, Notice: ok, Error: errMsg}
+	if err != nil && data.Error == "" {
+		data.Error = err.Error()
+	}
+	s.chrome("System").Render(w, xtkui.LangFromRequest(r), systemTmpl, data)
+}
+
+// handleSystemApply upgrades the packages the admin ticked. The agent re-validates each
+// name; upgrade-only, no reboot.
+func (s *server) handleSystemApply(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		redirectMsg(w, r, "/admin/hosting/system", "", "bad form")
+		return
+	}
+	pkgs := r.PostForm["pkg"]
+	if len(pkgs) == 0 {
+		redirectMsg(w, r, "/admin/hosting/system", "", "no packages selected")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
+	defer cancel()
+	var res struct {
+		Applied        int  `json:"applied"`
+		RebootRequired bool `json:"reboot_required"`
+	}
+	if err := s.callJSON(ctx, "os_updates_apply", map[string]string{"packages": strings.Join(pkgs, " ")}, &res); err != nil {
+		redirectMsg(w, r, "/admin/hosting/system", "", "apply: "+err.Error())
+		return
+	}
+	suffix := "s"
+	if res.Applied == 1 {
+		suffix = ""
+	}
+	msg := fmt.Sprintf("Applied %d package%s.", res.Applied, suffix)
+	if res.RebootRequired {
+		msg += " A reboot is now required to finish (not done automatically)."
+	}
+	redirectMsg(w, r, "/admin/hosting/system", msg, "")
+}
+
+type previewItem struct {
+	Name  string
+	Extra bool // pulled in as a dependency, not explicitly selected
+}
+
+var systemPreviewTmpl = xtkui.LocParse("hostingsyspreview", subtabsSrc+`<h1>Confirm updates</h1>
+<p class="hint">apt's plan for the packages you selected — <b>nothing has changed yet</b>. Dependencies are resolved and ordered by apt/dpkg.</p>
+{{if .Error}}<div class="err">{{.Error}}</div>{{end}}
+<section><div class="card">
+  <div class="meta">Selected <b>{{len .Selected}}</b> · apt will upgrade/install <b>{{len .Upgrade}}</b> package{{if ne (len .Upgrade) 1}}s{{end}} (dependencies included).</div>
+  {{if .Remove}}<div class="err" style="margin:.8rem 0 0"><b>⚠ These would be REMOVED:</b> {{range .Remove}}<code>{{.}}</code> {{end}}<br><span class="hint">A removal can break something — cancel if unexpected.</span></div>{{end}}
+</div></section>
+{{if .Upgrade}}
+<section>
+  <table><thead><tr><th>Will upgrade / install</th><th></th></tr></thead><tbody>
+  {{range .Upgrade}}<tr><td><code>{{.Name}}</code></td><td>{{if .Extra}}<span class="tag ro">dependency</span>{{end}}</td></tr>{{end}}
+  </tbody></table>
+</section>
+{{else}}
+<p class="hint">Nothing to upgrade for the selection (already up to date).</p>
+{{end}}
+<div class="actions" style="justify-content:flex-start;margin-top:1rem">
+  {{if .Upgrade}}<form class="inline" method="post" action="/admin/hosting/system/apply" onsubmit="return confirm('Apply now? The host will NOT reboot on its own.')">
+    {{range .Selected}}<input type="hidden" name="pkg" value="{{.}}">{{end}}
+    <button class="btn primary">Confirm &amp; apply</button>
+  </form>{{end}}
+  <a class="btn" href="/admin/hosting/system">Cancel</a>
+</div>`)
+
+// handleSystemPreview dry-runs the selected upgrade and shows apt's plan (cascade +
+// any removals) before anything is applied.
+func (s *server) handleSystemPreview(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		redirectMsg(w, r, "/admin/hosting/system", "", "bad form")
+		return
+	}
+	selected := r.PostForm["pkg"]
+	if len(selected) == 0 {
+		redirectMsg(w, r, "/admin/hosting/system", "", "no packages selected")
+		return
+	}
+	sel := map[string]bool{}
+	for _, p := range selected {
+		sel[p] = true
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
+	defer cancel()
+	var plan struct {
+		Upgrade []string `json:"upgrade"`
+		Remove  []string `json:"remove"`
+	}
+	err := s.callJSON(ctx, "os_updates_preview", map[string]string{"packages": strings.Join(selected, " ")}, &plan)
+	var items []previewItem
+	for _, u := range plan.Upgrade {
+		items = append(items, previewItem{Name: u, Extra: !sel[u]})
+	}
+	data := struct {
+		Tab      string
+		Selected []string
+		Upgrade  []previewItem
+		Remove   []string
+		Error    string
+	}{Tab: "system", Selected: selected, Upgrade: items, Remove: plan.Remove}
+	if err != nil {
+		data.Error = err.Error()
+	}
+	s.chrome("Confirm updates").Render(w, xtkui.LangFromRequest(r), systemPreviewTmpl, data)
+}
+
+// handleSystemHold pins ("no update") or releases a package via apt-mark.
+func (s *server) handleSystemHold(w http.ResponseWriter, r *http.Request) {
+	pkg := r.PostFormValue("pkg")
+	action := r.PostFormValue("action")
+	if pkg == "" || (action != "hold" && action != "unhold") {
+		redirectMsg(w, r, "/admin/hosting/system", "", "bad hold request")
+		return
+	}
+	var res struct {
+		OK bool `json:"ok"`
+	}
+	if err := s.callJSON(r.Context(), "os_updates_hold", map[string]string{"action": action, "packages": pkg}, &res); err != nil {
+		redirectMsg(w, r, "/admin/hosting/system", "", action+": "+err.Error())
+		return
+	}
+	verb := "held (no update)"
+	if action == "unhold" {
+		verb = "released"
+	}
+	redirectMsg(w, r, "/admin/hosting/system", pkg+" "+verb+".", "")
 }
 
 // ---------------------------------------------------------------- MySQL / PgSQL tabs
@@ -1260,6 +1465,10 @@ func main() {
 	mux.HandleFunc("POST /admin/hosting/vhost/destroy", s.vhostAction("vhost_destroy", "Vhost %s destroyed."))
 	mux.HandleFunc("POST /admin/hosting/vhost/autoupdate", s.handleVhostAutoUpdate)
 	// Users
+	mux.HandleFunc("GET /admin/hosting/system", s.handleSystem)
+	mux.HandleFunc("POST /admin/hosting/system/preview", s.handleSystemPreview)
+	mux.HandleFunc("POST /admin/hosting/system/apply", s.handleSystemApply)
+	mux.HandleFunc("POST /admin/hosting/system/hold", s.handleSystemHold)
 	mux.HandleFunc("GET /admin/hosting/users", s.handleUsers)
 	mux.HandleFunc("POST /admin/hosting/users/delete", s.handleUserDelete)
 	mux.HandleFunc("POST /admin/hosting/users/sshd-install", s.handleSshdInstall)

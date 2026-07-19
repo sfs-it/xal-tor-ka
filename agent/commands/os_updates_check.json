@@ -1,0 +1,5 @@
+{
+  "description": "Refresh apt lists and report available OS updates as JSON (total, security count, reboot-required, package list). Read-only. No params.",
+  "timeout_seconds": 120,
+  "params": {}
+}
