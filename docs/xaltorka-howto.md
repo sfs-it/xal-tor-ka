@@ -165,6 +165,25 @@ IP che insistono. Difesa a strati: rate-limit in RAM nel gate + ban dell'IP.
 
 ---
 
+## Ricetta 13 — WAF (Web Application Firewall)
+Metti **ModSecurity + OWASP CRS** davanti a un servizio: blocca SQLi, XSS, path-traversal,
+scanner. Toggle **per-servizio**.
+
+1. **Administration → Services → Modifica** il servizio → sezione **WAF**.
+2. **Abilita WAF** e scegli la **modalità**: **Detection-only** (logga, per il rodaggio) o
+   **Blocking** (risponde 403). Parti sempre in Detection-only per tarare i falsi positivi.
+3. Sfoghi per-vhost quando una regola dà noie (il WAF è per natura fonte di falsi positivi):
+   - **Disabled rules**: spegni singole regole CRS per ID (es. `942100 941110`).
+   - **Bypass IPs**: IP/CIDR che saltano del tutto il WAF (partner, monitor).
+   - **Custom rules (avanzato)**: direttive ModSecurity grezze — es. disabilitare il motore su
+     un path: `SecRule REQUEST_URI "@beginsWith /api/upload" "id:9009500,phase:1,pass,nolog,ctl:ruleEngine=Off"`.
+4. Salva. La config è validata con `nginx -t` al reload (config precedente mantenuta se invalida).
+
+> Richiede l'immagine nginx con ModSecurity (deploy con `--build`). I falsi positivi si tarano in
+> Detection-only guardando gli eventi, poi si passa a Blocking.
+
+---
+
 ## Riferimento rapido
 | Voglio… | Vai a |
 |---|---|
@@ -178,6 +197,7 @@ IP che insistono. Difesa a strati: rate-limit in RAM nel gate + ban dell'IP.
 | Proteggere wp-login/una cartella | Services → Modifica → Regole per path |
 | Bloccare i brute-force | fail2ban (jail) → Hosting → System (IP bannati/Unban) |
 | Aggiornare l'OS dell'host | Hosting → System → Apply selected |
+| Firewall applicativo (SQLi/XSS) | Services → Modifica → WAF (Detection-only → Blocking) |
 
 ---
 
