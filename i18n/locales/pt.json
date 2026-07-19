@@ -125,6 +125,8 @@
   "admin.nginx.h": "Configurações NGINX",
   "admin.routes.h": "Regras por caminho",
   "admin.waf.h": "WAF (Web Application Firewall)",
+  "admin.waf.custom": "Regras personalizadas (avançado)",
+  "admin.waf.custom.help": "Diretivas ModSecurity em bruto injetadas tal e qual antes do CRS — ex. regras de desativação condicional. Validadas por nginx -t ao guardar (mantém config anterior se inválida).",
   "admin.waf.rules": "Regras desativadas",
   "admin.waf.rules.help": "IDs de regras CRS a desligar para este serviço (falsos positivos), separados por espaços — ex. 942100 941110.",
   "admin.waf.ignoreips": "IPs ignorados",

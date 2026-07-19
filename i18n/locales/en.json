@@ -125,6 +125,8 @@
   "admin.nginx.h": "NGINX settings",
   "admin.routes.h": "Per-path rules",
   "admin.waf.h": "WAF (Web Application Firewall)",
+  "admin.waf.custom": "Custom rules (advanced)",
+  "admin.waf.custom.help": "Raw ModSecurity directives injected verbatim before the CRS — e.g. conditional disable rules. Validated by nginx -t on save (previous config kept if invalid).",
   "admin.waf.rules": "Disabled rules",
   "admin.waf.rules.help": "CRS rule IDs to switch off for this service (false-positive relief), space-separated — e.g. 942100 941110.",
   "admin.waf.ignoreips": "Bypass IPs",

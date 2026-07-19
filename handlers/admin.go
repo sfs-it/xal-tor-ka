@@ -302,7 +302,9 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
      <option value="block"{{if eq .WafMode "block"}} selected{{end}}>{{T "admin.waf.block"}}</option></select></td><td class="fhelp">{{T "admin.waf.mode.help"}}</td></tr>
     <tr><th>{{T "admin.waf.rules"}}</th><td><input name="waf_disabled_rules" value="{{.WafDisabledRules}}" placeholder="942100 941110"></td><td class="fhelp">{{T "admin.waf.rules.help"}}</td></tr>
     <tr><th>{{T "admin.waf.ignoreips"}}</th><td><input name="waf_ignore_ips" value="{{.WafIgnoreIPs}}" placeholder="1.2.3.4 10.0.0.0/24"></td><td class="fhelp">{{T "admin.waf.ignoreips.help"}}</td></tr>
+    <tr><th>{{T "admin.waf.custom"}}</th><td colspan="2"><textarea name="waf_custom_rules" rows="3" placeholder='SecRule REQUEST_URI "@beginsWith /api/upload" "id:9009500,phase:1,pass,nolog,ctl:ruleEngine=Off"'>{{.WafCustomRules}}</textarea></td></tr>
    </tbody></table>
+   <p class="hint">{{T "admin.waf.custom.help"}}</p>
    <div class="actions" style="margin-top:1rem">
     <button class="btn primary">{{T "btn.save"}}</button><a class="btn" href="/admin/tls#h-{{.Host}}">{{T "admin.tls.manage"}}</a><a class="btn" href="/admin/servizi">{{T "admin.cancel"}}</a></div>
   </form>
@@ -1089,7 +1091,7 @@ func (s *Server) handleBackendEditForm(w http.ResponseWriter, r *http.Request) {
 				overrides = append(overrides, routeView{Path: cp, Exact: exact, Rule: ro.Rule})
 			}
 		}
-		wafEnabled, wafMode, wafRules, wafIgnore := false, "detect", "", ""
+		wafEnabled, wafMode, wafRules, wafIgnore, wafCustom := false, "detect", "", "", ""
 		if b.Waf != nil {
 			wafEnabled = b.Waf.Enabled
 			if b.Waf.Mode != "" {
@@ -1101,6 +1103,7 @@ func (s *Server) handleBackendEditForm(w http.ResponseWriter, r *http.Request) {
 			}
 			wafRules = strings.Join(ids, " ")
 			wafIgnore = strings.Join(b.Waf.IgnoreIPs, " ")
+			wafCustom = b.Waf.CustomRules
 		}
 		s.renderAdminPage(w, r, "servizi", adminEditTmpl, struct {
 			ID, Name, Description, Host, URL, Path, Rule, Upstream, IPAllow string
@@ -1109,12 +1112,12 @@ func (s *Server) handleBackendEditForm(w http.ResponseWriter, r *http.Request) {
 			NgxCustomLoc, NgxCustomSrv                                      string
 			Overrides                                                       []routeView
 			WafEnabled                                                      bool
-			WafMode, WafDisabledRules, WafIgnoreIPs                         string
+			WafMode, WafDisabledRules, WafIgnoreIPs, WafCustomRules         string
 		}{
 			b.ID, b.Name, b.Description, b.Host, b.URL, rt.Path, rt.Rule, rt.Upstream, strings.Join(b.IPAllow, " "),
 			b.Nginx.ProxyTimeout, b.Nginx.MaxBodyMB,
 			b.Nginx.WebSocket, b.Nginx.NoBuffering, b.Nginx.BackendSelfSigned, b.WWW, b.Hosting != nil,
-			b.Nginx.CustomLocation, b.Nginx.CustomServer, overrides, wafEnabled, wafMode, wafRules, wafIgnore,
+			b.Nginx.CustomLocation, b.Nginx.CustomServer, overrides, wafEnabled, wafMode, wafRules, wafIgnore, wafCustom,
 		})
 		return
 	}
@@ -1206,6 +1209,7 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 				for _, ip := range strings.Fields(r.PostFormValue("waf_ignore_ips")) {
 					wc.IgnoreIPs = append(wc.IgnoreIPs, strings.TrimRight(ip, ","))
 				}
+				wc.CustomRules = strings.TrimSpace(r.PostFormValue("waf_custom_rules"))
 				b.Waf = wc
 			} else {
 				b.Waf = nil

@@ -103,6 +103,15 @@ func writeServer(b *strings.Builder, g GenConfig, be models.Backend) {
 				"        SecRule REMOTE_ADDR \"@ipMatch %s\" \"id:9009001,phase:1,pass,nolog,ctl:ruleEngine=Off\"\n"+
 				"    ';\n", strings.Join(be.Waf.IgnoreIPs, ","))
 		}
+		// Raw per-vhost ModSecurity directives (advanced escape hatch): conditional
+		// disable rules etc., injected verbatim BEFORE the CRS so phase-1 conditions win.
+		if s := strings.TrimSpace(be.Waf.CustomRules); s != "" {
+			b.WriteString("    modsecurity_rules '\n")
+			for _, line := range strings.Split(s, "\n") {
+				b.WriteString("        " + strings.TrimRight(line, "\r") + "\n")
+			}
+			b.WriteString("    ';\n")
+		}
 		fmt.Fprintf(b, "    modsecurity_rules_file /etc/modsecurity.d/%s;\n", file)
 		// Per-vhost disabled CRS rules (false-positive relief) — removed AFTER the CRS loads.
 		if len(be.Waf.DisabledRules) > 0 {

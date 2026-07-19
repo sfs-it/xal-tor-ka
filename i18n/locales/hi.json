@@ -125,6 +125,8 @@
   "admin.nginx.h": "NGINX सेटिंग्स",
   "admin.routes.h": "पथ-वार नियम",
   "admin.waf.h": "WAF (वेब एप्लिकेशन फ़ायरवॉल)",
+  "admin.waf.custom": "कस्टम नियम (उन्नत)",
+  "admin.waf.custom.help": "CRS से पहले यथावत डाली गई कच्ची ModSecurity डायरेक्टिव — जैसे सशर्त अक्षम नियम। सहेजने पर nginx -t से मान्य (अमान्य होने पर पिछली config रहती है)।",
   "admin.waf.rules": "अक्षम नियम",
   "admin.waf.rules.help": "इस सेवा के लिए बंद करने हेतु CRS नियम ID (झूठे अलार्म), स्पेस से अलग — जैसे 942100 941110।",
   "admin.waf.ignoreips": "बायपास IP",

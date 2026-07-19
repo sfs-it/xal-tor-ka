@@ -196,6 +196,11 @@ type WafCfg struct {
 	// vhost (the engine is turned off for their requests).
 	DisabledRules []int    `json:"disabled_rules,omitempty"`
 	IgnoreIPs     []string `json:"ignore_ips,omitempty"`
+	// CustomRules is raw ModSecurity directives injected verbatim into this vhost's
+	// rules (advanced) — typically conditional disable rules, e.g.
+	// `SecRule REQUEST_URI "@beginsWith /api/upload" "id:9009500,phase:1,pass,nolog,ctl:ruleEngine=Off"`.
+	// Loaded before the CRS so phase-1 conditions win. Validated by `nginx -t` on reload.
+	CustomRules string `json:"custom_rules,omitempty"`
 }
 
 // HostingRef ties a backend to the hosting site/vhost that owns it.

@@ -125,6 +125,8 @@
   "admin.nginx.h": "NGINX-Einstellungen",
   "admin.routes.h": "Pfad-Regeln",
   "admin.waf.h": "WAF (Web Application Firewall)",
+  "admin.waf.custom": "Eigene Regeln (fortgeschritten)",
+  "admin.waf.custom.help": "Rohe ModSecurity-Direktiven, wörtlich vor dem CRS eingefügt — z. B. bedingte Deaktivierungsregeln. Beim Speichern durch nginx -t geprüft (vorherige Konfiguration bleibt bei Fehlern).",
   "admin.waf.rules": "Deaktivierte Regeln",
   "admin.waf.rules.help": "CRS-Regel-IDs, die für diesen Dienst abgeschaltet werden (Fehlalarme), durch Leerzeichen getrennt — z. B. 942100 941110.",
   "admin.waf.ignoreips": "Ausgenommene IPs",

@@ -125,6 +125,8 @@
   "admin.nginx.h": "NGINX 设置",
   "admin.routes.h": "按路径规则",
   "admin.waf.h": "WAF（Web 应用防火墙）",
+  "admin.waf.custom": "自定义规则（高级）",
+  "admin.waf.custom.help": "在 CRS 之前原样注入的 ModSecurity 指令 — 例如条件性禁用规则。保存时经 nginx -t 校验（无效则保留原配置）。",
   "admin.waf.rules": "禁用的规则",
   "admin.waf.rules.help": "为此服务关闭的 CRS 规则 ID（缓解误报），以空格分隔 — 例如 942100 941110。",
   "admin.waf.ignoreips": "放行 IP",
