@@ -562,6 +562,17 @@ type osUpdatesResult struct {
 	Note           string     `json:"note,omitempty"`
 }
 
+// fail2banStatus mirrors the fail2ban_status agent command output.
+type fail2banStatus struct {
+	Enabled         bool     `json:"enabled"`
+	Jail            string   `json:"jail"`
+	CurrentlyBanned int      `json:"currently_banned"`
+	TotalBanned     int      `json:"total_banned"`
+	CurrentlyFailed int      `json:"currently_failed"`
+	Banned          []string `json:"banned"`
+	Note            string   `json:"note"`
+}
+
 var systemTmpl = xtkui.LocParse("hostingsystem", subtabsSrc+`<h1>System updates</h1>
 <p class="hint">Available OS package updates on the host, checked via the vetted agent — the check is <b>read-only</b> (<code>apt</code>).</p>
 {{if .Notice}}<div class="ok">{{.Notice}}</div>{{end}}
@@ -573,6 +584,20 @@ var systemTmpl = xtkui.LocParse("hostingsystem", subtabsSrc+`<h1>System updates<
     {{if .Res.RebootRequired}}<span class="tag ro">reboot required</span>{{end}}
   </div>
   {{if .Res.Note}}<div class="meta hint">{{.Res.Note}}</div>{{else}}<div class="meta hint">Applying updates is admin-gated and never reboots on its own.</div>{{end}}
+</div></section>
+<section><div class="card">
+  <div class="row"><h3>Firewall — fail2ban</h3>
+    {{if .F2b.Enabled}}<span class="tag ext">active</span>{{else}}<span class="tag ro">not configured</span>{{end}}
+  </div>
+  {{if .F2b.Enabled}}
+    <div class="meta hint">Jail <code>{{.F2b.Jail}}</code> · currently banned {{.F2b.CurrentlyBanned}} · total {{.F2b.TotalBanned}} · failed {{.F2b.CurrentlyFailed}}. Bans hit tcp 80/443 only (never SSH); admin IPs + LAN are whitelisted.</div>
+    {{if .F2b.Banned}}
+    <table style="margin-top:.6rem"><thead><tr><th>Banned IP</th><th></th></tr></thead><tbody>
+      {{range .F2b.Banned}}<tr><td><code>{{.}}</code></td>
+        <td class="rowact"><form class="inline" method="post" action="/admin/hosting/system/unban"><input type="hidden" name="ip" value="{{.}}"><button class="btn sm">Unban</button></form></td></tr>{{end}}
+    </tbody></table>
+    {{else}}<div class="meta hint" style="margin-top:.4rem">No IPs currently banned.</div>{{end}}
+  {{else}}<div class="meta hint">{{if .F2b.Note}}{{.F2b.Note}}{{else}}fail2ban jail not configured on this host.{{end}}</div>{{end}}
 </div></section>
 {{if .Res.Packages}}
 <section>
@@ -611,16 +636,29 @@ function xtkApply(){var ch=Array.prototype.slice.call(document.querySelectorAll(
 func (s *server) handleSystem(w http.ResponseWriter, r *http.Request) {
 	var res osUpdatesResult
 	err := s.callJSON(r.Context(), "os_updates_check", nil, &res)
+	var f2b fail2banStatus
+	_ = s.callJSON(r.Context(), "fail2ban_status", nil, &f2b) // best-effort: not configured -> enabled:false
 	ok, errMsg := notices(r)
 	data := struct {
 		Tab           string
 		Res           osUpdatesResult
+		F2b           fail2banStatus
 		Notice, Error string
-	}{Tab: "system", Res: res, Notice: ok, Error: errMsg}
+	}{Tab: "system", Res: res, F2b: f2b, Notice: ok, Error: errMsg}
 	if err != nil && data.Error == "" {
 		data.Error = err.Error()
 	}
 	s.chrome("System").Render(w, xtkui.LangFromRequest(r), systemTmpl, data)
+}
+
+// handleSystemUnban lifts a fail2ban ban on one IP (vetted agent command).
+func (s *server) handleSystemUnban(w http.ResponseWriter, r *http.Request) {
+	ip := strings.TrimSpace(r.PostFormValue("ip"))
+	if resp, err := s.callAgent(r.Context(), "fail2ban_unban", map[string]string{"ip": ip}); err != nil || !resp.OK {
+		redirectMsg(w, r, "/admin/hosting/system", "", "unban: "+agentMsg(resp, err))
+		return
+	}
+	redirectMsg(w, r, "/admin/hosting/system", "Unbanned "+ip+".", "")
 }
 
 // handleSystemApply upgrades the packages the admin ticked. The agent re-validates each
@@ -1469,6 +1507,7 @@ func main() {
 	mux.HandleFunc("POST /admin/hosting/system/preview", s.handleSystemPreview)
 	mux.HandleFunc("POST /admin/hosting/system/apply", s.handleSystemApply)
 	mux.HandleFunc("POST /admin/hosting/system/hold", s.handleSystemHold)
+	mux.HandleFunc("POST /admin/hosting/system/unban", s.handleSystemUnban)
 	mux.HandleFunc("GET /admin/hosting/users", s.handleUsers)
 	mux.HandleFunc("POST /admin/hosting/users/delete", s.handleUserDelete)
 	mux.HandleFunc("POST /admin/hosting/users/sshd-install", s.handleSshdInstall)
