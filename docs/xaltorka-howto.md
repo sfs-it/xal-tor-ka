@@ -130,6 +130,41 @@ posto della password), con download del file combo. Le chiavi si incollano/modif
 
 ---
 
+## Ricetta 10 — Proteggere path specifici (auth per-path)
+Un sito può restare **pubblico** ma con singoli path/file dietro autenticazione — es. mettere
+`wp-login.php` e `/wp-admin/` dietro login (o Google), lasciando il resto aperto. Difesa in
+profondità: i bot non raggiungono nemmeno la pagina di login.
+
+1. **Administration → Services → Modifica** il servizio.
+2. Nella sezione **Regole per path** aggiungi righe: **path** + **match** (`esatto =` per un file,
+   `prefisso` per una cartella) + **regola** (`authenticated`/`whitelist`).
+3. Salva. Il resto di `/` mantiene la regola principale; la riga più specifica vince. Funziona
+   anche per i siti in hosting (l'upstream resta quello gestito).
+
+---
+
+## Ricetta 11 — Difesa dai brute-force (fail2ban)
+Il gate scrive un log dei fallimenti di autenticazione; un jail fail2ban banna al **firewall** gli
+IP che insistono. Difesa a strati: rate-limit in RAM nel gate + ban dell'IP.
+
+- Attivato il jail, in **Administration → Hosting → System**, il pannello **Firewall — fail2ban**
+  mostra gli **IP bannati** e permette lo **Unban** dall'admin, senza SSH.
+- I ban colpiscono solo le porte web (80/443), **mai SSH**; gli **IP admin e la LAN sono in
+  whitelist** (anti-lockout). Il ban avviene in *prerouting* nftables, così è efficace anche col
+  gate in container.
+
+---
+
+## Ricetta 12 — Aggiornamenti del sistema operativo
+**Administration → Hosting → System** elenca gli aggiornamenti OS disponibili sull'host (controllo
+**read-only** via l'agente vettato).
+
+1. Seleziona i pacchetti (o *Select security*) e **Apply selected** — l'applicazione è admin-gated e
+   **non riavvia mai** da sola.
+2. **Hold** blocca un pacchetto a una versione (no-update); **Release** lo sblocca.
+
+---
+
 ## Riferimento rapido
 | Voglio… | Vai a |
 |---|---|
@@ -140,6 +175,9 @@ posto della password), con download del file combo. Le chiavi si incollano/modif
 | SSO aziendale | Providers (OIDC) / config LDAP |
 | Accesso ai file del sito | Hosting → scheda sito → SSH keys (SFTP) |
 | Chi può entrare nell'admin | Whitelist IP admin |
+| Proteggere wp-login/una cartella | Services → Modifica → Regole per path |
+| Bloccare i brute-force | fail2ban (jail) → Hosting → System (IP bannati/Unban) |
+| Aggiornare l'OS dell'host | Hosting → System → Apply selected |
 
 ---
 

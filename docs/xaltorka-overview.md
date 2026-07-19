@@ -70,6 +70,15 @@ distanza, con comandi vettati).
 
 ![Monitoraggio](img/monitoring.png)
 
+### 7. Difesa in profondità
+Oltre all'auth centralizzata, strati di difesa attivabili per servizio o per host:
+- **Auth per-path**: proteggi singoli file/cartelle (es. `wp-login.php`, `/wp-admin/`) lasciando il
+  resto pubblico — i bot non arrivano nemmeno alla login.
+- **fail2ban al firewall**: gli IP che insistono coi fallimenti auth vengono bannati (in *prerouting*
+  nftables, efficace anche col gate in container); IP admin e LAN in whitelist. Gestione dal pannello.
+- **Aggiornamenti OS**: check read-only e applicazione admin-gated dei pacchetti dell'host, dal pannello.
+- **WAF** (in arrivo): ModSecurity + OWASP CRS davanti ai servizi, con toggle per-sito.
+
 ## Il modello di sicurezza (perché ci si può fidare)
 - **Un solo punto esposto** (NGINX → gate Go interno). I servizi stanno dietro, non sulla rete pubblica.
 - **Area admin blindata** da whitelist IP + sessione; ogni azione è auditata.
