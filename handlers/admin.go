@@ -293,6 +293,14 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
     <tr><th>{{T "admin.nginx.custom_srv"}}</th><td colspan="2"><textarea name="ngx_custom_srv" rows="2">{{.NgxCustomSrv}}</textarea></td></tr>
    </tbody></table>
    <p class="hint">{{T "admin.nginx.custom.help"}}</p>
+   <h3 style="margin-top:1.3rem">{{T "admin.waf.h"}}</h3>
+   <p class="hint">{{T "admin.waf.hint"}}</p>
+   <table class="ftable"><tbody>
+    <tr><th>{{T "admin.waf.enable"}}</th><td><label class="hint" style="display:inline-flex;align-items:center;gap:.35rem"><input type="checkbox" name="waf_enabled" value="1"{{if .WafEnabled}} checked{{end}}> {{T "admin.waf.enable.on"}}</label></td><td class="fhelp">{{T "admin.waf.help"}}</td></tr>
+    <tr><th>{{T "admin.waf.mode"}}</th><td><select name="waf_mode">
+     <option value="detect"{{if ne .WafMode "block"}} selected{{end}}>{{T "admin.waf.detect"}}</option>
+     <option value="block"{{if eq .WafMode "block"}} selected{{end}}>{{T "admin.waf.block"}}</option></select></td><td class="fhelp">{{T "admin.waf.mode.help"}}</td></tr>
+   </tbody></table>
    <div class="actions" style="margin-top:1rem">
     <button class="btn primary">{{T "btn.save"}}</button><a class="btn" href="/admin/tls#h-{{.Host}}">{{T "admin.tls.manage"}}</a><a class="btn" href="/admin/servizi">{{T "admin.cancel"}}</a></div>
   </form>
@@ -1079,17 +1087,26 @@ func (s *Server) handleBackendEditForm(w http.ResponseWriter, r *http.Request) {
 				overrides = append(overrides, routeView{Path: cp, Exact: exact, Rule: ro.Rule})
 			}
 		}
+		wafEnabled, wafMode := false, "detect"
+		if b.Waf != nil {
+			wafEnabled = b.Waf.Enabled
+			if b.Waf.Mode != "" {
+				wafMode = b.Waf.Mode
+			}
+		}
 		s.renderAdminPage(w, r, "servizi", adminEditTmpl, struct {
 			ID, Name, Description, Host, URL, Path, Rule, Upstream, IPAllow string
 			NgxTimeout, NgxMaxBody                                          int
 			NgxWS, NgxNoBuf, NgxSelfSigned, WWW, Managed                    bool
 			NgxCustomLoc, NgxCustomSrv                                      string
 			Overrides                                                       []routeView
+			WafEnabled                                                      bool
+			WafMode                                                         string
 		}{
 			b.ID, b.Name, b.Description, b.Host, b.URL, rt.Path, rt.Rule, rt.Upstream, strings.Join(b.IPAllow, " "),
 			b.Nginx.ProxyTimeout, b.Nginx.MaxBodyMB,
 			b.Nginx.WebSocket, b.Nginx.NoBuffering, b.Nginx.BackendSelfSigned, b.WWW, b.Hosting != nil,
-			b.Nginx.CustomLocation, b.Nginx.CustomServer, overrides,
+			b.Nginx.CustomLocation, b.Nginx.CustomServer, overrides, wafEnabled, wafMode,
 		})
 		return
 	}
@@ -1164,6 +1181,19 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 				routes = append(routes, models.Route{Path: joinMatch(cp, exact), Rule: orule, Upstream: up})
 			}
 			b.Routes = routes
+			if r.PostFormValue("waf_enabled") != "" {
+				mode := r.PostFormValue("waf_mode")
+				if mode != "block" {
+					mode = "detect"
+				}
+				wc := &models.WafCfg{Enabled: true, Mode: mode}
+				if b.Waf != nil { // preserve stored paranoia/threshold tuning
+					wc.Paranoia, wc.Threshold = b.Waf.Paranoia, b.Waf.Threshold
+				}
+				b.Waf = wc
+			} else {
+				b.Waf = nil
+			}
 			return nil
 		}
 		return fmt.Errorf("backend not found")
