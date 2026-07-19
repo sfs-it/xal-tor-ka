@@ -179,6 +179,18 @@ type Backend struct {
 	// upstream is fixed (<site[-vhost]>.site:8080) and belongs to the Hosting panel.
 	// The Services editor locks the upstream and links back to Hosting.
 	Hosting *HostingRef `json:"hosting,omitempty"`
+	// Waf, when enabled, puts ModSecurity + OWASP CRS in front of this service.
+	Waf *WafCfg `json:"waf,omitempty"`
+}
+
+// WafCfg is the optional per-backend Web Application Firewall (ModSecurity v3 +
+// OWASP Core Rule Set). Mode "detect" logs only; "block" returns 403 on a hit.
+// Paranoia/Threshold are stored for future per-vhost tuning (v1 uses CRS defaults).
+type WafCfg struct {
+	Enabled   bool   `json:"enabled"`
+	Mode      string `json:"mode,omitempty"`      // "detect" (default) | "block"
+	Paranoia  int    `json:"paranoia,omitempty"`  // CRS paranoia level 1..4 (0 = default)
+	Threshold int    `json:"threshold,omitempty"` // inbound anomaly threshold (0 = default)
 }
 
 // HostingRef ties a backend to the hosting site/vhost that owns it.

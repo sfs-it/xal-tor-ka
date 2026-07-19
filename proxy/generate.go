@@ -85,6 +85,17 @@ func writeServer(b *strings.Builder, g GenConfig, be models.Backend) {
 		fmt.Fprintf(b, "    client_max_body_size %dm;\n", be.Nginx.MaxBodyMB)
 	}
 	writeCustom(b, "    ", be.Nginx.CustomServer)
+	// WAF (ModSecurity + OWASP CRS), per-vhost. The module is loaded by the nginx
+	// image; here we turn it on for this server and pick the shared rules file by
+	// mode: block (SecRuleEngine On) vs detect-only (log). Dormant unless enabled.
+	if be.Waf != nil && be.Waf.Enabled {
+		file := "xtk-detect.conf"
+		if be.Waf.Mode == "block" {
+			file = "xtk-block.conf"
+		}
+		b.WriteString("    modsecurity on;\n")
+		fmt.Fprintf(b, "    modsecurity_rules_file /etc/modsecurity.d/%s;\n", file)
+	}
 	b.WriteString("\n")
 
 	// ACME HTTP-01 challenge (always on :80), served as static files from the
