@@ -10,6 +10,7 @@ package proxy
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"xaltorka/models"
@@ -94,7 +95,23 @@ func writeServer(b *strings.Builder, g GenConfig, be models.Backend) {
 			file = "xtk-block.conf"
 		}
 		b.WriteString("    modsecurity on;\n")
+		// Per-vhost IP allow-list: these clients bypass the WAF entirely. Loaded FIRST
+		// (phase 1, engine off) so it wins before CRS runs. REMOTE_ADDR is the real
+		// client IP (docker DNAT preserves the source).
+		if len(be.Waf.IgnoreIPs) > 0 {
+			fmt.Fprintf(b, "    modsecurity_rules '\n"+
+				"        SecRule REMOTE_ADDR \"@ipMatch %s\" \"id:9009001,phase:1,pass,nolog,ctl:ruleEngine=Off\"\n"+
+				"    ';\n", strings.Join(be.Waf.IgnoreIPs, ","))
+		}
 		fmt.Fprintf(b, "    modsecurity_rules_file /etc/modsecurity.d/%s;\n", file)
+		// Per-vhost disabled CRS rules (false-positive relief) — removed AFTER the CRS loads.
+		if len(be.Waf.DisabledRules) > 0 {
+			ids := make([]string, len(be.Waf.DisabledRules))
+			for i, id := range be.Waf.DisabledRules {
+				ids[i] = strconv.Itoa(id)
+			}
+			fmt.Fprintf(b, "    modsecurity_rules 'SecRuleRemoveById %s';\n", strings.Join(ids, " "))
+		}
 	}
 	b.WriteString("\n")
 

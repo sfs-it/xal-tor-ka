@@ -300,6 +300,8 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
     <tr><th>{{T "admin.waf.mode"}}</th><td><select name="waf_mode">
      <option value="detect"{{if ne .WafMode "block"}} selected{{end}}>{{T "admin.waf.detect"}}</option>
      <option value="block"{{if eq .WafMode "block"}} selected{{end}}>{{T "admin.waf.block"}}</option></select></td><td class="fhelp">{{T "admin.waf.mode.help"}}</td></tr>
+    <tr><th>{{T "admin.waf.rules"}}</th><td><input name="waf_disabled_rules" value="{{.WafDisabledRules}}" placeholder="942100 941110"></td><td class="fhelp">{{T "admin.waf.rules.help"}}</td></tr>
+    <tr><th>{{T "admin.waf.ignoreips"}}</th><td><input name="waf_ignore_ips" value="{{.WafIgnoreIPs}}" placeholder="1.2.3.4 10.0.0.0/24"></td><td class="fhelp">{{T "admin.waf.ignoreips.help"}}</td></tr>
    </tbody></table>
    <div class="actions" style="margin-top:1rem">
     <button class="btn primary">{{T "btn.save"}}</button><a class="btn" href="/admin/tls#h-{{.Host}}">{{T "admin.tls.manage"}}</a><a class="btn" href="/admin/servizi">{{T "admin.cancel"}}</a></div>
@@ -1087,12 +1089,18 @@ func (s *Server) handleBackendEditForm(w http.ResponseWriter, r *http.Request) {
 				overrides = append(overrides, routeView{Path: cp, Exact: exact, Rule: ro.Rule})
 			}
 		}
-		wafEnabled, wafMode := false, "detect"
+		wafEnabled, wafMode, wafRules, wafIgnore := false, "detect", "", ""
 		if b.Waf != nil {
 			wafEnabled = b.Waf.Enabled
 			if b.Waf.Mode != "" {
 				wafMode = b.Waf.Mode
 			}
+			ids := make([]string, len(b.Waf.DisabledRules))
+			for i, id := range b.Waf.DisabledRules {
+				ids[i] = strconv.Itoa(id)
+			}
+			wafRules = strings.Join(ids, " ")
+			wafIgnore = strings.Join(b.Waf.IgnoreIPs, " ")
 		}
 		s.renderAdminPage(w, r, "servizi", adminEditTmpl, struct {
 			ID, Name, Description, Host, URL, Path, Rule, Upstream, IPAllow string
@@ -1101,12 +1109,12 @@ func (s *Server) handleBackendEditForm(w http.ResponseWriter, r *http.Request) {
 			NgxCustomLoc, NgxCustomSrv                                      string
 			Overrides                                                       []routeView
 			WafEnabled                                                      bool
-			WafMode                                                         string
+			WafMode, WafDisabledRules, WafIgnoreIPs                         string
 		}{
 			b.ID, b.Name, b.Description, b.Host, b.URL, rt.Path, rt.Rule, rt.Upstream, strings.Join(b.IPAllow, " "),
 			b.Nginx.ProxyTimeout, b.Nginx.MaxBodyMB,
 			b.Nginx.WebSocket, b.Nginx.NoBuffering, b.Nginx.BackendSelfSigned, b.WWW, b.Hosting != nil,
-			b.Nginx.CustomLocation, b.Nginx.CustomServer, overrides, wafEnabled, wafMode,
+			b.Nginx.CustomLocation, b.Nginx.CustomServer, overrides, wafEnabled, wafMode, wafRules, wafIgnore,
 		})
 		return
 	}
@@ -1189,6 +1197,14 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 				wc := &models.WafCfg{Enabled: true, Mode: mode}
 				if b.Waf != nil { // preserve stored paranoia/threshold tuning
 					wc.Paranoia, wc.Threshold = b.Waf.Paranoia, b.Waf.Threshold
+				}
+				for _, f := range strings.Fields(r.PostFormValue("waf_disabled_rules")) {
+					if id, err := strconv.Atoi(strings.TrimRight(f, ",")); err == nil && id > 0 {
+						wc.DisabledRules = append(wc.DisabledRules, id)
+					}
+				}
+				for _, ip := range strings.Fields(r.PostFormValue("waf_ignore_ips")) {
+					wc.IgnoreIPs = append(wc.IgnoreIPs, strings.TrimRight(ip, ","))
 				}
 				b.Waf = wc
 			} else {

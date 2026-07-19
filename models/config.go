@@ -191,6 +191,11 @@ type WafCfg struct {
 	Mode      string `json:"mode,omitempty"`      // "detect" (default) | "block"
 	Paranoia  int    `json:"paranoia,omitempty"`  // CRS paranoia level 1..4 (0 = default)
 	Threshold int    `json:"threshold,omitempty"` // inbound anomaly threshold (0 = default)
+	// DisabledRules are CRS rule IDs to remove for THIS vhost (false-positive relief),
+	// e.g. 942100. IgnoreIPs are client IPs/CIDRs that bypass the WAF entirely for this
+	// vhost (the engine is turned off for their requests).
+	DisabledRules []int    `json:"disabled_rules,omitempty"`
+	IgnoreIPs     []string `json:"ignore_ips,omitempty"`
 }
 
 // HostingRef ties a backend to the hosting site/vhost that owns it.
