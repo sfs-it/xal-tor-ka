@@ -263,6 +263,24 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
     <tr><th>{{T "admin.f.desc"}}</th><td colspan="2"><input name="description" value="{{.Description}}" placeholder="{{T "admin.edit.help.desc"}}"></td></tr>
     <tr><th>{{T "admin.col.ipallow"}}</th><td><input name="ip_allow" value="{{.IPAllow}}" placeholder="203.0.113.0/24 10.0.0.5"></td><td class="fhelp">{{T "admin.edit.help.ipallow"}}</td></tr>
    </tbody></table>
+   <h3 style="margin-top:1.3rem">{{T "admin.routes.h"}}</h3>
+   <p class="hint">{{T "admin.routes.hint"}}</p>
+   <table class="ftable rtable" id="xtk-routes"><tbody>
+    <tr class="rhead"><th>{{T "admin.routes.path"}}</th><th>{{T "admin.routes.match"}}</th><th>{{T "admin.f.rule"}}</th><th></th></tr>
+    {{range .Overrides}}<tr class="rrow">
+     <td><input name="opath" value="{{.Path}}" placeholder="/wp-login.php"></td>
+     <td><select name="omatch"><option value="prefix"{{if not .Exact}} selected{{end}}>{{T "admin.routes.prefix"}}</option><option value="exact"{{if .Exact}} selected{{end}}>{{T "admin.routes.exact"}}</option></select></td>
+     <td><select name="orule"><option{{if eq .Rule "authenticated"}} selected{{end}}>authenticated</option><option{{if eq .Rule "whitelist"}} selected{{end}}>whitelist</option><option{{if eq .Rule "public"}} selected{{end}}>public</option></select></td>
+     <td><button type="button" class="btn sm" onclick="this.closest('tr').remove()">✕</button></td></tr>{{end}}
+   </tbody></table>
+   <p><button type="button" class="btn sm" onclick="xtkAddRoute()">+ {{T "admin.routes.add"}}</button></p>
+   <p class="hint">{{T "admin.routes.note"}}</p>
+   <template id="xtk-rtmpl"><tr class="rrow">
+     <td><input name="opath" placeholder="/wp-login.php"></td>
+     <td><select name="omatch"><option value="prefix">{{T "admin.routes.prefix"}}</option><option value="exact">{{T "admin.routes.exact"}}</option></select></td>
+     <td><select name="orule"><option>authenticated</option><option>whitelist</option><option>public</option></select></td>
+     <td><button type="button" class="btn sm" onclick="this.closest('tr').remove()">✕</button></td></tr></template>
+   <script>function xtkAddRoute(){var t=document.getElementById('xtk-rtmpl');document.querySelector('#xtk-routes tbody').appendChild(t.content.cloneNode(true));}</script>
    <h3 style="margin-top:1.3rem">{{T "admin.nginx.h"}}</h3>
    <p class="hint">{{T "admin.nginx.hint"}}</p>
    <table class="ftable"><tbody>
@@ -1016,6 +1034,30 @@ func (s *Server) handleLinkToggle(w http.ResponseWriter, r *http.Request) {
 	s.afterMutation(w, r, err)
 }
 
+// routeView is one per-path override row as shown in the backend edit form.
+// The nginx match kind (exact "= /x" vs prefix "/x") is encoded in Route.Path;
+// splitMatch/joinMatch translate between the stored path and the (path, exact) UI.
+type routeView struct {
+	Path  string
+	Exact bool
+	Rule  string
+}
+
+func splitMatch(p string) (string, bool) {
+	if strings.HasPrefix(p, "= ") {
+		return strings.TrimSpace(p[2:]), true
+	}
+	return p, false
+}
+
+func joinMatch(path string, exact bool) string {
+	path = strings.TrimSpace(path)
+	if exact {
+		return "= " + path
+	}
+	return path
+}
+
 func (s *Server) handleBackendEditForm(w http.ResponseWriter, r *http.Request) {
 	if !s.adminGuard(w, r) {
 		return
@@ -1030,16 +1072,24 @@ func (s *Server) handleBackendEditForm(w http.ResponseWriter, r *http.Request) {
 		if len(b.Routes) > 0 {
 			rt = b.Routes[0]
 		}
+		var overrides []routeView
+		if len(b.Routes) > 1 {
+			for _, ro := range b.Routes[1:] {
+				cp, exact := splitMatch(ro.Path)
+				overrides = append(overrides, routeView{Path: cp, Exact: exact, Rule: ro.Rule})
+			}
+		}
 		s.renderAdminPage(w, r, "servizi", adminEditTmpl, struct {
 			ID, Name, Description, Host, URL, Path, Rule, Upstream, IPAllow string
 			NgxTimeout, NgxMaxBody                                          int
 			NgxWS, NgxNoBuf, NgxSelfSigned, WWW, Managed                    bool
 			NgxCustomLoc, NgxCustomSrv                                      string
+			Overrides                                                       []routeView
 		}{
 			b.ID, b.Name, b.Description, b.Host, b.URL, rt.Path, rt.Rule, rt.Upstream, strings.Join(b.IPAllow, " "),
 			b.Nginx.ProxyTimeout, b.Nginx.MaxBodyMB,
 			b.Nginx.WebSocket, b.Nginx.NoBuffering, b.Nginx.BackendSelfSigned, b.WWW, b.Hosting != nil,
-			b.Nginx.CustomLocation, b.Nginx.CustomServer,
+			b.Nginx.CustomLocation, b.Nginx.CustomServer, overrides,
 		})
 		return
 	}
@@ -1088,14 +1138,32 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 			b.WWW = r.PostFormValue("www") != ""
 			b.IPAllow = ipAllow
 			b.Nginx = ngx
-			if len(b.Routes) == 0 {
-				b.Routes = []models.Route{{}}
-			}
 			up := upstream
-			if b.Hosting != nil {
+			if b.Hosting != nil && len(b.Routes) > 0 {
 				up = b.Routes[0].Upstream // hosting owns the upstream; ignore any posted change
 			}
-			b.Routes[0] = models.Route{Path: path, Rule: rule, Upstream: up}
+			routes := []models.Route{{Path: path, Rule: rule, Upstream: up}}
+			opaths := r.PostForm["opath"]
+			omatches := r.PostForm["omatch"]
+			orules := r.PostForm["orule"]
+			for i, op := range opaths {
+				cp, exact := splitMatch(strings.TrimSpace(op))
+				if cp == "" {
+					continue
+				}
+				orule := "authenticated"
+				if i < len(orules) {
+					orule = orules[i]
+				}
+				if orule != "public" && orule != "authenticated" && orule != "whitelist" {
+					orule = "authenticated"
+				}
+				if i < len(omatches) && omatches[i] == "exact" {
+					exact = true
+				}
+				routes = append(routes, models.Route{Path: joinMatch(cp, exact), Rule: orule, Upstream: up})
+			}
+			b.Routes = routes
 			return nil
 		}
 		return fmt.Errorf("backend not found")

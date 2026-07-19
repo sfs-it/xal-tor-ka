@@ -281,3 +281,13 @@ tr.tls-sub td:first-child{padding-inline-start:1.6rem}
 
 /* Bottoni disabilitati: aspetto spento (delete su host senza cert, Destroy del primo vhost, ecc.) */
 .btn:disabled,.btn[disabled]{opacity:.45;cursor:not-allowed}
+
+/* A1 — per-path rules editor */
+.rtable{table-layout:fixed}
+.rtable td input,.rtable td select{width:100%}
+.rtable td:nth-child(1),.rtable th:nth-child(1){width:44%}
+.rtable td:nth-child(2),.rtable th:nth-child(2){width:20%}
+.rtable td:nth-child(3),.rtable th:nth-child(3){width:28%}
+.rtable td:nth-child(4),.rtable th:nth-child(4){width:8%;text-align:end}
+.rtable .rhead th{font-size:.72rem;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:600;text-align:start;white-space:normal;padding:.2rem .4rem .2rem 0}
+.rtable .rrow td{padding:.25rem .4rem .25rem 0;vertical-align:middle}
