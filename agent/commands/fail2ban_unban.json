@@ -1,0 +1,7 @@
+{
+  "description": "Unban a single IP from the 'xaltorka' fail2ban jail. Param: ip (IPv4/IPv6).",
+  "timeout_seconds": 20,
+  "params": {
+    "ip": { "required": true, "pattern": "[0-9A-Fa-f:.]+" }
+  }
+}

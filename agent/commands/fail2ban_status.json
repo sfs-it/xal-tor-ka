@@ -1,0 +1,5 @@
+{
+  "description": "Read-only: report the 'xaltorka' fail2ban jail status (currently-banned IPs and totals) as JSON.",
+  "timeout_seconds": 20,
+  "params": {}
+}

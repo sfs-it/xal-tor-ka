@@ -1,0 +1,11 @@
+{
+  "description": "Install fail2ban and (re)configure the 'xaltorka' jail that bans brute-forcers from the gate auth-failure log via nftables. ANTI-LOCKOUT: ignoreip MUST include the admin IPs.",
+  "timeout_seconds": 180,
+  "params": {
+    "ignoreip": { "required": true,  "pattern": "[0-9A-Fa-f:.]+(/[0-9]{1,3})?( [0-9A-Fa-f:.]+(/[0-9]{1,3})?)*" },
+    "logpath":  { "required": false, "pattern": "/[A-Za-z0-9_./-]+" },
+    "maxretry": { "required": false, "pattern": "[0-9]{1,3}" },
+    "findtime": { "required": false, "pattern": "[0-9]{1,6}" },
+    "bantime":  { "required": false, "pattern": "[0-9]{1,7}" }
+  }
+}
