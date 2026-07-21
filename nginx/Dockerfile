@@ -18,4 +18,10 @@ COPY modsec/xtk-detect.conf /etc/modsecurity.d/xtk-detect.conf
 COPY entrypoint.sh /xtk-entrypoint.sh
 RUN chmod +x /xtk-entrypoint.sh
 
+# Override the base image's healthcheck (it curls https://localhost:$SSL_PORT/healthz
+# with SSL_PORT=8443 — a port this static config does NOT listen on → always exit 7).
+# Ours hits the dedicated internal liveness endpoint on :81 (nginx itself, no upstream).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -fs http://localhost:81/healthz || exit 1
+
 ENTRYPOINT ["/xtk-entrypoint.sh"]
