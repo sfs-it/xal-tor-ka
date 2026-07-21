@@ -1,5 +1,6 @@
 # Go build artifacts
 /xaltorka
+/ext/hosting/hosting
 /bin/
 *.test
 *.out
