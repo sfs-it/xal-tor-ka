@@ -27,7 +27,7 @@ func TestChromeRender(t *testing.T) {
 
 	for _, want := range []string{
 		"<!doctype html>",
-		`<link rel="stylesheet" href="/assets/admin.css">`,
+		`<link rel="stylesheet" href="/_xtk/assets/admin.css">`,
 		`class="topbar"`,
 		`href="/admin/servizi"`,
 		`href="/admin/tls" class="active"`, // active page highlighted

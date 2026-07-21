@@ -19,7 +19,7 @@ import (
 
 var loginTmpl = template.Must(template.New("login").Funcs(xtkui.TmplFuncs).Parse(`<!doctype html>
 <html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · {{T .Lang "login.title"}}</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
+<title>Xal-Tor-Ka · {{T .Lang "login.title"}}</title><link rel="stylesheet" href="/_xtk/assets/admin.css"><script src="/_xtk/assets/admin.js" defer></script></head><body>
 <div class="auth-wrap"><div class="auth-card">
  <h1>⛬ {{T .Lang "login.title"}}</h1>
  {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
@@ -38,7 +38,7 @@ var loginTmpl = template.Must(template.New("login").Funcs(xtkui.TmplFuncs).Parse
 
 var totpTmpl = template.Must(template.New("totp").Funcs(xtkui.TmplFuncs).Parse(`<!doctype html>
 <html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · {{T .Lang "totp.title"}}</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
+<title>Xal-Tor-Ka · {{T .Lang "totp.title"}}</title><link rel="stylesheet" href="/_xtk/assets/admin.css"><script src="/_xtk/assets/admin.js" defer></script></head><body>
 <div class="auth-wrap"><div class="auth-card">
  <h1>{{T .Lang "totp.title"}}</h1>
  {{if .Error}}<div class="err">{{.Error}}</div>{{end}}

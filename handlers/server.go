@@ -180,7 +180,9 @@ func (s *Server) currentLinks() []models.Link {
 // Routes builds the HTTP handler with all endpoints mounted.
 func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle("GET /assets/", http.FileServerFS(xtkui.AssetsFS))
+	// Gate static assets live under /_xtk/ (namespaced) so a proxied site keeps its
+	// OWN /assets/ — the reserved-path collision that broke auth-gated sites' CSS.
+	mux.Handle("GET /_xtk/assets/", http.StripPrefix("/_xtk", http.FileServerFS(xtkui.AssetsFS)))
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/listing", http.StatusSeeOther)
 	})
@@ -344,7 +346,7 @@ func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
 
 var listingTmpl = template.Must(template.New("listing").Funcs(xtkui.TmplFuncs).Parse(`<!doctype html>
 <html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · {{T .Lang "listing.subtitle"}}</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
+<title>Xal-Tor-Ka · {{T .Lang "listing.subtitle"}}</title><link rel="stylesheet" href="/_xtk/assets/admin.css"><script src="/_xtk/assets/admin.js" defer></script></head><body>
 <header class="topbar">
  <div class="brand">⛬ Xal-Tor-Ka<span class="sub">{{T .Lang "listing.subtitle"}}</span></div>
  <nav class="topnav"><span class="who">{{.Email}}</span>

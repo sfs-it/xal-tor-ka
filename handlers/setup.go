@@ -28,7 +28,7 @@ import (
 
 const setupHead = `<!doctype html>
 <html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · Setup</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
+<title>Xal-Tor-Ka · Setup</title><link rel="stylesheet" href="/_xtk/assets/admin.css"><script src="/_xtk/assets/admin.js" defer></script></head><body>
 <div class="auth-wrap"><div class="auth-card`
 
 var setupCredTmpl = template.Must(template.New("cred").Funcs(xtkui.TmplFuncs).Parse(setupHead + `">

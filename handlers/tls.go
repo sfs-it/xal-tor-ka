@@ -169,7 +169,7 @@ var tlsTmpl = xtkui.LocParse("tls", `<section>
   <td>{{if .Sub}}<span class="tls-branch" aria-hidden="true">↳</span> {{end}}<code>{{.Host}}</code></td>
   <td>{{if eq (printf "%s" .Source) "acme"}}{{T "admin.tls.src.acme"}}{{else if eq (printf "%s" .Source) "selfsigned"}}{{T "admin.tls.src.selfsigned"}}{{else}}—{{end}}</td>
   <td>{{if .Has}}{{.Expiry}}{{else}}—{{end}}</td>
-  <td>{{if not .Has}}<span class="tag ro">{{T "admin.tls.status.missing"}}</span>{{else if .Valid}}<span class="tag">{{T "admin.tls.status.valid"}}</span>{{else}}<span class="tag ro">{{T "admin.tls.status.expired"}}</span>{{end}}</td>
+  <td>{{if not .Has}}<span class="tag err stw">{{T "admin.tls.status.missing"}}</span>{{else if .Valid}}<span class="tag ok stw">{{T "admin.tls.status.valid"}}</span>{{else}}<span class="tag warn stw">{{T "admin.tls.status.expired"}}</span>{{end}}</td>
   <td><div class="actions">
    <form class="inline" method="post" action="/admin/tls/issue">
     <input type="hidden" name="host" value="{{.Host}}">

@@ -127,18 +127,37 @@ type NavItem struct {
 // Hosting entry — the core adds it only when the hosting extension is enabled; the
 // extension always passes true and marks it Active.
 func AdminNav(withHosting bool) []NavItem {
+	// TLS and Providers are NOT top-level: they live as second-level tabs under
+	// Servizi and Utenti respectively (see SubtabBar + renderAdminPage).
 	nav := []NavItem{
 		{Key: "servizi", Href: "/admin/servizi", LabelKey: "admin.services"},
-		{Key: "docker", Href: "/admin/docker", LabelKey: "admin.docker"},
-		{Key: "providers", Href: "/admin/providers", LabelKey: "admin.providers"},
 		{Key: "utenti", Href: "/admin/utenti", LabelKey: "admin.users"},
 		{Key: "monitoring", Href: "/admin/monitoring", LabelKey: "admin.monitoring"},
-		{Key: "tls", Href: "/admin/tls", LabelKey: "admin.tls"},
 	}
 	if withHosting {
 		nav = append(nav, NavItem{Key: "hosting", Href: "/admin/hosting", LabelKey: "admin.hosting"})
 	}
+	// Docker last — the penultimate tab, right before the Dashboard link (standalone,
+	// room for future multi-service orchestration).
+	nav = append(nav, NavItem{Key: "docker", Href: "/admin/docker", LabelKey: "admin.docker"})
 	return nav
+}
+
+// SubtabBar renders a second-level tab bar (the .subtabs style) that groups related
+// admin pages under one top-nav entry — e.g. Servizi▸TLS, Utenti▸Provider. `active` is
+// the NavItem.Key of the current page.
+func SubtabBar(active string, items []NavItem, lang string) string {
+	var b strings.Builder
+	b.WriteString(`<nav class="subtabs">`)
+	for _, it := range items {
+		cls := ""
+		if it.Key == active {
+			cls = ` class="active"`
+		}
+		fmt.Fprintf(&b, `<a href="%s"%s>%s</a>`, template.HTMLEscapeString(it.Href), cls, template.HTMLEscapeString(i18n.T(lang, it.LabelKey)))
+	}
+	b.WriteString(`</nav>`)
+	return b.String()
 }
 
 // Chrome describes the shared page frame (head + top bar + container) that wraps a
@@ -152,6 +171,7 @@ type Chrome struct {
 	Version       string    // shown as a tag next to the brand ("" = omit)
 	Nav           []NavItem // top navigation entries
 	Active        string    // NavItem.Key of the current page
+	Subtabs       string    // pre-rendered second-level tab bar HTML (shown below the top nav; "" = none)
 	DashboardHref string    // trailing dashboard link ("" = omit)
 	DashboardKey  string    // i18n key for the dashboard link label
 	LoggedIn      bool      // show profile+logout in the cluster
@@ -201,10 +221,11 @@ func (c Chrome) Render(w http.ResponseWriter, lang string, t *template.Template,
 		title = "Xal-Tor-Ka"
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, `<!doctype html><html lang="%s"%s><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>%s</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>`,
+	fmt.Fprintf(w, `<!doctype html><html lang="%s"%s><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>%s</title><link rel="stylesheet" href="/_xtk/assets/admin.css"><script src="/_xtk/assets/admin.js" defer></script></head><body>`,
 		lang, dir, template.HTMLEscapeString(title))
 	io.WriteString(w, c.Topbar(lang))
 	io.WriteString(w, `<main class="container">`)
+	io.WriteString(w, c.Subtabs)
 	if ct, err := t.Clone(); err == nil {
 		ct.Funcs(LocFuncs(lang))
 		_ = ct.Execute(w, data)

@@ -141,14 +141,14 @@ type bkInfo struct {
 // (http://<alias>:8080), so this works for backends published from Hosting AND legacy
 // backends published before the Hosting marker existed. Degrades to an empty map if the
 // file is absent/unreadable.
-func (s *server) backendStates() map[string]bkInfo {
-	out := map[string]bkInfo{}
+func (s *server) backendStates() (byUp, byHost map[string]bkInfo) {
+	byUp, byHost = map[string]bkInfo{}, map[string]bkInfo{}
 	if s.servicesPath == "" {
-		return out
+		return
 	}
 	data, err := os.ReadFile(s.servicesPath)
 	if err != nil {
-		return out
+		return
 	}
 	var f struct {
 		Backends []struct {
@@ -162,20 +162,30 @@ func (s *server) backendStates() map[string]bkInfo {
 		} `json:"backends"`
 	}
 	if json.Unmarshal(data, &f) != nil {
-		return out
+		return
 	}
 	for _, b := range f.Backends {
 		st := "up"
 		if b.Disabled {
 			st = "down"
 		}
+		rule := ""
+		if len(b.Routes) > 0 {
+			rule = b.Routes[0].Rule
+		}
 		for _, rt := range b.Routes {
 			if rt.Upstream != "" {
-				out[rt.Upstream] = bkInfo{State: st, Host: b.Host, Rule: rt.Rule, WWW: b.WWW}
+				byUp[rt.Upstream] = bkInfo{State: st, Host: b.Host, Rule: rt.Rule, WWW: b.WWW}
 			}
 		}
+		// Also index by public host, so a vhost whose upstream diverges from the
+		// published backend (e.g. a domain served by a standalone/legacy container)
+		// still resolves its Publish/SSL state by its domain instead of losing it.
+		if b.Host != "" {
+			byHost[b.Host] = bkInfo{State: st, Host: b.Host, Rule: rule, WWW: b.WWW}
+		}
 	}
-	return out
+	return
 }
 
 // certState reports the TLS certificate state for host: "up" (a valid cert exists),
@@ -308,22 +318,58 @@ func (s *server) listSites(ctx context.Context) ([]site, error) {
 		return nil, err
 	}
 	sort.Slice(sites, func(i, j int) bool { return sites[i].Name < sites[j].Name })
-	states := s.backendStates()
+	byUp, byHost := s.backendStates()
 	for i := range sites {
+		// The primary vhost "httpdocs" is ALWAYS shown first (it's the site's main
+		// domain); the additional vhosts follow, alphabetically. Not plain a-z, which
+		// would bury httpdocs among app/api/staging.
+		sort.SliceStable(sites[i].Vhosts, func(a, b int) bool {
+			va, vb := sites[i].Vhosts[a].Vhost, sites[i].Vhosts[b].Vhost
+			if va == "httpdocs" {
+				return true
+			}
+			if vb == "httpdocs" {
+				return false
+			}
+			return va < vb
+		})
 		sites[i].Published, sites[i].SSL = "none", "none"
 		for j := range sites[i].Vhosts {
 			v := &sites[i].Vhosts[j]
-			info := states[v.Upstream]
+			// The host this vhost serves: its own domain, or (for the primary
+			// httpdocs vhost) the site's domain. Empty when no domain is recorded.
+			servedHost := v.Domain
+			if servedHost == "" && v.Vhost == "httpdocs" {
+				servedHost = sites[i].Domain
+			}
+			// Match the gateway backend by upstream (hosting-published) first, then
+			// fall back to the served host — so a domain published with a divergent
+			// upstream (legacy/standalone container) keeps its state instead of "none".
+			info, ok := byUp[v.Upstream]
+			if !ok && servedHost != "" {
+				info = byHost[servedHost]
+			}
 			v.Published = info.State
 			if v.Published == "" {
 				v.Published = "none"
 			}
-			v.PubHost = info.Host
 			v.PubRule = info.Rule
 			v.PubWWW = info.WWW
-			v.SSL = s.certState(info.Host)
+			// Public host for the SSL link + Publish dialog: the matched backend's
+			// host, else the vhost's served domain.
+			v.PubHost = info.Host
+			if v.PubHost == "" {
+				v.PubHost = servedHost
+			}
+			// The cert is keyed by the served DOMAIN (independent of which upstream
+			// serves it); fall back to the matched backend host.
+			certHost := servedHost
+			if certHost == "" {
+				certHost = info.Host
+			}
+			v.SSL = s.certState(certHost)
 			if v.Vhost == "httpdocs" {
-				sites[i].Published, sites[i].SSL, sites[i].PubHost = v.Published, v.SSL, info.Host
+				sites[i].Published, sites[i].SSL, sites[i].PubHost = v.Published, v.SSL, v.PubHost
 			}
 		}
 	}

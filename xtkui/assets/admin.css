@@ -89,6 +89,12 @@ a.card:hover{text-decoration:none;border-color:color-mix(in srgb,var(--accent) 5
   border:1px solid color-mix(in srgb,var(--accent) 25%,transparent);vertical-align:middle}
 .tag.ro{background:var(--panel-2);color:var(--muted);border-color:var(--line)}
 .tag.ext{background:var(--okbg);color:var(--ok);border-color:color-mix(in srgb,var(--ok) 25%,transparent)}
+.tag.ok{background:var(--okbg);color:var(--ok);border-color:color-mix(in srgb,var(--ok) 25%,transparent)}
+.tag.err{background:var(--errbg);color:var(--err);border-color:color-mix(in srgb,var(--err) 25%,transparent)}
+.tag.warn{background:var(--warnbg);color:var(--warn);border-color:color-mix(in srgb,var(--warn) 25%,transparent)}
+.tag.stw{min-width:6.2rem;text-align:center} /* fixed-width status tags → tidy column */
+.ipbadge{cursor:default} .ipbadge code{font-size:.7rem}
+.utbl td{vertical-align:top} /* users table: email anchored top when the host list expands the row */
 .badge{display:inline-flex;align-items:center;gap:.4rem;font-size:.8rem;font-weight:600;padding:.15rem .6rem;border-radius:999px}
 .badge::before{content:"";width:.5rem;height:.5rem;border-radius:50%}
 .badge.up{background:var(--okbg);color:var(--ok)} .badge.up::before{background:var(--ok)}

@@ -153,13 +153,13 @@ func writeServer(b *strings.Builder, g GenConfig, be models.Backend) {
 	// which is unreliable on *.localhost). In production, for SSO, use a real
 	// parent domain + session.cookie_domain.
 	//
-	// These reserved paths are served by the gate ONLY when this backend actually uses
-	// the gate's auth UI (it has a non-public route). A FULLY-PUBLIC backend is pure
-	// pass-through: it owns ALL its paths — including /assets/ — so a site whose asset
-	// dir collides with the gate's (e.g. a Vite/PWA build) works without a manual
-	// stopgap. (Without this, a public site's /assets/ was routed to the gate → 404.)
+	// These reserved paths are served by the gate ONLY when this backend uses the gate's
+	// auth UI (a non-public route). Gate static assets live under /_xtk/ (NOT /assets/),
+	// so even an AUTH-GATED site keeps its own /assets/ — the login/2FA UI pulls its
+	// CSS/JS from /_xtk/assets/. A fully-public backend gets NONE of these (pure
+	// pass-through: it owns all its paths, /assets/ included).
 	if backendUsesAuth(be) {
-		for _, p := range []string{"/login", "/auth/", "/logout", "/listing", "/assets/"} {
+		for _, p := range []string{"/login", "/auth/", "/logout", "/listing", "/_xtk/"} {
 			fmt.Fprintf(b, "    location %s {\n", p)
 			fmt.Fprintf(b, "        proxy_pass http://%s;\n", g.Upstream)
 			b.WriteString("        proxy_set_header Host $host;\n")

@@ -39,13 +39,31 @@ import (
 // extension render an identical main menu.
 func (s *Server) renderAdminPage(w http.ResponseWriter, r *http.Request, active string, t *template.Template, data any) {
 	nav := xtkui.AdminNav(s.HostingUpstream != "")
+	lang := s.lang(r)
+	// TLS and Providers are second-level tabs of Servizi / Utenti: highlight the parent
+	// in the top nav and render a sub-tab bar to switch between the grouped pages.
+	topActive, subtabs := active, ""
+	switch active {
+	case "servizi", "tls":
+		topActive = "servizi"
+		subtabs = xtkui.SubtabBar(active, []xtkui.NavItem{
+			{Key: "servizi", Href: "/admin/servizi", LabelKey: "admin.services"},
+			{Key: "tls", Href: "/admin/tls", LabelKey: "admin.tls"},
+		}, lang)
+	case "utenti", "providers":
+		topActive = "utenti"
+		subtabs = xtkui.SubtabBar(active, []xtkui.NavItem{
+			{Key: "utenti", Href: "/admin/utenti", LabelKey: "admin.users"},
+			{Key: "providers", Href: "/admin/providers", LabelKey: "admin.providers"},
+		}, lang)
+	}
 	c := xtkui.Chrome{
 		Title: "Xal-Tor-Ka · Admin", BrandText: "⛬ Xal-Tor-Ka", BrandHref: "/admin",
 		SubtitleKey: "admin.subtitle", Version: version.Version,
-		Nav: nav, Active: active,
+		Nav: nav, Active: topActive, Subtabs: subtabs,
 		DashboardHref: "/listing", DashboardKey: "nav.dashboard", LoggedIn: true,
 	}
-	c.Render(w, s.lang(r), t, data)
+	c.Render(w, lang, t, data)
 }
 
 var overviewTmpl = xtkui.LocParse("ov", `<h1>{{T "admin.title"}}</h1>
@@ -70,7 +88,7 @@ var overviewTmpl = xtkui.LocParse("ov", `<h1>{{T "admin.title"}}</h1>
 var servicesTmpl = xtkui.LocParse("services", `<section>
  <h2>{{T "admin.svc.h2"}}</h2>
  <p class="hint">{{T "admin.svc.hint"}}</p>
- <table><thead><tr><th>{{T "admin.col.service"}}</th><th>{{T "admin.col.host"}} / {{T "admin.col.upstream"}}</th><th>{{T "admin.col.rule"}}</th><th>{{T "admin.col.ipallow"}}</th><th></th></tr></thead><tbody>
+ <table><thead><tr><th>{{T "admin.col.service"}}</th><th>{{T "admin.col.host"}} / {{T "admin.col.upstream"}}</th><th>{{T "admin.col.rule"}}</th><th></th></tr></thead><tbody>
  {{range .ConfigBackends}}<tr><td>{{.ID}} <span class="tag ro">config</span></td>
    <td><a href="//{{.Host}}" target="_blank" rel="noopener"><code>{{.Host}}</code></a>{{range .Routes}}<div class="hint"><code>{{.Upstream}}</code></div>{{end}}</td>
    <td>{{range .Routes}}<span class="tag">{{.Rule}}</span> {{end}}</td>
@@ -78,8 +96,7 @@ var servicesTmpl = xtkui.LocParse("services", `<section>
  {{range .ServiceBackends}}<tr{{if .Disabled}} class="off"{{end}}>
    <td><b>{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</b>{{if .Disabled}} <span class="tag ro">off</span>{{end}}{{if .Description}}<div class="hint">{{.Description}}</div>{{end}}</td>
    <td><a href="//{{.Host}}" target="_blank" rel="noopener"><code>{{.Host}}</code></a>{{range .Routes}}<div class="hint"><code>{{.Upstream}}</code></div>{{end}}</td>
-   <td>{{range .Routes}}<span class="tag">{{.Rule}}</span> {{end}}</td>
-   <td>{{if .IPAllow}}🔒 <code>{{index .IPAllow 0}}</code>{{if gt (len .IPAllow) 1}} <span class="hint" title="{{len .IPAllow}} IP">…</span>{{end}}{{end}}</td>
+   <td>{{range .Routes}}<span class="tag">{{.Rule}}</span> {{end}}{{if .IPAllow}}<span class="tag ro ipbadge" title="{{range .IPAllow}}{{.}}&#10;{{end}}">🔒 {{len .IPAllow}} IP</span>{{end}}</td>
    <td class="rowact">
     <a class="btn sm" href="/admin/backend/edit?id={{.ID}}">{{T "admin.act.edit"}}</a>
     <a class="btn sm" href="/admin/tls#h-{{.Host}}">{{T "admin.tls.manage"}}</a>
@@ -142,9 +159,9 @@ var dockerTmpl = xtkui.LocParse("docker", `<section>
   <p class="hint">{{T "admin.dk.hint"}}</p>
   <table><thead><tr><th>{{T "admin.dk.container"}}</th><th>{{T "admin.dk.port"}}</th><th>{{T "admin.dk.vhost"}}</th><th></th></tr></thead><tbody>
   {{range .Discovered}}<tr><td>{{.Name}}</td><td>{{.Port}}</td><td><code>{{.Host}}</code></td>
-   <td>{{if .Added}}<span class="tag ro">{{T "admin.dk.added"}}</span>{{else}}<form class="inline" method="post" action="/admin/discover/add">
+   <td class="rowact">{{if .Added}}<span class="tag ro">{{T "admin.dk.added"}}</span>{{else}}<form class="inline" method="post" action="/admin/discover/add">
     <input type="hidden" name="name" value="{{.Name}}"><input type="hidden" name="port" value="{{.Port}}">
-    <select name="rule"><option>whitelist</option><option>authenticated</option><option>public</option></select>
+    <select name="rule" style="width:auto;vertical-align:middle"><option>whitelist</option><option>authenticated</option><option>public</option></select>
     <button class="btn primary sm">{{T "btn.add"}}</button></form>{{end}}</td></tr>
   {{else}}<tr><td colspan="4" class="empty">{{T "admin.dk.none"}}</td></tr>{{end}}
   </tbody></table>
@@ -169,7 +186,7 @@ var dockerTmpl = xtkui.LocParse("docker", `<section>
 
 var usersTmpl = xtkui.LocParse("users", `<section>
  <h2>{{T "admin.users"}}</h2>
- <table><thead><tr><th>{{T "admin.usr.email"}}</th><th></th><th>{{T "admin.usr.enabled_hosts"}}</th><th></th></tr></thead><tbody>
+ <table class="utbl"><thead><tr><th>{{T "admin.usr.email"}}</th><th></th><th>{{T "admin.usr.enabled_hosts"}}</th><th></th></tr></thead><tbody>
  {{range .Users}}<tr>
   <td><a href="/admin/utenti/{{.Email}}">{{.Email}}</a></td>
   <td>{{if .Admin}}<span class="tag">admin</span>{{end}}</td>
@@ -403,7 +420,7 @@ func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request) {
 	s.renderAdminPage(w, r, "utenti", usersTmpl, struct {
 		Users  []adminUserRow
 		AllIDs []string
-	}{rowsFor(users), s.allServiceIDs(svc)})
+	}{rowsFor(users), s.authGatedServiceIDs(svc)})
 }
 
 // handleAdminUserDetail is the per-user properties page.
@@ -427,7 +444,7 @@ func (s *Server) handleAdminUserDetail(w http.ResponseWriter, r *http.Request) {
 		Admin           bool
 		AllIDs          []string
 		Checked         map[string]bool
-	}{u.Email, u.Provider, u.Admin, s.allServiceIDs(svc), checked})
+	}{u.Email, u.Provider, u.Admin, s.authGatedServiceIDs(svc), checked})
 }
 
 func (s *Server) handleAdminMonitoring(w http.ResponseWriter, r *http.Request) {
@@ -869,13 +886,23 @@ func (s *Server) handleUserAdmin(w http.ResponseWriter, r *http.Request) {
 	s.afterMutation(w, r, err)
 }
 
-func (s *Server) allServiceIDs(svc models.Services) []string {
+// authGatedServiceIDs returns the IDs offer-able in the per-user authorization
+// lists: only services that actually sit behind the gate's auth (any route rule
+// != "public"), plus links. Public-only backends are excluded — authorizing a
+// user for a public host is meaningless (it needs no login), so it must not
+// appear in the "host abilitati" checklist. A backend with no explicit routes is
+// kept (conservative: don't hide something whose rule we can't read from routes).
+func (s *Server) authGatedServiceIDs(svc models.Services) []string {
 	set := map[string]bool{}
 	for _, b := range s.BaseBackends {
-		set[b.ID] = true
+		if backendGated(b) {
+			set[b.ID] = true
+		}
 	}
 	for _, b := range svc.Backends {
-		set[b.ID] = true
+		if backendGated(b) {
+			set[b.ID] = true
+		}
 	}
 	for _, l := range svc.Links {
 		set[l.ID] = true
@@ -886,6 +913,20 @@ func (s *Server) allServiceIDs(svc models.Services) []string {
 	}
 	sort.Strings(ids)
 	return ids
+}
+
+// backendGated reports whether a backend is behind the gate's auth (so a per-user
+// authorization is meaningful). No explicit routes → treated as gated (conservative).
+func backendGated(b models.Backend) bool {
+	if len(b.Routes) == 0 {
+		return true
+	}
+	for _, rt := range b.Routes {
+		if rt.Rule != "public" {
+			return true
+		}
+	}
+	return false
 }
 
 // --- service mutations -------------------------------------------------------

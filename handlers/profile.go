@@ -19,7 +19,7 @@ import (
 
 var profileTmpl = template.Must(template.New("profile").Funcs(xtkui.TmplFuncs).Parse(`<!doctype html>
 <html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · {{T .Lang "profile.subtitle"}}</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
+<title>Xal-Tor-Ka · {{T .Lang "profile.subtitle"}}</title><link rel="stylesheet" href="/_xtk/assets/admin.css"><script src="/_xtk/assets/admin.js" defer></script></head><body>
 <header class="topbar">
  <div class="brand">⛬ Xal-Tor-Ka<span class="sub">{{T .Lang "profile.subtitle"}}</span></div>
  <nav class="topnav"><a href="/listing">{{T .Lang "btn.back_services"}}</a>{{if .IsAdmin}}<a href="/admin">{{T .Lang "nav.admin"}}</a>{{end}}
@@ -60,7 +60,7 @@ var profileTmpl = template.Must(template.New("profile").Funcs(xtkui.TmplFuncs).P
 
 var profileQRTmpl = template.Must(template.New("profileqr").Funcs(xtkui.TmplFuncs).Parse(`<!doctype html>
 <html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · {{T .Lang "qr.new2fa"}}</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>
+<title>Xal-Tor-Ka · {{T .Lang "qr.new2fa"}}</title><link rel="stylesheet" href="/_xtk/assets/admin.css"><script src="/_xtk/assets/admin.js" defer></script></head><body>
 <div class="auth-wrap"><div class="auth-card qr">
  <h1>{{T .Lang "qr.new2fa"}}</h1>
  <p class="hint">{{T .Lang "qr.scan"}}</p>

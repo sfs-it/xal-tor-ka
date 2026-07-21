@@ -17,7 +17,7 @@ import (
 // it) to switch account, plus a link back to the dashboard.
 var forbiddenAdminTmpl = template.Must(template.New("forbidden").Funcs(xtkui.TmplFuncs).Parse(`<!doctype html>
 <html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · {{T .Lang "blocked.title"}}</title><link rel="stylesheet" href="/assets/admin.css"></head><body>
+<title>Xal-Tor-Ka · {{T .Lang "blocked.title"}}</title><link rel="stylesheet" href="/_xtk/assets/admin.css"></head><body>
 <div class="auth-wrap"><div class="auth-card">
  <h1>{{T .Lang "blocked.title"}}</h1>
  <div class="err">{{T .Lang "blocked.not_admin"}}</div>

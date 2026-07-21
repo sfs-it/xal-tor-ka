@@ -73,7 +73,13 @@ func LoadServices(path string) (models.Services, error) {
 // version into backupsDir first.
 func SaveServices(servicesPath, backupsDir string, svc models.Services) error {
 	snapshotAndPrune(servicesPath, backupsDir, "services", "json")
-	return writeJSONAtomic(servicesPath, svc, 0o644)
+	// Write IN-PLACE (stable inode), NOT temp+rename: the hosting extension mounts
+	// services.json as a read-only FILE bind, and a rename swaps the inode → the mount
+	// stays pinned to the dead one → the Hosts panel shows frozen data until the
+	// container is recreated. The core never re-reads this file at runtime (it holds an
+	// in-memory copy), and the only external reader (the hosting UI) degrades gracefully
+	// on a rare partial read; the pre-write snapshot in backupsDir covers crash recovery.
+	return writeJSONInPlace(servicesPath, svc, 0o644)
 }
 
 // LoadSecretsRaw reads secrets.json as-is (no ${VAR} expansion, no strictness),
@@ -135,6 +141,19 @@ func writeJSONAtomic(path string, v any, perm os.FileMode) error {
 		return err
 	}
 	return os.Rename(tmp, path)
+}
+
+// writeJSONInPlace writes JSON to path by truncating the existing file (same inode),
+// NOT via temp+rename. Use ONLY where a downstream read-only FILE bind-mount must keep
+// seeing updates (services.json → hosting extension); everything else should prefer
+// writeJSONAtomic for crash/partial-read safety.
+func writeJSONInPlace(path string, v any, perm os.FileMode) error {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	b = append(b, '\n')
+	return os.WriteFile(path, b, perm)
 }
 
 func copyFile(src, dst string) error {
