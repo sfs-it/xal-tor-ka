@@ -184,11 +184,33 @@ scanner. Toggle **per-servizio**.
 
 ---
 
+## Ricetta 14 — App Laravel (stack pronto)
+Metti online un'app **Laravel** senza preparare a mano estensioni o webroot: lo stack **`laravel`**
+porta un'immagine php con `pdo_pgsql`/`pdo_mysql`/`bcmath`/`gd`/`zip`/`intl`/`opcache` **+ composer**,
+e serve `public/` come webroot (front-controller).
+
+1. **Hosting → New site** (o **+ Add vhost**) → stack **NGINX + Laravel (PHP 8.3)**. Il docroot punta
+   automaticamente a `<vhost>/public/`.
+2. **DB**: allega un DB condiviso (pgsql/mysql) dalla scheda del sito → utente e DB **isolati**, la
+   connessione arriva nel container via `db.env`. (PostGIS: `CREATE EXTENSION postgis` quando serve.)
+3. **Carica il codice** via SCP/SFTP nella cartella del vhost — deve esistere `<vhost>/public/index.php`
+   (l'app intera nel docroot, webroot = `public/`).
+4. **Installa e migra**: `composer install --no-dev --optimize-autoloader`, poi
+   `php artisan key:generate --force` e `php artisan migrate --force` (composer è già a bordo; in
+   alternativa spedisci `vendor/` via SCP). Crea scrivibili `storage/` e `bootstrap/cache`.
+5. **Pubblica** (Publish) + **TLS** (LE).
+
+> Lo stock `php-fpm` non ha `pdo_pgsql` → Laravel su postgres darebbe «could not find driver»: lo
+> stack `laravel` lo risolve bakando le estensioni. Dettagli tecnici in `laravel-stack.md`.
+
+---
+
 ## Riferimento rapido
 | Voglio… | Vai a |
 |---|---|
 | Mettere auth/HTTPS davanti a un servizio | Services → Add backend, poi TLS |
 | Creare un sito nuovo | Hosting → New site |
+| Creare un'app Laravel | Hosting → New site → stack Laravel |
 | Aggiungere un sottodominio | Hosting → scheda sito → + Add vhost → Publish |
 | Un certificato | TLS → issue LE / self-signed |
 | SSO aziendale | Providers (OIDC) / config LDAP |
