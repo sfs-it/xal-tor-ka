@@ -2,6 +2,7 @@
   "auth_mode": true,
   "disable_totp": true,
   "auth_log": "logs/auth.log",
+  "one_time_code": { "enabled": false, "channel": "spool", "ttl_minutes": 10, "code_length": 6 },
   "server": {
     "listen": "${GO_PORT:-:8080}",
     "external_url": "${GATE_URL:-http://localhost:8080}",

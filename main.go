@@ -171,6 +171,21 @@ func run() error {
 	srvHandlers.Proxy.Gen.CertDir = certMgr.NginxDir
 	srvHandlers.Proxy.Gen.HasCert = certMgr.HasCert
 
+	// One-time-code (passwordless) login: opt-in via config. Codes live in memory;
+	// the spool channel writes them (with requester IP) to data/otp-queue.jsonl.
+	if bundle.Config.OneTimeCode.Enabled {
+		ttlMin := bundle.Config.OneTimeCode.TTLMinutes
+		if ttlMin <= 0 {
+			ttlMin = 10
+		}
+		cd := bundle.Config.OneTimeCode.CooldownSeconds
+		if cd <= 0 {
+			cd = 30
+		}
+		srvHandlers.OTP = auth.NewOTPStore(time.Duration(ttlMin)*time.Minute, time.Duration(cd)*time.Second, bundle.Config.OneTimeCode.CodeLength)
+		srvHandlers.OTPQueuePath = filepath.Join(*configDir, "data", "otp-queue.jsonl")
+	}
+
 	// Merge services.json (extra backends + link tiles) into the resolver.
 	if err := srvHandlers.Reload(); err != nil {
 		slog.Warn("services reload failed", "err", err)

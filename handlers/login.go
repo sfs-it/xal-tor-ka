@@ -29,6 +29,7 @@ var loginTmpl = template.Must(template.New("login").Funcs(xtkui.TmplFuncs).Parse
   <div class="field"><label>{{T .Lang "field.password"}}</label><input type="password" name="password" autocomplete="current-password" required></div>
   <button class="btn primary">{{T .Lang "btn.continue"}}</button>
  </form>
+ {{if .Code}}<p class="hint" style="margin-top:.8rem;text-align:center"><a href="/login/code?next={{.Next}}">Accedi con un codice monouso</a></p>{{end}}
  {{if .OIDC}}<div class="oidc"><div class="sep"><span>{{T .Lang "login.or"}}</span></div>
   {{range .OIDC}}<a class="btn oauth" href="/auth/{{.ID}}/start?next={{$.Next}}">{{T $.Lang "login.with"}} {{.Name}}</a>{{end}}
  </div>{{end}}
@@ -54,6 +55,7 @@ type formData struct {
 	Next    string
 	Error   string
 	OIDC    []oidcButton // enabled OIDC providers ("Sign in with …" buttons)
+	Code    bool         // one-time-code login enabled → show the "accedi con un codice" link
 	Version string
 	Lang    string
 }

@@ -10,18 +10,21 @@ import "time"
 
 // Config is the non-secret application configuration (config.json, BLUEPRINT §7.1).
 type Config struct {
-	AuthMode     bool          `json:"auth_mode"`
-	DisableTOTP  bool          `json:"disable_totp,omitempty"` // true = password only, no 2FA
-	AuthLog      string        `json:"auth_log,omitempty"`     // failure log file (fail2ban)
-	Server       ServerCfg     `json:"server"`
-	TLS          TLSCfg        `json:"tls"`
-	Session      SessionCfg    `json:"session"`
-	Admin        AdminCfg      `json:"admin"`
-	Providers    []ProviderCfg `json:"providers"`
-	UsersFile    string        `json:"users_file"`
-	SecretsFile  string        `json:"secrets_file"`
-	ServicesFile string        `json:"services_file"`
-	Monitoring   MonitoringCfg `json:"monitoring"`
+	AuthMode    bool   `json:"auth_mode"`
+	DisableTOTP bool   `json:"disable_totp,omitempty"` // true = password only, no 2FA
+	AuthLog     string `json:"auth_log,omitempty"`     // failure log file (fail2ban)
+	// OneTimeCode (optional) enables passwordless login via a one-time code delivered
+	// out-of-band. Disabled by default; the code is a first factor (TOTP still applies).
+	OneTimeCode  OneTimeCodeCfg `json:"one_time_code,omitempty"`
+	Server       ServerCfg      `json:"server"`
+	TLS          TLSCfg         `json:"tls"`
+	Session      SessionCfg     `json:"session"`
+	Admin        AdminCfg       `json:"admin"`
+	Providers    []ProviderCfg  `json:"providers"`
+	UsersFile    string         `json:"users_file"`
+	SecretsFile  string         `json:"secrets_file"`
+	ServicesFile string         `json:"services_file"`
+	Monitoring   MonitoringCfg  `json:"monitoring"`
 	// RemoteControl (optional) enables receiving vetted commands + sending notifications
 	// over Telegram/email. Disabled by default; fail-closed.
 	RemoteControl RemoteControlCfg `json:"remote_control,omitempty"`
@@ -46,6 +49,23 @@ type OSUpdatesCfg struct {
 	Channels []string `json:"channels,omitempty"`
 	// PollHours is the check interval in hours (default 24).
 	PollHours int `json:"poll_hours,omitempty"`
+}
+
+// OneTimeCodeCfg configures passwordless login via a one-time code. Disabled by default.
+// The code is delivered out-of-band by the selected Channel; "spool" (default when enabled,
+// e.g. no SMTP yet) writes it to a queue file for manual/audited retrieval, "email" uses the
+// notify transport, "sms" is reserved for a later API integration. The code is a FIRST factor:
+// a user with TOTP still completes 2FA after it.
+type OneTimeCodeCfg struct {
+	Enabled bool `json:"enabled,omitempty"`
+	// Channel: "spool" (default) | "email" | "sms".
+	Channel string `json:"channel,omitempty"`
+	// TTLMinutes is the code validity window (default 10).
+	TTLMinutes int `json:"ttl_minutes,omitempty"`
+	// CodeLength is the number of decimal digits (default 6, min 4).
+	CodeLength int `json:"code_length,omitempty"`
+	// CooldownSeconds is the minimum gap between two requests for the same email (default 30).
+	CooldownSeconds int `json:"cooldown_seconds,omitempty"`
 }
 
 // ServerCfg holds the HTTP listen address and proxy trust settings.
@@ -94,10 +114,10 @@ type ProviderCfg struct {
 	ClientID string `json:"client_id,omitempty"`
 	// LDAP (type "ldap"): bind-based auth against a directory / Active Directory.
 	// See docs/next-gen-auth-sources.md. No secret required for direct-bind.
-	LDAPURL                string `json:"ldap_url,omitempty"`                 // ldaps://host:636 or ldap://host:389
-	LDAPBindDNTemplate     string `json:"ldap_bind_dn_template,omitempty"`    // %s = username, e.g. "%s@corp.example.com"
-	LDAPBaseDN             string `json:"ldap_base_dn,omitempty"`             // optional (future: search / group mapping)
-	LDAPStartTLS           bool   `json:"ldap_start_tls,omitempty"`           // upgrade a plain :389 connection to TLS
+	LDAPURL                string `json:"ldap_url,omitempty"`                  // ldaps://host:636 or ldap://host:389
+	LDAPBindDNTemplate     string `json:"ldap_bind_dn_template,omitempty"`     // %s = username, e.g. "%s@corp.example.com"
+	LDAPBaseDN             string `json:"ldap_base_dn,omitempty"`              // optional (future: search / group mapping)
+	LDAPStartTLS           bool   `json:"ldap_start_tls,omitempty"`            // upgrade a plain :389 connection to TLS
 	LDAPInsecureSkipVerify bool   `json:"ldap_insecure_skip_verify,omitempty"` // skip cert verification — labs only
 }
 

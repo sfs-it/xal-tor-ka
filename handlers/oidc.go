@@ -52,7 +52,7 @@ func (s *Server) loginData(r *http.Request, next, errKey string) formData {
 	if errKey != "" {
 		msg = i18n.T(lang, errKey)
 	}
-	return formData{Next: s.sanitizeNext(next), Error: msg, OIDC: s.oidcButtons(), Version: version.Version, Lang: lang}
+	return formData{Next: s.sanitizeNext(next), Error: msg, OIDC: s.oidcButtons(), Code: s.otpEnabled(), Version: version.Version, Lang: lang}
 }
 
 func (s *Server) cookieSecure() bool {

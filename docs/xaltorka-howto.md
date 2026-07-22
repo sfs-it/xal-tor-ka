@@ -257,6 +257,29 @@ motore à-la-carte dei moduli: le impostazioni si materializzano come drop-in `c
 
 ---
 
+## Ricetta 18 — Login con codice monouso (passwordless)
+Fai accedere un utente con un **codice usa-e-getta** al posto della password. Il codice è un
+**primo fattore** (chi ha il 2FA lo completa comunque dopo). **Opt-in**, spento di default.
+
+1. In `config.json` abilita:
+   ```json
+   "one_time_code": { "enabled": true, "channel": "spool", "ttl_minutes": 10, "code_length": 6 }
+   ```
+   `make rebuild` (è config di avvio). Sulla pagina di login compare **«Accedi con un codice monouso»**.
+2. L'utente inserisce l'email → il gate genera un codice e lo **consegna** secondo il `channel`:
+   - **`spool`** (default, quando non c'è ancora un account SMTP): il codice viene **scritto in coda**
+     `data/otp-queue.jsonl` **con l'IP del richiedente**, timestamp e scadenza. Lo leggi da lì e lo
+     recapiti a mano (o lo usi tu per i test). *(La coda è in `data/`, gitignored.)*
+   - **`email`** / **`sms`**: **fase 2** — invio via SMTP (transport `notify`) / API SMS, quando il
+     cliente del servizio fornirà le credenziali. Finché non configurati, il codice va comunque in coda.
+3. L'utente inserisce il codice → **entra**. Il codice è **monouso** (consumato) e **scade** dopo `ttl_minutes`.
+
+> Sicurezza: risposta **generica** (non rivela se l'email esiste), codice **solo per utenti reali**,
+> **hashato** a riposo, **usa-e-getta**, a tempo, con **cooldown** anti-spam per email. La coda contiene
+> i codici in chiaro (serve per recapitarli): tienila protetta finché usi `spool`.
+
+---
+
 ## Riferimento rapido
 | Voglio… | Vai a |
 |---|---|
@@ -265,6 +288,7 @@ motore à-la-carte dei moduli: le impostazioni si materializzano come drop-in `c
 | Creare un'app Laravel | Hosting → New site → stack Laravel |
 | Aggiungere un sottodominio | Hosting → scheda sito → + Add vhost → Publish |
 | Moduli o impostazioni PHP di un sito | Hosting → scheda sito → Moduli PHP |
+| Login con codice usa-e-getta | config `one_time_code` → «Accedi con un codice» |
 | Un certificato | TLS → issue LE / self-signed |
 | SSO aziendale | Providers (OIDC) / config LDAP |
 | Accesso ai file del sito | Hosting → scheda sito → SSH keys (SFTP) |

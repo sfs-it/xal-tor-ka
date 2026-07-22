@@ -47,12 +47,16 @@ type Server struct {
 	Audit   *audit.Logger    // fail2ban-friendly auth-failure log (may be nil)
 	CertMgr *certmgr.Manager // TLS certificate manager (self-signed/ACME; may be nil)
 
+	// OTP is the one-time-code store for passwordless login (nil = disabled).
+	OTP *auth.OTPStore
+
 	// Filesystem paths for persistence (set by main).
 	UsersPath    string
 	BackupsDir   string
 	SetupPath    string
 	ServicesPath string
 	SecretsPath  string
+	OTPQueuePath string // spool queue for one-time codes (data/otp-queue.jsonl)
 
 	// Docker discovery (via read-only socket-proxy). Empty URL disables it.
 	DockerProxyURL string
@@ -190,6 +194,9 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /validate", s.handleValidate)
 	mux.HandleFunc("GET /login", s.handleLoginForm)
 	mux.HandleFunc("POST /login", s.handleLoginSubmit)
+	mux.HandleFunc("GET /login/code", s.handleCodeRequestForm)
+	mux.HandleFunc("POST /login/code", s.handleCodeRequestSubmit)
+	mux.HandleFunc("POST /login/code/verify", s.handleCodeVerifySubmit)
 	mux.HandleFunc("GET /login/totp", s.handleTOTPForm)
 	mux.HandleFunc("POST /auth/totp", s.handleTOTPSubmit)
 	mux.HandleFunc("GET /auth/{provider}/start", s.handleOIDCStart)
