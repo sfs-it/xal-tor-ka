@@ -168,7 +168,7 @@
   "admin.tls.col.status": "status",
   "admin.tls.src.acme": "Let's Encrypt",
   "admin.tls.src.selfsigned": "internal CA",
-  "admin.tls.status.missing": "missing",
+  "admin.tls.status.missing": "n/a",
   "admin.tls.status.valid": "valid",
   "admin.tls.status.expired": "expired",
   "admin.tls.issue_le": "issue LE",
@@ -272,7 +272,7 @@
   "admin.usr.reset_2fa": "reset 2FA",
   "admin.usr.del_user": "delete user",
   "admin.usr.authz_title": "Authorizations (enabled hosts)",
-  "admin.usr.admin_all_note": "This user is an administrator: they access all services, the whitelist does not apply.",
+  "admin.usr.admin_all_note": "Administrator: accesses all services (the whitelist does not apply while admin). You can still pre-set their hosts here — they apply if you revoke admin.",
   "admin.usr.no_services": "no service configured",
   "admin.usr.save_authz": "save authorizations",
   "admin.mon.status": "Status",
@@ -315,5 +315,7 @@
   "setup.done.profile": "Profile",
   "setup.done.activated": "activated.",
   "setup.done.go_login": "Go to login",
-  "setup.err.pw_mismatch": "passwords do not match"
+  "setup.err.pw_mismatch": "passwords do not match",
+  "admin.usr.filter": "Filter users…",
+  "admin.usr.sort_admin": "Sort by admin"
 }

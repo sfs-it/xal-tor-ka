@@ -168,7 +168,7 @@
   "admin.tls.col.status": "stato",
   "admin.tls.src.acme": "Let's Encrypt",
   "admin.tls.src.selfsigned": "CA interna",
-  "admin.tls.status.missing": "mancante",
+  "admin.tls.status.missing": "n/a",
   "admin.tls.status.valid": "valido",
   "admin.tls.status.expired": "scaduto",
   "admin.tls.issue_le": "emetti LE",
@@ -211,7 +211,7 @@
   "admin.act.disable": "disabilita",
   "admin.act.delete": "elimina",
   "admin.confirm_del": "Eliminare questa voce?",
-  "admin.f.id": "id",
+  "admin.rule.help": "public: aperto a tutti. authenticated: utenti con sessione valida (2FA). whitelist: solo utenti esplicitamente autorizzati (implica l'autenticazione); gli amministratori accedono sempre (override).",
   "admin.edit.help.id": "non modificabile",
   "admin.edit.help.name": "nome mostrato nella dashboard",
   "admin.edit.help.host": "hostname pubblico instradato dal gateway",
@@ -223,6 +223,7 @@
   "admin.edit.upstream.managed": "Fissato da Hosting — modificalo dal pannello Hosting.",
   "admin.edit.help.ipallow": "lista CIDR, opzionale — vuoto = nessun limite",
   "admin.edit.help.desc": "testo mostrato nella dashboard",
+  "admin.f.id": "id",
   "admin.f.name": "nome",
   "admin.f.host": "host",
   "admin.f.path": "path",
@@ -271,7 +272,7 @@
   "admin.usr.reset_2fa": "reimposta 2FA",
   "admin.usr.del_user": "elimina utente",
   "admin.usr.authz_title": "Autorizzazioni (host abilitati)",
-  "admin.usr.admin_all_note": "Questo utente è un amministratore: accede a tutti i servizi, la whitelist non si applica.",
+  "admin.usr.admin_all_note": "Amministratore: accede a tutti i servizi (la whitelist non si applica finché è admin). Puoi comunque pre-impostare qui i suoi host — varranno se gli revochi l'admin.",
   "admin.usr.no_services": "nessun servizio configurato",
   "admin.usr.save_authz": "salva autorizzazioni",
   "admin.mon.status": "Stato",
@@ -315,5 +316,6 @@
   "setup.done.activated": "attivato.",
   "setup.done.go_login": "Vai al login",
   "setup.err.pw_mismatch": "le password non coincidono",
-  "admin.rule.help": "public: aperto a tutti. authenticated: utenti con sessione valida (2FA). whitelist: solo utenti esplicitamente autorizzati (implica l'autenticazione); gli amministratori accedono sempre (override)."
+  "admin.usr.filter": "Filtra utenti…",
+  "admin.usr.sort_admin": "Ordina per admin"
 }

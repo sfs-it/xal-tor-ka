@@ -93,8 +93,8 @@ var servicesTmpl = xtkui.LocParse("services", `<section>
    <td><a href="//{{.Host}}" target="_blank" rel="noopener"><code>{{.Host}}</code></a>{{range .Routes}}<div class="hint"><code>{{.Upstream}}</code></div>{{end}}</td>
    <td>{{range .Routes}}<span class="tag">{{.Rule}}</span> {{end}}</td>
    <td></td><td class="rowact"><a class="btn sm" href="/admin/tls#h-{{.Host}}">{{T "admin.tls.manage"}}</a></td></tr>{{end}}
- {{range .ServiceBackends}}<tr{{if .Disabled}} class="off"{{end}}>
-   <td><b>{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</b>{{if .Disabled}} <span class="tag ro">off</span>{{end}}{{if .Description}}<div class="hint">{{.Description}}</div>{{end}}</td>
+ {{range .Groups}}{{$g := .}}{{$grp := and $g.Site (gt (len $g.Backends) 1)}}{{if $grp}}<tr class="svc-ghdr"><td colspan="4"><b>{{$g.Site}}/</b> <span class="hint">{{len $g.Backends}} vhost</span></td></tr>{{end}}{{range $g.Backends}}<tr{{if .Disabled}} class="off"{{end}}>
+   <td>{{if $grp}}<span class="tls-branch" aria-hidden="true">↳</span> {{end}}<b>{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</b>{{if .Disabled}} <span class="tag ro">off</span>{{end}}{{if .Description}}<div class="hint">{{.Description}}</div>{{end}}</td>
    <td><a href="//{{.Host}}" target="_blank" rel="noopener"><code>{{.Host}}</code></a>{{range .Routes}}<div class="hint"><code>{{.Upstream}}</code></div>{{end}}</td>
    <td>{{range .Routes}}<span class="tag">{{.Rule}}</span> {{end}}{{if .IPAllow}}<span class="tag ro ipbadge" title="{{range .IPAllow}}{{.}}&#10;{{end}}">🔒 {{len .IPAllow}} IP</span>{{end}}</td>
    <td class="rowact">
@@ -103,7 +103,7 @@ var servicesTmpl = xtkui.LocParse("services", `<section>
     <form class="inline" method="post" action="/admin/backend/toggle"><input type="hidden" name="id" value="{{.ID}}"><button class="btn sm">{{if .Disabled}}{{T "admin.act.enable"}}{{else}}{{T "admin.act.disable"}}{{end}}</button></form>
     <form class="inline" method="post" action="/admin/backend/del" onsubmit="return confirm('{{T "admin.confirm_del"}}')"><input type="hidden" name="id" value="{{.ID}}"><button class="btn danger sm">{{T "admin.act.delete"}}</button></form>
    </td></tr>
- {{else}}{{end}}
+ {{end}}{{end}}
  </tbody></table>
  <div class="card addcard" style="margin-top:1rem"><h3>{{T "admin.svc.add"}}</h3>
   <form method="post" action="/admin/backend/add"><div class="formgrid">
@@ -186,8 +186,9 @@ var dockerTmpl = xtkui.LocParse("docker", `<section>
 
 var usersTmpl = xtkui.LocParse("users", `<section>
  <h2>{{T "admin.users"}}</h2>
- <table class="utbl"><thead><tr><th>{{T "admin.usr.email"}}</th><th></th><th>{{T "admin.usr.enabled_hosts"}}</th><th></th></tr></thead><tbody>
- {{range .Users}}<tr>
+ <div style="margin:.5rem 0"><input id="ufilter" type="search" placeholder="{{T "admin.usr.filter"}}" oninput="ufilter()" style="width:18rem;padding:.38rem .65rem;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text)"></div>
+ <table class="utbl" id="utbl"><thead><tr><th>{{T "admin.usr.email"}}</th><th class="usort" onclick="usortAdmin()" style="cursor:pointer;user-select:none" title="{{T "admin.usr.sort_admin"}}">Admin&nbsp;⇅</th><th>{{T "admin.usr.enabled_hosts"}}</th><th></th></tr></thead><tbody>
+ {{range .Users}}<tr data-admin="{{if .Admin}}1{{else}}0{{end}}" data-email="{{.Email}}">
   <td><a href="/admin/utenti/{{.Email}}">{{.Email}}</a></td>
   <td>{{if .Admin}}<span class="tag">admin</span>{{end}}</td>
   <td>{{if .Admin}}<span class="hint">{{T "admin.usr.all_admin"}}</span>{{else if .Hosts}}<details><summary>{{len .Hosts}} host</summary><ul class="hostlist">{{range .Hosts}}<li>{{.}}</li>{{end}}</ul></details>{{else}}<span class="hint">{{T "admin.usr.none"}}</span>{{end}}</td>
@@ -196,6 +197,11 @@ var usersTmpl = xtkui.LocParse("users", `<section>
    <form class="inline" method="post" action="/admin/user/del" onsubmit="return confirm('{{T "admin.confirm_del"}}')"><input type="hidden" name="email" value="{{.Email}}"><button class="btn danger sm">{{T "admin.act.delete"}}</button></form>
   </div></td></tr>{{end}}
  </tbody></table>
+ <script>
+ function ufilter(){var q=(document.getElementById('ufilter').value||'').toLowerCase();var rows=document.querySelectorAll('#utbl tbody tr');for(var i=0;i<rows.length;i++){var e=(rows[i].getAttribute('data-email')||'').toLowerCase();rows[i].style.display=e.indexOf(q)>=0?'':'none';}}
+ var uAdminAsc=false;
+ function usortAdmin(){uAdminAsc=!uAdminAsc;var tb=document.querySelector('#utbl tbody');var rows=Array.prototype.slice.call(tb.querySelectorAll('tr'));rows.sort(function(a,b){var d=(+b.getAttribute('data-admin'))-(+a.getAttribute('data-admin'));if(uAdminAsc)d=-d;return d||(a.getAttribute('data-email')||'').localeCompare(b.getAttribute('data-email')||'');});for(var i=0;i<rows.length;i++)tb.appendChild(rows[i]);}
+ </script>
  <div class="card addcard" style="margin-top:1rem"><h3>{{T "admin.usr.create"}}</h3>
   <form method="post" action="/admin/user/add">
    <div class="formgrid">
@@ -223,11 +229,11 @@ var userDetailTmpl = xtkui.LocParse("userdetail", `<section>
   </div>
  </div>
  <div class="card" style="margin-top:1rem"><h3>{{T "admin.usr.authz_title"}}</h3>
-  {{if .Admin}}<p class="hint">{{T "admin.usr.admin_all_note"}}</p>
-  {{else}}<form method="post" action="/admin/user/authz"><input type="hidden" name="email" value="{{.Email}}">
+  {{if .Admin}}<p class="hint">{{T "admin.usr.admin_all_note"}}</p>{{end}}
+  <form method="post" action="/admin/user/authz"><input type="hidden" name="email" value="{{.Email}}">
    <div class="checks">{{range .AllIDs}}<label class="check"><input type="checkbox" name="authz" value="{{.}}" {{if index $.Checked .}}checked{{end}}>{{.}}</label>{{else}}<span class="hint">{{T "admin.usr.no_services"}}</span>{{end}}</div>
    <div class="actions" style="margin-top:.6rem"><button class="btn primary">{{T "admin.usr.save_authz"}}</button></div>
-  </form>{{end}}
+  </form>
  </div>
 </section>`)
 
@@ -369,17 +375,49 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// svcGroup collects the service backends of one hosting site (Site != "") so the Services
+// table can nest a site's vhosts under a header — like the Certificati page. Standalone
+// (non-hosting) backends each become a single-item group with Site == "".
+type svcGroup struct {
+	Site     string
+	Backends []models.Backend
+}
+
+// groupServiceBackends groups hosting backends by their owning site, preserving first
+// appearance order; non-hosting backends keep their position as singleton groups.
+func groupServiceBackends(bs []models.Backend) []svcGroup {
+	var out []svcGroup
+	idx := map[string]int{}
+	for _, b := range bs {
+		site := ""
+		if b.Hosting != nil {
+			site = b.Hosting.Site
+		}
+		if site == "" {
+			out = append(out, svcGroup{Backends: []models.Backend{b}})
+			continue
+		}
+		if i, ok := idx[site]; ok {
+			out[i].Backends = append(out[i].Backends, b)
+		} else {
+			idx[site] = len(out)
+			out = append(out, svcGroup{Site: site, Backends: []models.Backend{b}})
+		}
+	}
+	return out
+}
+
 func (s *Server) handleAdminServices(w http.ResponseWriter, r *http.Request) {
 	if !s.adminGuard(w, r) {
 		return
 	}
 	svc, _ := config.LoadServices(s.ServicesPath)
 	s.renderAdminPage(w, r, "servizi", servicesTmpl, struct {
-		ConfigBackends  []models.Backend
-		ServiceBackends []models.Backend
-		Links           []models.Link
-		HostingEnabled  bool
-	}{s.BaseBackends, svc.Backends, svc.Links, s.HostingUpstream != ""})
+		ConfigBackends []models.Backend
+		Groups         []svcGroup
+		Links          []models.Link
+		HostingEnabled bool
+	}{s.BaseBackends, groupServiceBackends(svc.Backends), svc.Links, s.HostingUpstream != ""})
 }
 
 func (s *Server) handleAdminDocker(w http.ResponseWriter, r *http.Request) {

@@ -1502,7 +1502,7 @@ type phpextData struct {
 
 var phpextTmpl = xtkui.LocParse("hostingphpext", subtabsSrc+`<h1>Moduli PHP · <code>{{.Label}}</code></h1>
 {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
-<p class="hint">Estensioni à-la-carte oltre al set base già incluso. Al salvataggio il container <code>php</code> viene ricreato e i moduli scelti sono materializzati al boot (immagine <code>xtk-php</code>) — nessun rebuild.</p>
+<p class="hint">Estensioni PHP <b>aggiuntive</b> oltre al set base già incluso. Al salvataggio il container <code>php</code> viene ricreato e i moduli scelti sono caricati al boot — nessun rebuild dell'immagine.</p>
 <form method="post" action="/admin/hosting/phpext">
   <input type="hidden" name="name" value="{{.Name}}">
   <input type="hidden" name="vhost" value="{{.Vhost}}">

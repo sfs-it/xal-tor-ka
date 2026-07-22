@@ -32,7 +32,7 @@ done
 
 # richiede l'immagine xtk-php (materializzatore) — altrimenti i moduli non verrebbero caricati
 if ! grep -qE 'image:[[:space:]]*xtk-php:' "$f"; then
-  echo "immagine php del vhost non e xtk-php (nessun materializzatore a-la-carte) — ricrea il vhost su php-fpm/laravel" >&2
+  echo "immagine php del vhost non e xtk-php (i moduli aggiuntivi non sono supportati qui) — ricrea il vhost su stack php-fpm o laravel" >&2
   exit 4
 fi
 
