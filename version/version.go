@@ -8,4 +8,4 @@
 package version
 
 // Version is the current release identifier (pre-1.0 beta line: beta0.1, beta0.2, …).
-var Version = "beta0.10"
+var Version = "beta0.11"
