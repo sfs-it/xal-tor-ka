@@ -235,6 +235,28 @@ Vedi in un colpo d'occhio cosa non va: eventi aggregati da più sorgenti e class
 
 ---
 
+## Ricetta 17 — Impostazioni PHP (php.ini / php-fpm)
+Regola i limiti PHP di un vhost (dimensione upload, memoria, tempo d'esecuzione…) e, se serve,
+scrivi direttive avanzate — **senza rebuild** e senza editare file dentro il container. Stesso
+motore à-la-carte dei moduli: le impostazioni si materializzano come drop-in `conf.d` al boot.
+
+1. **Hosting → scheda del sito**, sul vhost (php-fpm/laravel) premi **«Moduli PHP»**, poi scorri
+   alla sezione **«Impostazioni PHP»**.
+2. Compila i **limiti comuni** che ti servono — `upload_max_filesize`, `post_max_size`,
+   `memory_limit`, `max_file_uploads`, `max_execution_time`. Lascia un campo **vuoto** per il
+   default. Le dimensioni si scrivono `64M`, `512M`, `1G`.
+3. (Avanzato) Nel frame **«Direttive php.ini»** aggiungi direttive libere, una per riga
+   (es. `opcache.jit=tracing`). Nel frame **«Direttive pool php-fpm»** aggiungi direttive di pool
+   `[www]` (es. `pm.max_children = 10`).
+4. **Salva & applica**: il container `php` viene ricreato e le impostazioni caricate al boot.
+
+> I limiti comuni sono **validati** per pattern lato agente (mai testo libero eseguito). I frame
+> avanzati vengono **scritti come file** (mai `eval`); il pool php-fpm è validato con `php-fpm -t`:
+> se una direttiva lo rompe, il drop-in viene scartato e il container parte comunque. Le impostazioni
+> vivono nel vhost (`.xtk-stack`) e sopravvivono a ricreazioni e redeploy.
+
+---
+
 ## Riferimento rapido
 | Voglio… | Vai a |
 |---|---|
@@ -242,6 +264,7 @@ Vedi in un colpo d'occhio cosa non va: eventi aggregati da più sorgenti e class
 | Creare un sito nuovo | Hosting → New site |
 | Creare un'app Laravel | Hosting → New site → stack Laravel |
 | Aggiungere un sottodominio | Hosting → scheda sito → + Add vhost → Publish |
+| Moduli o impostazioni PHP di un sito | Hosting → scheda sito → Moduli PHP |
 | Un certificato | TLS → issue LE / self-signed |
 | SSO aziendale | Providers (OIDC) / config LDAP |
 | Accesso ai file del sito | Hosting → scheda sito → SSH keys (SFTP) |
