@@ -72,6 +72,10 @@ h3{color:var(--ink)}
 .row{display:flex;justify-content:space-between;align-items:center;gap:.5rem}
 .addcard{border:1px dashed color-mix(in srgb,var(--accent) 40%,var(--line));background:var(--panel-2);box-shadow:none}
 .card.off{opacity:.5}
+/* Listing: blocco unico per sito multidominio (vhost raggruppati) */
+.sitegroup{grid-column:1/-1;border:1px solid var(--line);border-radius:var(--radius);padding:.7rem .9rem;background:var(--panel-2)}
+.sitegroup>h2{margin:.1rem 0 .6rem;font-size:1.05rem}
+.grid.subgrid{gap:.7rem;margin:0}
 a.card{display:block;color:inherit}
 a.card:hover{text-decoration:none;border-color:color-mix(in srgb,var(--accent) 55%,var(--line));
   box-shadow:0 6px 22px rgba(21,23,31,.12);transform:translateY(-2px)}
@@ -99,6 +103,12 @@ a.card:hover{text-decoration:none;border-color:color-mix(in srgb,var(--accent) 5
 .tag.stw.warn{background:var(--warn);color:#fff;border-color:var(--warn)}
 /* Servizi: intestazione di gruppo per sito hosting (vhost raggruppati) */
 .svc-ghdr td{padding-top:.7rem;color:var(--muted)} .svc-ghdr b{color:var(--text);font-size:.9rem}
+/* Autorizzazioni ad albero (checklist raggruppata per sito hosting) */
+.authztree{display:flex;flex-direction:column;gap:.45rem;margin:.5rem 0}
+.authz-lbl{font-weight:600;font-size:.85rem}
+.authz-group{border:1px solid var(--line);border-radius:9px;padding:.45rem .65rem;background:var(--panel-2)}
+.authz-ghdr{font-weight:700;font-size:.82rem;color:var(--text);margin-bottom:.3rem}
+.authz-group .check{margin-inline-start:.9rem}
 .ipbadge{cursor:default} .ipbadge code{font-size:.7rem}
 .utbl td{vertical-align:top} /* users table: email anchored top when the host list expands the row */
 .badge{display:inline-flex;align-items:center;gap:.4rem;font-size:.8rem;font-weight:600;padding:.15rem .6rem;border-radius:999px}

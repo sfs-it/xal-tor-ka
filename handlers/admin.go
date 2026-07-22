@@ -208,7 +208,7 @@ var usersTmpl = xtkui.LocParse("users", `<section>
     <div><label>{{T "admin.usr.email"}}</label><input type="email" name="email" required></div>
     <div><label>{{T "field.password"}}</label><input type="password" name="password" required></div>
    </div>
-   <div class="checks"><label>{{T "admin.usr.authz"}}</label>{{range .AllIDs}}<label class="check"><input type="checkbox" name="authz" value="{{.}}">{{.}}</label>{{end}}</div>
+   <div class="authztree"><label class="authz-lbl">{{T "admin.usr.authz"}}</label>{{range .AllTree}}{{if .Site}}<div class="authz-group"><div class="authz-ghdr">{{.Site}}/</div>{{range .Items}}<label class="check"><input type="checkbox" name="authz" value="{{.ID}}">{{.Label}}</label>{{end}}</div>{{else}}{{range .Items}}<label class="check"><input type="checkbox" name="authz" value="{{.ID}}">{{.Label}}</label>{{end}}{{end}}{{end}}</div>
    <div class="actions"><button class="btn primary">{{T "admin.usr.create_btn"}}</button></div>
   </form></div>
 </section>`)
@@ -231,7 +231,7 @@ var userDetailTmpl = xtkui.LocParse("userdetail", `<section>
  <div class="card" style="margin-top:1rem"><h3>{{T "admin.usr.authz_title"}}</h3>
   {{if .Admin}}<p class="hint">{{T "admin.usr.admin_all_note"}}</p>{{end}}
   <form method="post" action="/admin/user/authz"><input type="hidden" name="email" value="{{.Email}}">
-   <div class="checks">{{range .AllIDs}}<label class="check"><input type="checkbox" name="authz" value="{{.}}" {{if index $.Checked .}}checked{{end}}>{{.}}</label>{{else}}<span class="hint">{{T "admin.usr.no_services"}}</span>{{end}}</div>
+   <div class="authztree">{{range .AllTree}}{{if .Site}}<div class="authz-group"><div class="authz-ghdr">{{.Site}}/</div>{{range .Items}}<label class="check"><input type="checkbox" name="authz" value="{{.ID}}" {{if index $.Checked .ID}}checked{{end}}>{{.Label}}</label>{{end}}</div>{{else}}{{range .Items}}<label class="check"><input type="checkbox" name="authz" value="{{.ID}}" {{if index $.Checked .ID}}checked{{end}}>{{.Label}}</label>{{end}}{{end}}{{else}}<span class="hint">{{T "admin.usr.no_services"}}</span>{{end}}</div>
    <div class="actions" style="margin-top:.6rem"><button class="btn primary">{{T "admin.usr.save_authz"}}</button></div>
   </form>
  </div>
@@ -456,9 +456,9 @@ func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request) {
 	users := s.Users.All()
 	sort.Slice(users, func(i, j int) bool { return users[i].Email < users[j].Email })
 	s.renderAdminPage(w, r, "utenti", usersTmpl, struct {
-		Users  []adminUserRow
-		AllIDs []string
-	}{rowsFor(users), s.authGatedServiceIDs(svc)})
+		Users   []adminUserRow
+		AllTree []authzNode
+	}{rowsFor(users), s.authzTree(svc)})
 }
 
 // handleAdminUserDetail is the per-user properties page.
@@ -480,9 +480,9 @@ func (s *Server) handleAdminUserDetail(w http.ResponseWriter, r *http.Request) {
 	s.renderAdminPage(w, r, "utenti", userDetailTmpl, struct {
 		Email, Provider string
 		Admin           bool
-		AllIDs          []string
+		AllTree         []authzNode
 		Checked         map[string]bool
-	}{u.Email, u.Provider, u.Admin, s.authGatedServiceIDs(svc), checked})
+	}{u.Email, u.Provider, u.Admin, s.authzTree(svc), checked})
 }
 
 func (s *Server) handleAdminMonitoring(w http.ResponseWriter, r *http.Request) {
@@ -951,6 +951,53 @@ func (s *Server) authGatedServiceIDs(svc models.Services) []string {
 	}
 	sort.Strings(ids)
 	return ids
+}
+
+type authzItem struct{ ID, Label string }
+
+// authzNode is one row-group of the per-user authorization checklist: a hosting site
+// (Site != "") with its vhosts, or a standalone service (Site == "", one item).
+type authzNode struct {
+	Site  string
+	Items []authzItem
+}
+
+// authzTree lists ALL authorizable services for the per-user checklist, grouped by hosting
+// site (a multidomain site → one node with its vhosts). Unlike the gated-only list it also
+// includes public backends: a route rule can change public→gated later, and you must be able
+// to pre-authorize a user without re-enabling every site for everyone when a setting changes.
+func (s *Server) authzTree(svc models.Services) []authzNode {
+	var out []authzNode
+	idx := map[string]int{}
+	add := func(id, site, label string) {
+		if site == "" {
+			out = append(out, authzNode{Items: []authzItem{{id, label}}})
+			return
+		}
+		if i, ok := idx[site]; ok {
+			out[i].Items = append(out[i].Items, authzItem{id, label})
+		} else {
+			idx[site] = len(out)
+			out = append(out, authzNode{Site: site, Items: []authzItem{{id, label}}})
+		}
+	}
+	for _, b := range s.BaseBackends {
+		add(b.ID, "", b.ID)
+	}
+	for _, b := range svc.Backends {
+		site, label := "", b.ID
+		if b.Hosting != nil && b.Hosting.Site != "" {
+			site, label = b.Hosting.Site, b.Hosting.Vhost
+			if label == "" {
+				label = b.ID
+			}
+		}
+		add(b.ID, site, label)
+	}
+	for _, l := range svc.Links {
+		add(l.ID, "", l.ID)
+	}
+	return out
 }
 
 // backendGated reports whether a backend is behind the gate's auth (so a per-user

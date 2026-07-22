@@ -356,9 +356,11 @@ var listingTmpl = template.Must(template.New("listing").Funcs(xtkui.TmplFuncs).P
 <main class="container">
  <h1>{{T .Lang "listing.title"}}</h1>
  <div class="grid">
- {{range .Tiles}}<a class="card" href="{{.URL}}"{{if .External}} target="_blank" rel="noopener"{{end}}>
+ {{range .Groups}}{{if and .Site (gt (len .Tiles) 1)}}<section class="sitegroup"><h2>{{.Site}}/</h2><div class="grid subgrid">{{range .Tiles}}<a class="card" href="{{.URL}}"{{if .External}} target="_blank" rel="noopener"{{end}}>
    <div class="row"><h3>{{.Name}}</h3><span class="tag {{if .External}}ext{{end}}">{{if .External}}{{T $.Lang "tag.external"}}{{else}}{{T $.Lang "tag.proxy"}}{{end}}</span></div>
-   {{if .Description}}<div class="meta">{{.Description}}</div>{{else if .Host}}<div class="meta"><code>{{.Host}}</code></div>{{end}}</a>
+   {{if .Description}}<div class="meta">{{.Description}}</div>{{else if .Host}}<div class="meta"><code>{{.Host}}</code></div>{{end}}</a>{{end}}</div></section>{{else}}{{range .Tiles}}<a class="card" href="{{.URL}}"{{if .External}} target="_blank" rel="noopener"{{end}}>
+   <div class="row"><h3>{{.Name}}</h3><span class="tag {{if .External}}ext{{end}}">{{if .External}}{{T $.Lang "tag.external"}}{{else}}{{T $.Lang "tag.proxy"}}{{end}}</span></div>
+   {{if .Description}}<div class="meta">{{.Description}}</div>{{else if .Host}}<div class="meta"><code>{{.Host}}</code></div>{{end}}</a>{{end}}{{end}}
  {{else}}<p class="empty">{{T .Lang "listing.empty"}}</p>{{end}}
  </div>
 </main></body></html>`))
@@ -368,7 +370,33 @@ type tile struct {
 	URL         string
 	Description string
 	Host        string
+	Site        string // hosting site that owns this tile ("" = standalone)
 	External    bool
+}
+
+// tileGroup collects the listing tiles of one hosting site so a multidomain site shows as
+// ONE block instead of scattered cards. Site == "" → a standalone tile (one item).
+type tileGroup struct {
+	Site  string
+	Tiles []tile
+}
+
+func groupTiles(ts []tile) []tileGroup {
+	var out []tileGroup
+	idx := map[string]int{}
+	for _, t := range ts {
+		if t.Site == "" {
+			out = append(out, tileGroup{Tiles: []tile{t}})
+			continue
+		}
+		if i, ok := idx[t.Site]; ok {
+			out[i].Tiles = append(out[i].Tiles, t)
+		} else {
+			idx[t.Site] = len(out)
+			out = append(out, tileGroup{Site: t.Site, Tiles: []tile{t}})
+		}
+	}
+	return out
 }
 
 func (s *Server) handleListing(w http.ResponseWriter, r *http.Request) {
@@ -383,8 +411,8 @@ func (s *Server) handleListing(w http.ResponseWriter, r *http.Request) {
 		Email   string
 		IsAdmin bool
 		Lang    string
-		Tiles   []tile
-	}{Email: sess.Email, IsAdmin: u.Admin, Lang: s.lang(r), Tiles: s.tilesFor(u)})
+		Groups  []tileGroup
+	}{Email: sess.Email, IsAdmin: u.Admin, Lang: s.lang(r), Groups: groupTiles(s.tilesFor(u))})
 }
 
 // tilesFor builds the dashboard tiles visible to the user: proxied backends it
@@ -403,7 +431,11 @@ func (s *Server) tilesFor(u models.User) []tile {
 		if url == "" {
 			url = "//" + be.Host
 		}
-		ts = append(ts, tile{Name: name, URL: url, Host: be.Host, External: false})
+		site := ""
+		if be.Hosting != nil {
+			site = be.Hosting.Site
+		}
+		ts = append(ts, tile{Name: name, URL: url, Host: be.Host, Site: site, External: false})
 	}
 	for _, l := range s.currentLinks() {
 		if l.Disabled {
