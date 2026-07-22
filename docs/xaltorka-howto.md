@@ -205,6 +205,36 @@ e serve `public/` come webroot (front-controller).
 
 ---
 
+## Ricetta 15 — Moduli PHP à-la-carte
+Aggiungi estensioni PHP a un vhost (redis, imagick, ldap, mongodb…) **senza rebuild** e senza
+conoscere la sintassi Docker. Lo stack php usa l'immagine **`xtk-php`**: il set base è già cotto,
+gli extra scelti si materializzano al boot.
+
+1. **Hosting → scheda del sito**, sul vhost (php-fpm/laravel) premi **«Moduli PHP»**.
+2. Spunta i moduli dalla **checklist** (sono già spuntati quelli attivi) → **Salva & applica**.
+3. Il container `php` viene ricreato: i moduli scelti sono compilati e caricati al boot — nessun
+   rebuild dell'immagine, nessun downtime per gli altri vhost del sito.
+
+> I moduli sono **allow-listati** lato agente (mai testo libero): un nome fuori lista rifiuta l'intera
+> richiesta. Il set base (`pdo_pgsql pdo_mysql bcmath gd zip intl opcache pcntl`) è sempre presente.
+
+---
+
+## Ricetta 16 — Log / Criticità (osservabilità)
+Vedi in un colpo d'occhio cosa non va: eventi aggregati da più sorgenti e classificati per gravità.
+
+1. **Hosting → Log**. La pagina aggrega gli eventi recenti da **journal dell'agente** (esiti dei
+   comandi vettati), **nginx per-vhost** (risposte 4xx/5xx) e **auth del gate** (accessi negati,
+   login falliti).
+2. Ogni evento ha un **livello**: **INFO** (normale), **ALERT** (da tenere d'occhio), **CRITICAL**
+   (rotto). Filtra con **TUTTO / INFO+ / ALERT+ / CRITICAL+** (il `+` = quel livello e superiori).
+3. Colonne: livello · sorgente · sito · messaggio · quando. Per un triage veloce parti da **CRITICAL+**.
+
+> Sola lettura, nessuna azione distruttiva. I dati vengono dal comando agente `diagnostica`
+> (read-only). WAF ModSecurity / ACME / fail2ban si aggiungono come sorgenti in evoluzione.
+
+---
+
 ## Riferimento rapido
 | Voglio… | Vai a |
 |---|---|
@@ -220,6 +250,8 @@ e serve `public/` come webroot (front-controller).
 | Bloccare i brute-force | fail2ban (jail) → Hosting → System (IP bannati/Unban) |
 | Aggiornare l'OS dell'host | Hosting → System → Apply selected |
 | Firewall applicativo (SQLi/XSS) | Services → Modifica → WAF (Detection-only → Blocking) |
+| Aggiungere estensioni PHP a un sito | Hosting → scheda sito → vhost → Moduli PHP |
+| Vedere errori/criticità aggregati | Hosting → Log (filtra CRITICAL+) |
 
 ---
 

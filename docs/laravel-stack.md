@@ -103,3 +103,17 @@ pattern collaudato** — niente di nuovo a livello di meccanica.
    parte del template — è net-new e vale per *tutti* gli stack, non solo Laravel.
 3. **Immediato / sblocco demo**: `api-staging` ha bisogno dell'immagine con `pdo_pgsql` **prima** che
    il `migrate` del TL funzioni. Finché non c'è, avvisare il TL di non lanciare `migrate`.
+
+## 5. Aggiornamento (beta0.9) — immagine unificata `xtk-php` + moduli à-la-carte
+Il template `laravel` e il template `php-fpm` puntano ora a **un'unica immagine `xtk-php`** che:
+- **cuoce il baseline** (`pdo_pgsql pdo_mysql bcmath gd zip intl opcache pcntl`) — copre il ~95% (Laravel/CMS);
+- **tiene a bordo `install-php-extensions`** + un **entrypoint materializzatore**: i moduli VARIABILI
+  scelti dall'admin (`XTK_PHP_EXT` in `db.env`) vengono compilati/caricati **al boot**, sull'immagine
+  standard, **senza rebuild per-vhost**.
+
+Questo **ritira `xtk-php-laravel`** (che non aveva l'entrypoint) e chiude il «reconcile» delle due immagini.
+La scelta dei moduli è UI-driven: **Hosting → vhost → «Moduli PHP»** (checklist allow-listata) → comando
+agente vettato `vhost_php_ext` (fail-closed) → ricrea `php`. Vedi *Ricetta 15* nell'howto.
+
+> Deploy: l'immagine `xtk-php:<ver>` va **buildata sul box** (come `nginx/Dockerfile` per il WAF); i vhost
+> esistenti mantengono il loro compose finché non vengono migrati esplicitamente all'immagine unificata.
