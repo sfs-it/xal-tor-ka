@@ -1,0 +1,18 @@
+# Xal-Tor-Ka — moduli PHP à-la-carte (ALLOW-LIST curata).
+# Enforced dal comando vettato agent/commands/vhost_php_ext.sh (array ALLOW: TENERE IN SYNC).
+# Consumata dalla UI (pannello vhost) per la checklist. Il set BASELINE gia cotto in xtk-php
+# (pdo_pgsql pdo_mysql bcmath gd zip intl opcache pcntl) NON va elencato qui.
+# Formato: <modulo>|<descrizione mostrata in UI>
+redis|Cache / code / sessioni Redis (phpredis)
+igbinary|Serializzatore compatto (companion di redis)
+imagick|Elaborazione immagini ImageMagick
+soap|Client / server SOAP
+ldap|Autenticazione e directory LDAP
+gmp|Matematica a precisione arbitraria (GMP)
+exif|Lettura metadati EXIF delle immagini
+sockets|Socket di basso livello
+xsl|Trasformazioni XSLT
+mongodb|Driver MongoDB
+apcu|Cache utente in-memory (APCu)
+memcached|Driver Memcached
+amqp|Messaggistica AMQP (RabbitMQ)

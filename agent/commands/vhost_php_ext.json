@@ -1,0 +1,9 @@
+{
+  "description": "Set a vhost's a-la-carte PHP modules (allow-listed): writes php_extensions= in .xtk-stack + XTK_PHP_EXT in db.env, recreates php so xtk-php materializes them at boot. Empty modules clears them.",
+  "timeout_seconds": 240,
+  "params": {
+    "name":    { "required": true,  "pattern": "[a-z][a-z0-9-]{1,30}" },
+    "vhost":   { "required": true,  "pattern": "[a-z][a-z0-9-]{1,30}" },
+    "modules": { "required": false, "pattern": "[A-Za-z0-9_,]{0,200}" }
+  }
+}

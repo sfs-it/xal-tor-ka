@@ -54,12 +54,13 @@ type vhost struct {
 	Db         string `json:"db"`
 	AutoUpdate bool   `json:"auto_update"`
 	Running    int    `json:"running"`
-	Upstream   string `json:"upstream"` // http://<alias>:8080
-	Published  string `json:"-"`        // ext-computed: up | down | none (gateway backend state)
-	SSL        string `json:"-"`        // ext-computed: up | down | none (TLS cert state)
-	PubHost    string `json:"-"`        // the backend's public host (for the SSL link + cert lookup)
-	PubRule    string `json:"-"`        // current backend rule (to pre-fill the Publish dialog)
-	PubWWW     bool   `json:"-"`        // current backend www flag (pre-checks the www box)
+	Upstream   string `json:"upstream"`       // http://<alias>:8080
+	PhpExt     string `json:"php_extensions"` // à-la-carte modules (csv), from .xtk-stack
+	Published  string `json:"-"`              // ext-computed: up | down | none (gateway backend state)
+	SSL        string `json:"-"`              // ext-computed: up | down | none (TLS cert state)
+	PubHost    string `json:"-"`              // the backend's public host (for the SSL link + cert lookup)
+	PubRule    string `json:"-"`              // current backend rule (to pre-fill the Publish dialog)
+	PubWWW     bool   `json:"-"`              // current backend www flag (pre-checks the www box)
 }
 
 type site struct {
@@ -428,6 +429,7 @@ var indexTmpl = xtkui.LocParse("hosting", subtabsSrc+`<h1>Hosts</h1>
               <a class="btn sm" href="/admin/hosting/edit?name={{$site.Name}}{{if not $site.Legacy}}&amp;vhost={{.Vhost}}{{end}}">Compose</a>
               <form class="inline" method="post" action="/admin/hosting/vhost/autoupdate"><input type="hidden" name="name" value="{{$site.Name}}"><input type="hidden" name="vhost" value="{{.Vhost}}"><input type="hidden" name="enabled" value="{{if .AutoUpdate}}false{{else}}true{{end}}"><button class="btn sm">{{if .AutoUpdate}}Auto-update off{{else}}Auto-update on{{end}}</button></form>
               <a class="btn sm" href="/admin/hosting/nginx?name={{$site.Name}}{{if not $site.Legacy}}&amp;vhost={{.Vhost}}{{end}}">Nginx</a>
+              {{if or (eq .Template "php-fpm") (eq .Template "laravel")}}<a class="btn sm" href="/admin/hosting/phpext?name={{$site.Name}}{{if not $site.Legacy}}&amp;vhost={{.Vhost}}{{end}}">Moduli PHP</a>{{end}}
             </span>
           </div>
           <dialog class="dlg" id="pub-{{$site.Name}}-{{.Vhost}}">
@@ -1468,6 +1470,112 @@ func (s *server) handleEditSave(w http.ResponseWriter, r *http.Request) {
 	redirectMsg(w, r, "/admin/hosting", "Compose for "+vhostLabel(name, vh)+" updated and applied.", "")
 }
 
+// --- Moduli PHP à-la-carte (checklist UI). Il comando agente vhost_php_ext applica la
+// ALLOW-LIST reale (fail-closed); qui rispecchiamo agent/php-modules.allow per la sola
+// visualizzazione — tenere in sync. ---
+var phpModules = []struct{ Name, Desc string }{
+	{"redis", "Cache / code / sessioni Redis (phpredis)"},
+	{"igbinary", "Serializzatore compatto (companion di redis)"},
+	{"imagick", "Elaborazione immagini ImageMagick"},
+	{"soap", "Client / server SOAP"},
+	{"ldap", "Autenticazione e directory LDAP"},
+	{"gmp", "Matematica a precisione arbitraria (GMP)"},
+	{"exif", "Lettura metadati EXIF delle immagini"},
+	{"sockets", "Socket di basso livello"},
+	{"xsl", "Trasformazioni XSLT"},
+	{"mongodb", "Driver MongoDB"},
+	{"apcu", "Cache utente in-memory (APCu)"},
+	{"memcached", "Driver Memcached"},
+	{"amqp", "Messaggistica AMQP (RabbitMQ)"},
+}
+
+type phpModuleChoice struct {
+	Name, Desc string
+	Checked    bool
+}
+
+type phpextData struct {
+	Tab, Name, Vhost, Label, Error string
+	Modules                        []phpModuleChoice
+}
+
+var phpextTmpl = xtkui.LocParse("hostingphpext", subtabsSrc+`<h1>Moduli PHP · <code>{{.Label}}</code></h1>
+{{if .Error}}<div class="err">{{.Error}}</div>{{end}}
+<p class="hint">Estensioni à-la-carte oltre al set base già incluso. Al salvataggio il container <code>php</code> viene ricreato e i moduli scelti sono materializzati al boot (immagine <code>xtk-php</code>) — nessun rebuild.</p>
+<form method="post" action="/admin/hosting/phpext">
+  <input type="hidden" name="name" value="{{.Name}}">
+  <input type="hidden" name="vhost" value="{{.Vhost}}">
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(15rem,1fr));gap:.4rem;margin:1rem 0">
+  {{range .Modules}}
+    <label style="display:flex;gap:.5rem;align-items:baseline;padding:.5rem .6rem;border:1px solid var(--line);border-radius:8px;background:var(--panel)"><input type="checkbox" name="mod" value="{{.Name}}"{{if .Checked}} checked{{end}}> <span><b>{{.Name}}</b><br><span class="hint">{{.Desc}}</span></span></label>
+  {{end}}
+  </div>
+  <div class="actions">
+    <a class="btn" href="/admin/hosting">Annulla</a>
+    <button class="btn primary">Salva &amp; applica</button>
+  </div>
+</form>`)
+
+func (s *server) currentPhpExt(ctx context.Context, name, vh string) map[string]bool {
+	on := map[string]bool{}
+	var sites []site
+	if err := s.callJSON(ctx, "site_list", nil, &sites); err != nil {
+		return on
+	}
+	for _, si := range sites {
+		if si.Name != name {
+			continue
+		}
+		for _, v := range si.Vhosts {
+			if v.Vhost == vh {
+				for _, m := range strings.Split(v.PhpExt, ",") {
+					if m = strings.TrimSpace(m); m != "" {
+						on[m] = true
+					}
+				}
+			}
+		}
+	}
+	return on
+}
+
+func (s *server) phpExtChoices(current map[string]bool) []phpModuleChoice {
+	out := make([]phpModuleChoice, len(phpModules))
+	for i, m := range phpModules {
+		out[i] = phpModuleChoice{Name: m.Name, Desc: m.Desc, Checked: current[m.Name]}
+	}
+	return out
+}
+
+func (s *server) handlePhpExt(w http.ResponseWriter, r *http.Request) {
+	name, vh := r.URL.Query().Get("name"), r.URL.Query().Get("vhost")
+	if vh == "" {
+		vh = "httpdocs"
+	}
+	data := phpextData{Tab: "hosts", Name: name, Vhost: vh, Label: vhostLabel(name, vh), Modules: s.phpExtChoices(s.currentPhpExt(r.Context(), name, vh))}
+	s.chrome("Moduli PHP").Render(w, xtkui.LangFromRequest(r), phpextTmpl, data)
+}
+
+func (s *server) handlePhpExtSave(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	name, vh := r.FormValue("name"), r.FormValue("vhost")
+	if vh == "" {
+		vh = "httpdocs"
+	}
+	modules := strings.Join(r.Form["mod"], ",")
+	resp, err := s.callAgent(r.Context(), "vhost_php_ext", map[string]string{"name": name, "vhost": vh, "modules": modules})
+	if err != nil || !resp.OK {
+		current := map[string]bool{}
+		for _, m := range r.Form["mod"] {
+			current[m] = true
+		}
+		data := phpextData{Tab: "hosts", Name: name, Vhost: vh, Label: vhostLabel(name, vh), Modules: s.phpExtChoices(current), Error: agentMsg(resp, err)}
+		s.chrome("Moduli PHP").Render(w, xtkui.LangFromRequest(r), phpextTmpl, data)
+		return
+	}
+	redirectMsg(w, r, "/admin/hosting", "Moduli PHP per "+vhostLabel(name, vh)+" aggiornati e applicati.", "")
+}
+
 var nginxTmpl = xtkui.LocParse("hostingnginx", subtabsSrc+`<h1>Nginx · <code>{{.Name}}{{if .Vhost}}/{{.Vhost}}{{end}}</code></h1>
 {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
 <p class="hint">The vhost's <code>nginx.conf</code>. On save it is validated with <code>nginx&nbsp;-t</code> in the
@@ -1542,6 +1650,8 @@ func main() {
 	mux.HandleFunc("POST /admin/hosting/edit", s.handleEditSave)
 	mux.HandleFunc("GET /admin/hosting/nginx", s.handleNginxEdit)
 	mux.HandleFunc("POST /admin/hosting/nginx", s.handleNginxSave)
+	mux.HandleFunc("GET /admin/hosting/phpext", s.handlePhpExt)
+	mux.HandleFunc("POST /admin/hosting/phpext", s.handlePhpExtSave)
 	mux.HandleFunc("POST /admin/hosting/migrate", s.handleMigrate)
 	mux.HandleFunc("POST /admin/hosting/vhost/create", s.handleVhostCreate)
 	mux.HandleFunc("POST /admin/hosting/vhost/up", s.vhostAction("vhost_up", "Vhost %s started."))

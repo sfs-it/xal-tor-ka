@@ -26,7 +26,10 @@ services:
     deploy: { resources: { limits: { cpus: "0.50", memory: 256M } } }
     logging: { driver: "json-file", options: { max-size: "10m", max-file: "3" } }
   php:
-    image: php:__PHP_VERSION__-fpm-alpine
+    # xtk-php: immagine STANDARD con baseline pre-cotto + install-php-extensions a bordo
+    # + entrypoint che materializza a caldo i moduli à-la-carte (env XTK_PHP_EXT da db.env),
+    # senza rebuild per-vhost. Buildata sul box (php/Dockerfile), come nginx per il WAF.
+    image: xtk-php:__PHP_VERSION__
     restart: unless-stopped
     user: "__UID__:__GID__"
     env_file: [./.vhosts/__VHOST__/db.env] # DB connection when a shared DB is attached (else empty)

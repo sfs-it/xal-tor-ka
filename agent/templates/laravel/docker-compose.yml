@@ -20,7 +20,10 @@ services:
     deploy: { resources: { limits: { cpus: "0.50", memory: 256M } } }
     logging: { driver: "json-file", options: { max-size: "10m", max-file: "3" } }
   php:
-    image: xtk-php-laravel:__PHP_VERSION__   # built on the box from templates/laravel/Dockerfile
+    # UNIFICATO su xtk-php (baseline Laravel già cotto + install-php-extensions a bordo +
+    # entrypoint materializzatore à-la-carte). Sostituisce il vecchio xtk-php-laravel, che
+    # non aveva l'entrypoint (→ niente moduli a caldo). Buildata sul box da php/Dockerfile.
+    image: xtk-php:__PHP_VERSION__
     restart: unless-stopped
     user: "__UID__:__GID__"
     env_file: [./.vhosts/__VHOST__/db.env] # DB connection when a shared DB is attached (else empty)
