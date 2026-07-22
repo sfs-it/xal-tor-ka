@@ -1,0 +1,7 @@
+{
+  "description": "Read-only observability collector: recent events from agent journal, per-vhost nginx access/error logs and the gate auth log, classified INFO|ALERT|CRITICAL, as a JSON array. No mutation.",
+  "timeout_seconds": 30,
+  "params": {
+    "limit": { "required": false, "pattern": "[0-9]{1,4}" }
+  }
+}

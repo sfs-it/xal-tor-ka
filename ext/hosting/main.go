@@ -304,6 +304,7 @@ const subtabsSrc = `<nav class="subtabs">
 <a href="/admin/hosting/mysql"{{if eq .Tab "mysql"}} class="active"{{end}}>MySQL</a>
 <a href="/admin/hosting/pgsql"{{if eq .Tab "pgsql"}} class="active"{{end}}>PgSQL</a>
 <a href="/admin/hosting/system"{{if eq .Tab "system"}} class="active"{{end}}>System</a>
+<a href="/admin/hosting/log"{{if eq .Tab "log"}} class="active"{{end}}>Log</a>
 </nav>
 `
 
@@ -1576,6 +1577,78 @@ func (s *server) handlePhpExtSave(w http.ResponseWriter, r *http.Request) {
 	redirectMsg(w, r, "/admin/hosting", "Moduli PHP per "+vhostLabel(name, vh)+" aggiornati e applicati.", "")
 }
 
+// --- Log / Criticità (osservabilità): eventi aggregati e classificati INFO|ALERT|CRITICAL,
+// col filtro TUTTO / INFO+ / ALERT+ / CRITICAL+ (client-side, per rank di severità). I dati
+// vengono dal comando READ-ONLY "diagnostica" (journal agente + nginx per-vhost + auth gate). ---
+type diagEvent struct {
+	Ts     string `json:"ts"`
+	Level  string `json:"level"`
+	Source string `json:"source"`
+	Site   string `json:"site"`
+	Msg    string `json:"msg"`
+	Rank   int    `json:"-"`
+}
+
+func diagRank(level string) int {
+	switch level {
+	case "CRITICAL":
+		return 3
+	case "ALERT":
+		return 2
+	default:
+		return 1
+	}
+}
+
+var diagTmpl = xtkui.LocParse("hostinglog", subtabsSrc+`<style>.lvl{display:inline-block;min-width:4.6rem;text-align:center;padding:.12rem .5rem;border-radius:6px;font-size:.7rem;font-weight:700;letter-spacing:.02em}.lvl-INFO{background:#e6edf4;color:#37536e}.lvl-ALERT{background:#fbe6cc;color:#8a4a00}.lvl-CRITICAL{background:#f7d7db;color:#a01722}.diagf .btn.primary{outline:2px solid var(--accent,#3b82f6)}#diagtbl td{vertical-align:top;padding:.35rem .5rem;border-bottom:1px solid var(--line)}#diagtbl code{font-size:.78rem;white-space:pre-wrap;word-break:break-word}</style>
+<h1>Log / Criticità</h1>
+{{if .Error}}<div class="err">{{.Error}}</div>{{end}}
+<p class="hint">Eventi recenti aggregati e classificati: journal dell'agente (esiti dei comandi vettati), nginx per-vhost (4xx/5xx), auth del gate. Filtra per livello di severità.</p>
+<div class="diagf" style="display:flex;gap:.4rem;flex-wrap:wrap;margin:.7rem 0">
+  <button type="button" class="btn sm primary" onclick="diagFilter(this,0)">TUTTO · {{len .Events}}</button>
+  <button type="button" class="btn sm" onclick="diagFilter(this,1)">INFO+ · {{.NInfo}}</button>
+  <button type="button" class="btn sm" onclick="diagFilter(this,2)">ALERT+ · {{.NAlert}}</button>
+  <button type="button" class="btn sm" onclick="diagFilter(this,3)">CRITICAL+ · {{.NCrit}}</button>
+</div>
+<table id="diagtbl" style="width:100%;border-collapse:collapse;font-size:.82rem">
+  <thead><tr style="text-align:left;color:var(--muted,#6b7280)"><th style="padding:.35rem .5rem">Livello</th><th>Sorgente</th><th>Sito</th><th>Messaggio</th><th>Quando</th></tr></thead>
+  <tbody>
+  {{range .Events}}<tr data-rank="{{.Rank}}"><td><span class="lvl lvl-{{.Level}}">{{.Level}}</span></td><td>{{.Source}}</td><td>{{.Site}}</td><td><code>{{.Msg}}</code></td><td class="hint" style="white-space:nowrap">{{.Ts}}</td></tr>{{end}}
+  </tbody>
+</table>
+{{if not .Events}}<p class="hint">Nessun evento raccolto.</p>{{end}}
+<script>
+function diagFilter(btn,min){var bs=document.querySelectorAll('.diagf .btn');for(var i=0;i<bs.length;i++)bs[i].classList.remove('primary');btn.classList.add('primary');var rows=document.querySelectorAll('#diagtbl tbody tr');for(var j=0;j<rows.length;j++){rows[j].style.display=(parseInt(rows[j].getAttribute('data-rank'),10)>=min)?'':'none';}}
+</script>`)
+
+func (s *server) handleDiag(w http.ResponseWriter, r *http.Request) {
+	var ev []diagEvent
+	err := s.callJSON(r.Context(), "diagnostica", map[string]string{"limit": "200"}, &ev)
+	var nInfo, nAlert, nCrit int
+	for i := range ev {
+		ev[i].Rank = diagRank(ev[i].Level)
+		switch ev[i].Level {
+		case "CRITICAL":
+			nCrit++
+		case "ALERT":
+			nAlert++
+		default:
+			nInfo++
+		}
+	}
+	ok, errMsg := notices(r)
+	data := struct {
+		Tab                  string
+		Events               []diagEvent
+		NInfo, NAlert, NCrit int
+		Notice, Error        string
+	}{Tab: "log", Events: ev, NInfo: nInfo, NAlert: nAlert, NCrit: nCrit, Notice: ok, Error: errMsg}
+	if err != nil && data.Error == "" {
+		data.Error = err.Error()
+	}
+	s.chrome("Log").Render(w, xtkui.LangFromRequest(r), diagTmpl, data)
+}
+
 var nginxTmpl = xtkui.LocParse("hostingnginx", subtabsSrc+`<h1>Nginx · <code>{{.Name}}{{if .Vhost}}/{{.Vhost}}{{end}}</code></h1>
 {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
 <p class="hint">The vhost's <code>nginx.conf</code>. On save it is validated with <code>nginx&nbsp;-t</code> in the
@@ -1660,6 +1733,7 @@ func main() {
 	mux.HandleFunc("POST /admin/hosting/vhost/autoupdate", s.handleVhostAutoUpdate)
 	// Users
 	mux.HandleFunc("GET /admin/hosting/system", s.handleSystem)
+	mux.HandleFunc("GET /admin/hosting/log", s.handleDiag)
 	mux.HandleFunc("POST /admin/hosting/system/preview", s.handleSystemPreview)
 	mux.HandleFunc("POST /admin/hosting/system/apply", s.handleSystemApply)
 	mux.HandleFunc("POST /admin/hosting/system/hold", s.handleSystemHold)
