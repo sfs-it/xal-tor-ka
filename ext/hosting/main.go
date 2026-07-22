@@ -13,6 +13,7 @@ import (
 	"context"
 	crand "crypto/rand"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
@@ -56,11 +57,25 @@ type vhost struct {
 	Running    int    `json:"running"`
 	Upstream   string `json:"upstream"`       // http://<alias>:8080
 	PhpExt     string `json:"php_extensions"` // à-la-carte modules (csv), from .xtk-stack
+	PhpCfg     phpCfg `json:"php_cfg"`        // PHP config (common limits + raw ini/fpm frames), from .xtk-stack
 	Published  string `json:"-"`              // ext-computed: up | down | none (gateway backend state)
 	SSL        string `json:"-"`              // ext-computed: up | down | none (TLS cert state)
 	PubHost    string `json:"-"`              // the backend's public host (for the SSL link + cert lookup)
 	PubRule    string `json:"-"`              // current backend rule (to pre-fill the Publish dialog)
 	PubWWW     bool   `json:"-"`              // current backend www flag (pre-checks the www box)
+}
+
+// phpCfg is a vhost's PHP configuration: the common php.ini limits (validated, pre-filled as
+// fields) plus two free-form frames (raw php.ini directives + raw php-fpm pool directives),
+// stored base64 in .xtk-stack. Applied by the vetted agent command vhost_php_config.
+type phpCfg struct {
+	UploadMaxFilesize string `json:"upload_max_filesize"`
+	PostMaxSize       string `json:"post_max_size"`
+	MemoryLimit       string `json:"memory_limit"`
+	MaxFileUploads    string `json:"max_file_uploads"`
+	MaxExecutionTime  string `json:"max_execution_time"`
+	IniRawB64         string `json:"ini_raw_b64"`
+	FpmRawB64         string `json:"fpm_raw_b64"`
 }
 
 type site struct {
@@ -1495,9 +1510,17 @@ type phpModuleChoice struct {
 	Checked    bool
 }
 
+// phpCfgView is the config section pre-fill: common limits as fields + the two free frames
+// decoded from base64 to plaintext for the textareas (re-encoded on submit).
+type phpCfgView struct {
+	UploadMaxFilesize, PostMaxSize, MemoryLimit, MaxFileUploads, MaxExecutionTime string
+	IniRaw, FpmRaw                                                                string
+}
+
 type phpextData struct {
-	Tab, Name, Vhost, Label, Error string
-	Modules                        []phpModuleChoice
+	Tab, Name, Vhost, Label, Error, CfgError string
+	Modules                                  []phpModuleChoice
+	Cfg                                      phpCfgView
 }
 
 var phpextTmpl = xtkui.LocParse("hostingphpext", subtabsSrc+`<h1>Moduli PHP · <code>{{.Label}}</code></h1>
@@ -1511,6 +1534,29 @@ var phpextTmpl = xtkui.LocParse("hostingphpext", subtabsSrc+`<h1>Moduli PHP · <
     <label style="display:flex;gap:.5rem;align-items:baseline;padding:.5rem .6rem;border:1px solid var(--line);border-radius:8px;background:var(--panel)"><input type="checkbox" name="mod" value="{{.Name}}"{{if .Checked}} checked{{end}}> <span><b>{{.Name}}</b><br><span class="hint">{{.Desc}}</span></span></label>
   {{end}}
   </div>
+  <div class="actions">
+    <a class="btn" href="/admin/hosting">Annulla</a>
+    <button class="btn primary">Salva &amp; applica</button>
+  </div>
+</form>
+
+<h2 style="margin-top:2rem">Impostazioni PHP</h2>
+{{if .CfgError}}<div class="err">{{.CfgError}}</div>{{end}}
+<p class="hint">Limiti comuni e direttive libere. Al salvataggio il container <code>php</code> viene ricreato e le impostazioni sono materializzate come drop-in <code>conf.d</code> — nessun rebuild. Lascia un campo vuoto per usare il default. Formato dimensioni: <code>64M</code>, <code>512M</code>, <code>1G</code>.</p>
+<form method="post" action="/admin/hosting/phpconfig">
+  <input type="hidden" name="name" value="{{.Name}}">
+  <input type="hidden" name="vhost" value="{{.Vhost}}">
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(13rem,1fr));gap:.7rem;margin:1rem 0">
+    <label style="display:flex;flex-direction:column;gap:.2rem">upload_max_filesize<input class="in" name="upload_max_filesize" value="{{.Cfg.UploadMaxFilesize}}" placeholder="es. 64M"></label>
+    <label style="display:flex;flex-direction:column;gap:.2rem">post_max_size<input class="in" name="post_max_size" value="{{.Cfg.PostMaxSize}}" placeholder="es. 64M"></label>
+    <label style="display:flex;flex-direction:column;gap:.2rem">memory_limit<input class="in" name="memory_limit" value="{{.Cfg.MemoryLimit}}" placeholder="es. 256M"></label>
+    <label style="display:flex;flex-direction:column;gap:.2rem">max_file_uploads<input class="in" name="max_file_uploads" value="{{.Cfg.MaxFileUploads}}" placeholder="es. 20"></label>
+    <label style="display:flex;flex-direction:column;gap:.2rem">max_execution_time<input class="in" name="max_execution_time" value="{{.Cfg.MaxExecutionTime}}" placeholder="es. 60"></label>
+  </div>
+  <label style="display:block;margin:.6rem 0 .2rem">Direttive <code>php.ini</code> avanzate <span class="hint">(una per riga, es. <code>opcache.jit=tracing</code>)</span></label>
+  <textarea name="ini_raw" rows="4" style="width:100%;font-family:monospace" placeholder="; direttive php.ini libere">{{.Cfg.IniRaw}}</textarea>
+  <label style="display:block;margin:.6rem 0 .2rem">Direttive pool <code>php-fpm</code> avanzate <span class="hint">(pool <code>[www]</code>, es. <code>pm.max_children = 10</code>; validate con <code>php-fpm -t</code>)</span></label>
+  <textarea name="fpm_raw" rows="4" style="width:100%;font-family:monospace" placeholder="; direttive di pool php-fpm libere">{{.Cfg.FpmRaw}}</textarea>
   <div class="actions">
     <a class="btn" href="/admin/hosting">Annulla</a>
     <button class="btn primary">Salva &amp; applica</button>
@@ -1548,14 +1594,88 @@ func (s *server) phpExtChoices(current map[string]bool) []phpModuleChoice {
 	return out
 }
 
+// currentPhpCfg reads the vhost's stored PHP config from site_list and decodes the base64
+// free frames into plaintext for the textareas. Unknown/absent → zero view (empty fields).
+func (s *server) currentPhpCfg(ctx context.Context, name, vh string) phpCfgView {
+	var sites []site
+	if err := s.callJSON(ctx, "site_list", nil, &sites); err != nil {
+		return phpCfgView{}
+	}
+	for _, si := range sites {
+		if si.Name != name {
+			continue
+		}
+		for _, v := range si.Vhosts {
+			if v.Vhost == vh {
+				c := v.PhpCfg
+				return phpCfgView{
+					UploadMaxFilesize: c.UploadMaxFilesize, PostMaxSize: c.PostMaxSize,
+					MemoryLimit: c.MemoryLimit, MaxFileUploads: c.MaxFileUploads, MaxExecutionTime: c.MaxExecutionTime,
+					IniRaw: decodeB64(c.IniRawB64), FpmRaw: decodeB64(c.FpmRawB64),
+				}
+			}
+		}
+	}
+	return phpCfgView{}
+}
+
+func decodeB64(s string) string {
+	if s == "" {
+		return ""
+	}
+	b, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
 func (s *server) handlePhpExt(w http.ResponseWriter, r *http.Request) {
 	name, vh := r.URL.Query().Get("name"), r.URL.Query().Get("vhost")
 	if vh == "" {
 		vh = "httpdocs"
 	}
-	data := phpextData{Tab: "hosts", Name: name, Vhost: vh, Label: vhostLabel(name, vh), Modules: s.phpExtChoices(s.currentPhpExt(r.Context(), name, vh))}
+	data := phpextData{Tab: "hosts", Name: name, Vhost: vh, Label: vhostLabel(name, vh),
+		Modules: s.phpExtChoices(s.currentPhpExt(r.Context(), name, vh)), Cfg: s.currentPhpCfg(r.Context(), name, vh)}
 	s.chrome("Moduli PHP").Render(w, xtkui.LangFromRequest(r), phpextTmpl, data)
 }
+
+func (s *server) handlePhpConfigSave(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	name, vh := r.FormValue("name"), r.FormValue("vhost")
+	if vh == "" {
+		vh = "httpdocs"
+	}
+	iniB64 := base64.StdEncoding.EncodeToString([]byte(normalizeNL(r.FormValue("ini_raw"))))
+	fpmB64 := base64.StdEncoding.EncodeToString([]byte(normalizeNL(r.FormValue("fpm_raw"))))
+	args := map[string]string{
+		"name": name, "vhost": vh,
+		"upload_max_filesize": strings.TrimSpace(r.FormValue("upload_max_filesize")),
+		"post_max_size":       strings.TrimSpace(r.FormValue("post_max_size")),
+		"memory_limit":        strings.TrimSpace(r.FormValue("memory_limit")),
+		"max_file_uploads":    strings.TrimSpace(r.FormValue("max_file_uploads")),
+		"max_execution_time":  strings.TrimSpace(r.FormValue("max_execution_time")),
+		"ini_raw_b64":         iniB64,
+		"fpm_raw_b64":         fpmB64,
+	}
+	resp, err := s.callAgent(r.Context(), "vhost_php_config", args)
+	if err != nil || !resp.OK {
+		data := phpextData{Tab: "hosts", Name: name, Vhost: vh, Label: vhostLabel(name, vh),
+			Modules: s.phpExtChoices(s.currentPhpExt(r.Context(), name, vh)),
+			Cfg: phpCfgView{
+				UploadMaxFilesize: args["upload_max_filesize"], PostMaxSize: args["post_max_size"],
+				MemoryLimit: args["memory_limit"], MaxFileUploads: args["max_file_uploads"], MaxExecutionTime: args["max_execution_time"],
+				IniRaw: r.FormValue("ini_raw"), FpmRaw: r.FormValue("fpm_raw"),
+			},
+			CfgError: agentMsg(resp, err)}
+		s.chrome("Moduli PHP").Render(w, xtkui.LangFromRequest(r), phpextTmpl, data)
+		return
+	}
+	redirectMsg(w, r, "/admin/hosting", "Impostazioni PHP per "+vhostLabel(name, vh)+" aggiornate e applicate.", "")
+}
+
+// normalizeNL strips CR (textarea CRLF → LF) so the drop-in files are clean unix text.
+func normalizeNL(s string) string { return strings.ReplaceAll(s, "\r\n", "\n") }
 
 func (s *server) handlePhpExtSave(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
@@ -1725,6 +1845,7 @@ func main() {
 	mux.HandleFunc("POST /admin/hosting/nginx", s.handleNginxSave)
 	mux.HandleFunc("GET /admin/hosting/phpext", s.handlePhpExt)
 	mux.HandleFunc("POST /admin/hosting/phpext", s.handlePhpExtSave)
+	mux.HandleFunc("POST /admin/hosting/phpconfig", s.handlePhpConfigSave)
 	mux.HandleFunc("POST /admin/hosting/migrate", s.handleMigrate)
 	mux.HandleFunc("POST /admin/hosting/vhost/create", s.handleVhostCreate)
 	mux.HandleFunc("POST /admin/hosting/vhost/up", s.vhostAction("vhost_up", "Vhost %s started."))

@@ -1,0 +1,15 @@
+{
+  "description": "Set a vhost's PHP config: common php.ini limits (validated) + free-form php.ini and php-fpm pool directives (base64). Writes them to .xtk-stack + db.env and recreates php so xtk-php materializes conf.d drop-ins at boot. Empty values clear the config.",
+  "timeout_seconds": 240,
+  "params": {
+    "name":                { "required": true,  "pattern": "[a-z][a-z0-9-]{1,30}" },
+    "vhost":               { "required": true,  "pattern": "[a-z][a-z0-9-]{1,30}" },
+    "upload_max_filesize": { "required": false, "pattern": "[0-9]{1,6}[KMG]?" },
+    "post_max_size":       { "required": false, "pattern": "[0-9]{1,6}[KMG]?" },
+    "memory_limit":        { "required": false, "pattern": "(-1|[0-9]{1,6}[KMG]?)" },
+    "max_file_uploads":    { "required": false, "pattern": "[0-9]{1,5}" },
+    "max_execution_time":  { "required": false, "pattern": "[0-9]{1,5}" },
+    "ini_raw_b64":         { "required": false, "pattern": "[A-Za-z0-9+/=]{0,8000}" },
+    "fpm_raw_b64":         { "required": false, "pattern": "[A-Za-z0-9+/=]{0,8000}" }
+  }
+}
