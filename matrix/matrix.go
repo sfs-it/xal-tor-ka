@@ -51,22 +51,32 @@ func (r *Resolver) Backends() []models.Backend {
 func (r *Resolver) Resolve(host, path string) (models.Backend, models.Route, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+	// Several services may share a hostname, each mounted on a different path (the
+	// site on "/", a reverse-proxied service on "/bottiglia2", …). Scan them ALL and
+	// keep the longest matching path across the whole host — stopping at the first
+	// backend would deny every sub-path service whose sibling owns "/".
+	best := -1
+	var bestBackend models.Backend
+	var bestRoute models.Route
+	hostFound := false
 	for _, be := range r.backends {
 		if be.Host != host {
 			continue
 		}
-		best := -1
-		var bestRoute models.Route
+		hostFound = true
 		for _, rt := range be.Routes {
 			if pathMatches(path, rt.Path) && len(rt.Path) > best {
 				best = len(rt.Path)
 				bestRoute = rt
+				bestBackend = be
 			}
 		}
-		if best >= 0 {
-			return be, bestRoute, true
-		}
-		return be, models.Route{}, false
+	}
+	if best >= 0 {
+		return bestBackend, bestRoute, true
+	}
+	if hostFound {
+		return models.Backend{Host: host}, models.Route{}, false
 	}
 	return models.Backend{}, models.Route{}, false
 }
