@@ -349,3 +349,11 @@ tr.tls-sub td:first-child{padding-inline-start:1.6rem}
 .svcuser-add>summary:hover{background:rgba(127,127,127,.07)}
 .svcuser-add .svcuser-list{margin-top:.5rem}
 .svcuser-empty{margin:.2rem 0}
+
+/* Regole per path: colonna «Eredita» + lista utenti della singola directory */
+td.rusers{min-width:11rem}
+td.rusers .oinherit{width:auto;font-size:.92em}
+.rusers-pick{margin-top:.35rem}
+.rusers-pick>summary{cursor:pointer;font-size:.9em;color:var(--muted)}
+.rusers-pick>summary:hover{color:var(--fg)}
+.rusers-pick .svcuser-list{max-height:11rem;margin-top:.35rem}

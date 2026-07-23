@@ -335,5 +335,9 @@
   "admin.svcusers.add": "添加用户",
   "admin.svcusers.none": "尚未启用任何用户。",
   "admin.svcusers.allin": "所有用户均已启用。",
-  "admin.svcusers.inactive": "当前规则下不生效 —— 授权会被保存，一旦选择“已授权”即刻生效。现在就可以先设置。"
+  "admin.svcusers.inactive": "当前规则下不生效 —— 授权会被保存，一旦选择“已授权”即刻生效。现在就可以先设置。",
+  "admin.routes.users": "用户",
+  "admin.routes.inherit": "继承",
+  "admin.routes.own": "独立列表",
+  "admin.routes.pickusers": "选择用户"
 }

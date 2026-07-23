@@ -335,5 +335,9 @@
   "admin.svcusers.add": "Añadir usuario",
   "admin.svcusers.none": "Ningún usuario habilitado todavía.",
   "admin.svcusers.allin": "Todos los usuarios ya están habilitados.",
-  "admin.svcusers.inactive": "Sin efecto con la regla actual — las habilitaciones se conservan y se aplican en cuanto elijas «Autorizados». Puedes prepararlas ya."
+  "admin.svcusers.inactive": "Sin efecto con la regla actual — las habilitaciones se conservan y se aplican en cuanto elijas «Autorizados». Puedes prepararlas ya.",
+  "admin.routes.users": "Usuarios",
+  "admin.routes.inherit": "Hereda",
+  "admin.routes.own": "Lista propia",
+  "admin.routes.pickusers": "elegir usuarios"
 }

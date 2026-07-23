@@ -341,7 +341,7 @@ func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		if u, found := s.Users.Get(sess.Email); found && (u.Admin || s.Resolver.Authorized(u, be.ID)) {
+		if u, found := s.Users.Get(sess.Email); found && (u.Admin || s.Resolver.Authorized(u, models.EffectiveGrantID(be, route))) {
 			w.Header().Set("X-Auth-User", sess.Email)
 			w.WriteHeader(http.StatusOK)
 			return

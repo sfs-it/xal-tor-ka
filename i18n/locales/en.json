@@ -335,5 +335,9 @@
   "admin.svcusers.add": "Add user",
   "admin.svcusers.none": "No users enabled yet.",
   "admin.svcusers.allin": "Every user is already enabled.",
-  "admin.svcusers.inactive": "Not in force with the current rule — the grants stay saved and take effect as soon as you pick “Authorized”. You can set them up now anyway."
+  "admin.svcusers.inactive": "Not in force with the current rule — the grants stay saved and take effect as soon as you pick “Authorized”. You can set them up now anyway.",
+  "admin.routes.users": "Users",
+  "admin.routes.inherit": "Inherit",
+  "admin.routes.own": "Own list",
+  "admin.routes.pickusers": "pick users"
 }

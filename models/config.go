@@ -6,7 +6,10 @@
 // No use of map[string]interface{} / any for known fields (MYRULES Go §5).
 package models
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // Config is the non-secret application configuration (config.json, BLUEPRINT §7.1).
 type Config struct {
@@ -300,6 +303,46 @@ type Route struct {
 	Path     string `json:"path"`
 	Rule     string `json:"rule"` // public|authenticated|authorized
 	Upstream string `json:"upstream"`
+	// OwnGrants makes this path carry its OWN list of authorized users instead of
+	// inheriting the service's. Absent/false = inherit, so a route written before this
+	// existed — or added without thinking about it — keeps the safe, expected behaviour.
+	OwnGrants bool `json:"own_grants,omitempty"`
+}
+
+// GrantID is the key under which a user's permission is stored. A service-wide grant
+// is the backend id; a path that carries its own list is "<backend>#<path>", so the
+// permissions still live in ONE place (on the user) instead of being split across two
+// models that could disagree.
+func GrantID(backendID, path string) string {
+	if path == "" || path == "/" {
+		return backendID
+	}
+	return backendID + "#" + path
+}
+
+// EffectiveGrantID resolves which grant governs a route, walking INHERITANCE DOWNWARD:
+// a path that inherits takes the list of the nearest ancestor path that defines its
+// own, and falls back to the service-wide grant when no ancestor does.
+func EffectiveGrantID(be Backend, rt Route) string {
+	if rt.OwnGrants {
+		return GrantID(be.ID, rt.Path)
+	}
+	best := ""
+	for _, r := range be.Routes {
+		if !r.OwnGrants || r.Path == "" || r.Path == "/" {
+			continue
+		}
+		anc := strings.TrimRight(r.Path, "/")
+		if rt.Path == anc || strings.HasPrefix(rt.Path, anc+"/") {
+			if len(anc) > len(best) {
+				best = anc
+			}
+		}
+	}
+	if best != "" {
+		return GrantID(be.ID, best)
+	}
+	return be.ID
 }
 
 // The access rules, from the most open to the most closed. The distinction that

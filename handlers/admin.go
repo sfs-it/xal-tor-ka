@@ -326,11 +326,19 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
    <h3 style="margin-top:1.3rem">{{T "admin.routes.h"}}</h3>
    <p class="hint">{{T "admin.routes.hint"}}</p>
    <table class="ftable rtable" id="xtk-routes"><tbody>
-    <tr class="rhead"><th>{{T "admin.routes.path"}}</th><th>{{T "admin.routes.match"}}</th><th>{{T "admin.f.rule"}}</th><th></th></tr>
+    <tr class="rhead"><th>{{T "admin.routes.path"}}</th><th>{{T "admin.routes.match"}}</th><th>{{T "admin.f.rule"}}</th><th>{{T "admin.routes.users"}}</th><th></th></tr>
     {{range .Overrides}}<tr class="rrow">
      <td><input name="opath" value="{{.Path}}" placeholder="/wp-login.php"></td>
      <td><select name="omatch"><option value="prefix"{{if not .Exact}} selected{{end}}>{{T "admin.routes.prefix"}}</option><option value="exact"{{if .Exact}} selected{{end}}>{{T "admin.routes.exact"}}</option></select></td>
      <td><select name="orule"><option{{if eq .Rule "authenticated"}} selected{{end}}>authenticated</option><option{{if eq .Rule "authorized"}} selected{{end}}>authorized</option><option{{if eq .Rule "public"}} selected{{end}}>public</option></select></td>
+     <td class="rusers">
+      <select name="oinherit" class="oinherit"><option value="1"{{if not .OwnGrants}} selected{{end}}>{{T "admin.routes.inherit"}}</option><option value="0"{{if .OwnGrants}} selected{{end}}>{{T "admin.routes.own"}}</option></select>
+      <input type="hidden" name="ousers" value="{{.Users}}">
+      <details class="rusers-pick"{{if not .OwnGrants}} hidden{{end}}>
+       <summary>{{T "admin.routes.pickusers"}}</summary>
+       <div class="svcuser-list">{{range $.Users}}<label class="check svcuser"><input type="checkbox" class="ouser"{{if .Admin}} disabled{{end}}> {{.Email}}{{if .Admin}} <span class="tag ro">admin</span>{{end}}</label>{{end}}</div>
+      </details>
+     </td>
      <td><button type="button" class="btn sm" onclick="this.closest('tr').remove()">✕</button></td></tr>{{end}}
    </tbody></table>
    <p><button type="button" class="btn sm" onclick="xtkAddRoute()">+ {{T "admin.routes.add"}}</button></p>
@@ -339,8 +347,37 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
      <td><input name="opath" placeholder="/wp-login.php"></td>
      <td><select name="omatch"><option value="prefix">{{T "admin.routes.prefix"}}</option><option value="exact">{{T "admin.routes.exact"}}</option></select></td>
      <td><select name="orule"><option>authenticated</option><option>authorized</option><option>public</option></select></td>
+     <td class="rusers">
+      <select name="oinherit" class="oinherit"><option value="1" selected>{{T "admin.routes.inherit"}}</option><option value="0">{{T "admin.routes.own"}}</option></select>
+      <input type="hidden" name="ousers" value="">
+      <details class="rusers-pick" hidden>
+       <summary>{{T "admin.routes.pickusers"}}</summary>
+       <div class="svcuser-list">{{range $.Users}}<label class="check svcuser"><input type="checkbox" class="ouser"{{if .Admin}} disabled{{end}}> {{.Email}}{{if .Admin}} <span class="tag ro">admin</span>{{end}}</label>{{end}}</div>
+      </details>
+     </td>
      <td><button type="button" class="btn sm" onclick="this.closest('tr').remove()">✕</button></td></tr></template>
-   <script>function xtkAddRoute(){var t=document.getElementById('xtk-rtmpl');document.querySelector('#xtk-routes tbody').appendChild(t.content.cloneNode(true));}</script>
+   <script>
+function xtkAddRoute(){var t=document.getElementById('xtk-rtmpl');document.querySelector('#xtk-routes tbody').appendChild(t.content.cloneNode(true));xtkWireRoutes();}
+function xtkWireRoutes(){
+ document.querySelectorAll('#xtk-routes .rrow').forEach(function(tr){
+  if(tr.dataset.wired) return; tr.dataset.wired='1';
+  var sel=tr.querySelector('.oinherit'), pick=tr.querySelector('.rusers-pick'), hid=tr.querySelector('input[name="ousers"]');
+  if(!sel||!pick||!hid) return;
+  var have=(hid.value||'').split(/\s+/).filter(Boolean);
+  pick.querySelectorAll('.ouser').forEach(function(cb){
+   var em=cb.parentElement.textContent.trim().split(/\s+/)[0];
+   cb.dataset.email=em; cb.checked=have.indexOf(em)>=0;
+   cb.addEventListener('change',function(){
+    var out=[]; pick.querySelectorAll('.ouser').forEach(function(x){if(x.checked)out.push(x.dataset.email);});
+    hid.value=out.join(' ');
+   });
+  });
+  function sync(){ pick.hidden = (sel.value!=='0'); }
+  sel.addEventListener('change',sync); sync();
+ });
+}
+xtkWireRoutes();
+</script>
    </div>
 
    <div class="xtk-pane" id="tn">
@@ -1077,6 +1114,26 @@ func (s *Server) authGatedServiceIDs(svc models.Services) []string {
 
 type authzItem struct{ ID, Label string }
 
+// pathGrantees lists, space separated, the users holding the grant for one path of a
+// service — i.e. the list that applies when that path does not inherit.
+func (s *Server) pathGrantees(backendID, path string) string {
+	want := models.GrantID(backendID, path)
+	if want == backendID {
+		return ""
+	}
+	var out []string
+	for _, u := range s.Users.All() {
+		for _, id := range u.Backends {
+			if id == want {
+				out = append(out, u.Email)
+				break
+			}
+		}
+	}
+	sort.Strings(out)
+	return strings.Join(out, " ")
+}
+
 // svcUserRow is a user as offered in a service's Access tab: who they are and whether
 // they are enabled on THIS service. Administrators are listed but not selectable —
 // they get in regardless, and hiding that would misrepresent who can actually enter.
@@ -1325,9 +1382,11 @@ func (s *Server) handleLinkToggle(w http.ResponseWriter, r *http.Request) {
 // The nginx match kind (exact "= /x" vs prefix "/x") is encoded in Route.Path;
 // splitMatch/joinMatch translate between the stored path and the (path, exact) UI.
 type routeView struct {
-	Path  string
-	Exact bool
-	Rule  string
+	Path      string
+	Exact     bool
+	Rule      string
+	OwnGrants bool   // false = eredita gli utenti (dall'antenato più vicino, o dal servizio)
+	Users     string // emails abilitate su QUESTA directory, separate da spazio
 }
 
 func splitMatch(p string) (string, bool) {
@@ -1363,7 +1422,8 @@ func (s *Server) handleBackendEditForm(w http.ResponseWriter, r *http.Request) {
 		if len(b.Routes) > 1 {
 			for _, ro := range b.Routes[1:] {
 				cp, exact := splitMatch(ro.Path)
-				overrides = append(overrides, routeView{Path: cp, Exact: exact, Rule: ro.Rule})
+				overrides = append(overrides, routeView{Path: cp, Exact: exact, Rule: ro.Rule,
+					OwnGrants: ro.OwnGrants, Users: s.pathGrantees(b.ID, ro.Path)})
 			}
 		}
 		wafEnabled, wafMode, wafRules, wafIgnore, wafCustom := false, "detect", "", "", ""
@@ -1435,6 +1495,7 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, imgErr.Error(), http.StatusBadRequest)
 		return
 	}
+	pathGrants := map[string][]string{} // path che NON eredita → utenti abilitati
 	err := s.mutateServices(func(svc *models.Services) error {
 		for i := range svc.Backends {
 			if svc.Backends[i].ID != id {
@@ -1463,6 +1524,8 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 			opaths := r.PostForm["opath"]
 			omatches := r.PostForm["omatch"]
 			orules := r.PostForm["orule"]
+			oinherit := r.PostForm["oinherit"]
+			ousers := r.PostForm["ousers"]
 			for i, op := range opaths {
 				cp, exact := splitMatch(strings.TrimSpace(op))
 				if cp == "" {
@@ -1478,7 +1541,16 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 				if i < len(omatches) && omatches[i] == "exact" {
 					exact = true
 				}
-				routes = append(routes, models.Route{Path: joinMatch(cp, exact), Rule: orule, Upstream: up})
+				own := i < len(oinherit) && oinherit[i] == "0"
+				rp := joinMatch(cp, exact)
+				if own {
+					var em []string
+					if i < len(ousers) {
+						em = strings.Fields(ousers[i])
+					}
+					pathGrants[rp] = em
+				}
+				routes = append(routes, models.Route{Path: rp, Rule: orule, Upstream: up, OwnGrants: own})
 			}
 			b.Routes = routes
 			if r.PostFormValue("waf_enabled") != "" {
@@ -1510,7 +1582,45 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		err = s.applyServiceGrants(r, id)
 	}
+	if err == nil {
+		err = s.applyPathGrants(id, pathGrants)
+	}
 	s.afterMutation(w, r, err)
+}
+
+// applyPathGrants writes back the per-directory grants. Every grant this service holds
+// on a path is rebuilt from what the form says, so a path that goes back to inheriting
+// — or is deleted — does not leave a stale permission behind that would quietly grant
+// access again if the path were recreated later.
+func (s *Server) applyPathGrants(backendID string, grants map[string][]string) error {
+	prefix := backendID + "#"
+	want := map[string]map[string]bool{} // email → set of grant ids
+	for path, emails := range grants {
+		gid := models.GrantID(backendID, path)
+		for _, e := range emails {
+			if want[e] == nil {
+				want[e] = map[string]bool{}
+			}
+			want[e][gid] = true
+		}
+	}
+	return s.mutateUsers(func(users *[]models.User) error {
+		for i := range *users {
+			u := &(*users)[i]
+			kept := u.Backends[:0]
+			for _, id := range u.Backends {
+				if !strings.HasPrefix(id, prefix) { // grant di un altro servizio o del servizio stesso
+					kept = append(kept, id)
+				}
+			}
+			u.Backends = kept
+			for gid := range want[u.Email] {
+				u.Backends = append(u.Backends, gid)
+			}
+			sort.Strings(u.Backends)
+		}
+		return nil
+	})
 }
 
 // applyServiceGrants writes back the per-user grants edited in the Access tab. The

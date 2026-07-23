@@ -335,5 +335,9 @@
   "admin.svcusers.add": "Adicionar utilizador",
   "admin.svcusers.none": "Ainda nenhum utilizador autorizado.",
   "admin.svcusers.allin": "Todos os utilizadores já estão autorizados.",
-  "admin.svcusers.inactive": "Sem efeito com a regra atual — as autorizações ficam guardadas e passam a valer assim que escolher «Autorizados». Pode prepará-las desde já."
+  "admin.svcusers.inactive": "Sem efeito com a regra atual — as autorizações ficam guardadas e passam a valer assim que escolher «Autorizados». Pode prepará-las desde já.",
+  "admin.routes.users": "Utilizadores",
+  "admin.routes.inherit": "Herda",
+  "admin.routes.own": "Lista própria",
+  "admin.routes.pickusers": "escolher utilizadores"
 }

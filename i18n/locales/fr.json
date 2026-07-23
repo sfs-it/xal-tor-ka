@@ -335,5 +335,9 @@
   "admin.svcusers.add": "Ajouter un utilisateur",
   "admin.svcusers.none": "Aucun utilisateur autorisé pour l’instant.",
   "admin.svcusers.allin": "Tous les utilisateurs sont déjà autorisés.",
-  "admin.svcusers.inactive": "Sans effet avec la règle actuelle — les autorisations restent enregistrées et s’appliquent dès que vous choisissez « Autorisés ». Vous pouvez les préparer dès maintenant."
+  "admin.svcusers.inactive": "Sans effet avec la règle actuelle — les autorisations restent enregistrées et s’appliquent dès que vous choisissez « Autorisés ». Vous pouvez les préparer dès maintenant.",
+  "admin.routes.users": "Utilisateurs",
+  "admin.routes.inherit": "Hérite",
+  "admin.routes.own": "Liste propre",
+  "admin.routes.pickusers": "choisir les utilisateurs"
 }
