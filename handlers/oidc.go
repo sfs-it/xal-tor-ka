@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"xaltorka/legacyhtml"
 
 	"xaltorka/i18n"
 	"xaltorka/version"
@@ -80,7 +81,7 @@ func (s *Server) handleOIDCStart(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Discovery failed (issuer unreachable/wrong): fail-closed.
 		s.auditFail(r, "oidc", "provider="+id+" discovery")
-		renderHTML(w, loginTmpl, s.loginData(r, next, "err.provider_unavailable"), http.StatusBadGateway)
+		renderHTML(w, legacyhtml.LoginTmpl, s.loginData(r, next, "err.provider_unavailable"), http.StatusBadGateway)
 		return
 	}
 	raw, _ := json.Marshal(st)
@@ -109,17 +110,17 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	s.clearOIDCState(w)
 	if !ok || st.Provider != id {
 		s.auditFail(r, "oidc", "provider="+id+" state")
-		renderHTML(w, loginTmpl, s.loginData(r, "/listing", "err.login_expired"), http.StatusBadRequest)
+		renderHTML(w, legacyhtml.LoginTmpl, s.loginData(r, "/listing", "err.login_expired"), http.StatusBadRequest)
 		return
 	}
 	if e := r.URL.Query().Get("error"); e != "" {
 		s.auditFail(r, "oidc", "provider="+id+" idp_error="+e)
-		renderHTML(w, loginTmpl, s.loginData(r, st.Next, "err.idp_denied"), http.StatusUnauthorized)
+		renderHTML(w, legacyhtml.LoginTmpl, s.loginData(r, st.Next, "err.idp_denied"), http.StatusUnauthorized)
 		return
 	}
 	if r.URL.Query().Get("state") != st.State {
 		s.auditFail(r, "oidc", "provider="+id+" csrf")
-		renderHTML(w, loginTmpl, s.loginData(r, st.Next, "err.csrf"), http.StatusBadRequest)
+		renderHTML(w, legacyhtml.LoginTmpl, s.loginData(r, st.Next, "err.csrf"), http.StatusBadRequest)
 		return
 	}
 
@@ -128,7 +129,7 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	idn, err := p.Exchange(ctx, r.URL.Query().Get("code"), st.Nonce)
 	if err != nil {
 		s.auditFail(r, "oidc", "provider="+id+" exchange")
-		renderHTML(w, loginTmpl, s.loginData(r, st.Next, "err.auth_failed"), http.StatusUnauthorized)
+		renderHTML(w, legacyhtml.LoginTmpl, s.loginData(r, st.Next, "err.auth_failed"), http.StatusUnauthorized)
 		return
 	}
 
@@ -139,13 +140,13 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		s.auditFail(r, "oidc", "provider="+id+" email="+idn.Email+" not_provisioned")
 		d := s.loginData(r, st.Next, "err.not_provisioned")
 		d.Error = d.Error + ": " + idn.Email
-		renderHTML(w, loginTmpl, d, http.StatusForbidden)
+		renderHTML(w, legacyhtml.LoginTmpl, d, http.StatusForbidden)
 		return
 	}
 
 	sess, err := s.Sessions.Create(idn.Email, id)
 	if err != nil {
-		renderHTML(w, loginTmpl, s.loginData(r, st.Next, "err.internal"), http.StatusInternalServerError)
+		renderHTML(w, legacyhtml.LoginTmpl, s.loginData(r, st.Next, "err.internal"), http.StatusInternalServerError)
 		return
 	}
 	s.setSession(w, sess.ID)

@@ -5,7 +5,6 @@ package handlers
 
 import (
 	"errors"
-	"html/template"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -13,43 +12,9 @@ import (
 
 	"xaltorka/auth"
 	"xaltorka/i18n"
+	"xaltorka/legacyhtml"
 	"xaltorka/providers"
-	"xaltorka/xtkui"
 )
-
-var loginTmpl = template.Must(template.New("login").Funcs(xtkui.TmplFuncs).Parse(`<!doctype html>
-<html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · {{T .Lang "login.title"}}</title><link rel="stylesheet" href="/_xtk/assets/admin.css"><script src="/_xtk/assets/admin.js" defer></script></head><body>
-<div class="auth-wrap"><div class="auth-card">
- <h1>⛬ {{T .Lang "login.title"}}</h1>
- {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
- <form method="post" action="/login">
-  <input type="hidden" name="next" value="{{.Next}}">
-  <div class="field"><label>{{T .Lang "field.email"}}</label><input type="email" name="email" autocomplete="username" required></div>
-  <div class="field"><label>{{T .Lang "field.password"}}</label><input type="password" name="password" autocomplete="current-password" required></div>
-  <button class="btn primary">{{T .Lang "btn.continue"}}</button>
- </form>
- {{if .Code}}<p class="hint" style="margin-top:.8rem;text-align:center"><a href="/login/code?next={{.Next}}">Accedi con un codice monouso</a></p>{{end}}
- {{if .OIDC}}<div class="oidc"><div class="sep"><span>{{T .Lang "login.or"}}</span></div>
-  {{range .OIDC}}<a class="btn oauth" href="/auth/{{.ID}}/start?next={{$.Next}}">{{T $.Lang "login.with"}} {{.Name}}</a>{{end}}
- </div>{{end}}
- {{if .Version}}<div class="ver-foot">⛬ Xal-Tor-Ka · {{.Version}}</div>{{end}}
- {{corner .Lang}}
-</div></div></body></html>`))
-
-var totpTmpl = template.Must(template.New("totp").Funcs(xtkui.TmplFuncs).Parse(`<!doctype html>
-<html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · {{T .Lang "totp.title"}}</title><link rel="stylesheet" href="/_xtk/assets/admin.css"><script src="/_xtk/assets/admin.js" defer></script></head><body>
-<div class="auth-wrap"><div class="auth-card">
- <h1>{{T .Lang "totp.title"}}</h1>
- {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
- <form method="post" action="/auth/totp">
-  <input type="hidden" name="next" value="{{.Next}}">
-  <div class="field"><label>{{T .Lang "totp.code"}}</label><input name="code" inputmode="numeric" autocomplete="one-time-code" required></div>
-  <button class="btn primary">{{T .Lang "btn.verify"}}</button>
- </form>
- {{corner .Lang}}
-</div></div></body></html>`))
 
 type formData struct {
 	Next    string
@@ -71,12 +36,12 @@ func (s *Server) totpData(r *http.Request, next, errKey string) formData {
 }
 
 func (s *Server) handleLoginForm(w http.ResponseWriter, r *http.Request) {
-	renderHTML(w, loginTmpl, s.loginData(r, r.URL.Query().Get("next"), ""), http.StatusOK)
+	renderHTML(w, legacyhtml.LoginTmpl, s.loginData(r, r.URL.Query().Get("next"), ""), http.StatusOK)
 }
 
 func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		renderHTML(w, loginTmpl, s.loginData(r, "/listing", "err.bad_request"), http.StatusBadRequest)
+		renderHTML(w, legacyhtml.LoginTmpl, s.loginData(r, "/listing", "err.bad_request"), http.StatusBadRequest)
 		return
 	}
 	next := s.sanitizeNext(r.PostFormValue("next"))
@@ -86,7 +51,7 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	if _, err := s.Local.Authenticate(email, password); err != nil {
 		if !errors.Is(err, providers.ErrInvalidCredentials) {
 			// unexpected internal error: fail-closed, log nothing sensitive
-			renderHTML(w, loginTmpl, s.loginData(r, next, "err.internal"), http.StatusInternalServerError)
+			renderHTML(w, legacyhtml.LoginTmpl, s.loginData(r, next, "err.internal"), http.StatusInternalServerError)
 			return
 		}
 		// Local rejected → try the enabled LDAP/AD providers (bind). LDAP is
@@ -95,13 +60,13 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.auditFail(r, "login", "email="+email)
-		renderHTML(w, loginTmpl, s.loginData(r, next, "err.bad_credentials"), http.StatusUnauthorized)
+		renderHTML(w, legacyhtml.LoginTmpl, s.loginData(r, next, "err.bad_credentials"), http.StatusUnauthorized)
 		return
 	}
 
 	sess, err := s.Sessions.Create(email, "local")
 	if err != nil {
-		renderHTML(w, loginTmpl, s.loginData(r, next, "err.internal"), http.StatusInternalServerError)
+		renderHTML(w, legacyhtml.LoginTmpl, s.loginData(r, next, "err.internal"), http.StatusInternalServerError)
 		return
 	}
 	s.setSession(w, sess.ID)
@@ -129,7 +94,7 @@ func (s *Server) ldapLogin(w http.ResponseWriter, r *http.Request, email, passwo
 		}
 		sess, err := s.Sessions.Create(email, lp.ID())
 		if err != nil {
-			renderHTML(w, loginTmpl, s.loginData(r, next, "err.internal"), http.StatusInternalServerError)
+			renderHTML(w, legacyhtml.LoginTmpl, s.loginData(r, next, "err.internal"), http.StatusInternalServerError)
 			return true
 		}
 		s.setSession(w, sess.ID)
@@ -145,7 +110,7 @@ func (s *Server) handleTOTPForm(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
-	renderHTML(w, totpTmpl, s.totpData(r, r.URL.Query().Get("next"), ""), http.StatusOK)
+	renderHTML(w, legacyhtml.TotpTmpl, s.totpData(r, r.URL.Query().Get("next"), ""), http.StatusOK)
 }
 
 func (s *Server) handleTOTPSubmit(w http.ResponseWriter, r *http.Request) {
@@ -155,14 +120,14 @@ func (s *Server) handleTOTPSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := r.ParseForm(); err != nil {
-		renderHTML(w, totpTmpl, s.totpData(r, "/listing", "err.bad_request"), http.StatusBadRequest)
+		renderHTML(w, legacyhtml.TotpTmpl, s.totpData(r, "/listing", "err.bad_request"), http.StatusBadRequest)
 		return
 	}
 	next := s.sanitizeNext(r.PostFormValue("next"))
 	user, found := s.Users.Get(sess.Email)
 	if !found || !auth.VerifyTOTP(user.TOTPSecret, r.PostFormValue("code"), time.Now()) {
 		s.auditFail(r, "totp", "email="+sess.Email)
-		renderHTML(w, totpTmpl, s.totpData(r, next, "err.bad_code"), http.StatusUnauthorized)
+		renderHTML(w, legacyhtml.TotpTmpl, s.totpData(r, next, "err.bad_code"), http.StatusUnauthorized)
 		return
 	}
 	s.Sessions.Complete2FA(sess.ID)

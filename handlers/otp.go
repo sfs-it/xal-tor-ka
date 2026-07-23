@@ -5,14 +5,12 @@ package handlers
 
 import (
 	"encoding/json"
-	"html/template"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
-
-	"xaltorka/xtkui"
+	"xaltorka/legacyhtml"
 )
 
 // One-time-code login (passwordless, opt-in via config.one_time_code). The code is
@@ -22,38 +20,6 @@ import (
 // "email" uses the notify transport, "sms" is reserved for a later API integration.
 // Security posture: generic responses (never reveal whether an email exists), codes only
 // for real local users, per-email cooldown, hashed + single-use + time-limited codes.
-
-var codeRequestTmpl = template.Must(template.New("codereq").Funcs(xtkui.TmplFuncs).Parse(`<!doctype html>
-<html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · Accesso con codice</title><link rel="stylesheet" href="/_xtk/assets/admin.css"></head><body>
-<div class="auth-wrap"><div class="auth-card">
- <h1>⛬ Accesso con codice</h1>
- {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
- <p class="hint">Inserisci la tua email: ti invieremo un codice monouso per accedere.</p>
- <form method="post" action="/login/code">
-  <input type="hidden" name="next" value="{{.Next}}">
-  <div class="field"><label>Email</label><input type="email" name="email" autocomplete="username" required></div>
-  <button class="btn primary">Invia il codice</button>
- </form>
- <p class="hint" style="margin-top:1rem"><a href="/login">← Torna al login con password</a></p>
- {{corner .Lang}}
-</div></div></body></html>`))
-
-var codeVerifyTmpl = template.Must(template.New("codever").Funcs(xtkui.TmplFuncs).Parse(`<!doctype html>
-<html lang="{{.Lang}}"{{if rtl .Lang}} dir="rtl"{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xal-Tor-Ka · Accesso con codice</title><link rel="stylesheet" href="/_xtk/assets/admin.css"></head><body>
-<div class="auth-wrap"><div class="auth-card">
- <h1>⛬ Inserisci il codice</h1>
- {{if .Error}}<div class="err">{{.Error}}</div>{{else}}<div class="ok">Se l'indirizzo corrisponde a un account, un codice è stato inviato.</div>{{end}}
- <form method="post" action="/login/code/verify">
-  <input type="hidden" name="next" value="{{.Next}}">
-  <input type="hidden" name="email" value="{{.Email}}">
-  <div class="field"><label>Codice</label><input name="code" inputmode="numeric" autocomplete="one-time-code" required autofocus></div>
-  <button class="btn primary">Accedi</button>
- </form>
- <p class="hint" style="margin-top:1rem"><a href="/login/code">Richiedi un nuovo codice</a></p>
- {{corner .Lang}}
-</div></div></body></html>`))
 
 type codeData struct {
 	Next  string
@@ -69,7 +35,7 @@ func (s *Server) handleCodeRequestForm(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
-	renderHTML(w, codeRequestTmpl, codeData{Next: s.sanitizeNext(r.URL.Query().Get("next")), Lang: s.lang(r)}, http.StatusOK)
+	renderHTML(w, legacyhtml.CodeRequestTmpl, codeData{Next: s.sanitizeNext(r.URL.Query().Get("next")), Lang: s.lang(r)}, http.StatusOK)
 }
 
 // handleCodeRequestSubmit issues + delivers a code, then always shows the verify
@@ -92,7 +58,7 @@ func (s *Server) handleCodeRequestSubmit(w http.ResponseWriter, r *http.Request)
 	} else {
 		slog.Info("otp: request for unknown email", "ip", clientIP(r, s.Cfg.Server.TrustedProxies))
 	}
-	renderHTML(w, codeVerifyTmpl, codeData{Next: next, Email: email, Lang: lang}, http.StatusOK)
+	renderHTML(w, legacyhtml.CodeVerifyTmpl, codeData{Next: next, Email: email, Lang: lang}, http.StatusOK)
 }
 
 // handleCodeVerifySubmit consumes the code and, on success for a real user,
@@ -110,12 +76,12 @@ func (s *Server) handleCodeVerifySubmit(w http.ResponseWriter, r *http.Request) 
 	_, found := s.Users.Get(email)
 	if !found || !s.OTP.Verify(email, code) {
 		s.auditFail(r, "otp", "email="+email)
-		renderHTML(w, codeVerifyTmpl, codeData{Next: next, Email: email, Error: "Codice non valido o scaduto.", Lang: s.lang(r)}, http.StatusUnauthorized)
+		renderHTML(w, legacyhtml.CodeVerifyTmpl, codeData{Next: next, Email: email, Error: "Codice non valido o scaduto.", Lang: s.lang(r)}, http.StatusUnauthorized)
 		return
 	}
 	sess, err := s.Sessions.Create(email, "otp")
 	if err != nil {
-		renderHTML(w, codeVerifyTmpl, codeData{Next: next, Email: email, Error: "Errore interno.", Lang: s.lang(r)}, http.StatusInternalServerError)
+		renderHTML(w, legacyhtml.CodeVerifyTmpl, codeData{Next: next, Email: email, Error: "Errore interno.", Lang: s.lang(r)}, http.StatusInternalServerError)
 		return
 	}
 	s.setSession(w, sess.ID)
