@@ -111,7 +111,7 @@ var servicesTmpl = xtkui.LocParse("services", `<section>
    <div><label>{{T "admin.f.name"}}</label><input name="name"></div>
    <div><label>{{T "admin.f.host"}}</label><input name="host" placeholder="app.example.com" required></div>
    <div><label>{{T "admin.f.path"}}</label><input name="path" value="/"></div>
-   <div><label>{{T "admin.f.rule"}}</label><select name="rule"><option>authorized</option><option>authenticated</option><option>public</option></select></div>
+   <div><label>{{T "admin.f.rule"}}</label><select name="rule">{{ruleOptions "authorized"}}</select></div>
    <div><label>{{T "admin.f.upstream"}}</label><input name="upstream" placeholder="http://10.0.0.5:8080"></div>
    <div><label>{{T "admin.f.url"}}</label><input name="url" placeholder="https://app.example.com"></div>
    <div><label>www</label><label class="hint" style="display:inline-flex;align-items:center;gap:.35rem;height:2.2rem"><input type="checkbox" name="www" value="1"> also www.&lt;host&gt;</label></div>
@@ -161,7 +161,7 @@ var dockerTmpl = xtkui.LocParse("docker", `<section>
   {{range .Discovered}}<tr><td>{{.Name}}</td><td>{{.Port}}</td><td><code>{{.Host}}</code></td>
    <td class="rowact">{{if .Added}}<span class="tag ro">{{T "admin.dk.added"}}</span>{{else}}<form class="inline" method="post" action="/admin/discover/add">
     <input type="hidden" name="name" value="{{.Name}}"><input type="hidden" name="port" value="{{.Port}}">
-    <select name="rule" style="width:auto;vertical-align:middle"><option>authorized</option><option>authenticated</option><option>public</option></select>
+    <select name="rule" style="width:auto;vertical-align:middle">{{ruleOptions "authorized"}}</select>
     <button class="btn primary sm">{{T "btn.add"}}</button></form>{{end}}</td></tr>
   {{else}}<tr><td colspan="4" class="empty">{{T "admin.dk.none"}}</td></tr>{{end}}
   </tbody></table>
@@ -294,9 +294,7 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
    <div class="xtk-pane" id="ta">
     <table class="ftable"><tbody>
     <tr><th>{{T "admin.f.rule"}}</th><td><select name="rule">
-     <option {{if eq .Rule "authorized"}}selected{{end}}>authorized</option>
-     <option {{if eq .Rule "authenticated"}}selected{{end}}>authenticated</option>
-     <option {{if eq .Rule "public"}}selected{{end}}>public</option></select></td><td></td></tr>
+     {{ruleOptions .Rule}}</select></td><td></td></tr>
     </tbody></table>
     <div class="rule-help">
      <p><b>{{T "admin.rule.public"}}</b> — {{T "admin.rule.public.d"}}</p>
@@ -330,7 +328,7 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
     {{range .Overrides}}<tr class="rrow">
      <td><input name="opath" value="{{.Path}}" placeholder="/wp-login.php"></td>
      <td><select name="omatch"><option value="prefix"{{if not .Exact}} selected{{end}}>{{T "admin.routes.prefix"}}</option><option value="exact"{{if .Exact}} selected{{end}}>{{T "admin.routes.exact"}}</option></select></td>
-     <td><select name="orule"><option{{if eq .Rule "authenticated"}} selected{{end}}>authenticated</option><option{{if eq .Rule "authorized"}} selected{{end}}>authorized</option><option{{if eq .Rule "public"}} selected{{end}}>public</option></select></td>
+     <td><select name="orule">{{ruleOptions .Rule}}</select></td>
      <td class="rusers">
       <select name="oinherit" class="oinherit"><option value="1"{{if not .OwnGrants}} selected{{end}}>{{T "admin.routes.inherit"}}</option><option value="0"{{if .OwnGrants}} selected{{end}}>{{T "admin.routes.own"}}</option></select>
       <input type="hidden" name="ousers" value="{{.Users}}">
@@ -346,7 +344,7 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
    <template id="xtk-rtmpl"><tr class="rrow">
      <td><input name="opath" placeholder="/wp-login.php"></td>
      <td><select name="omatch"><option value="prefix">{{T "admin.routes.prefix"}}</option><option value="exact">{{T "admin.routes.exact"}}</option></select></td>
-     <td><select name="orule"><option>authenticated</option><option>authorized</option><option>public</option></select></td>
+     <td><select name="orule">{{ruleOptions "authenticated"}}</select></td>
      <td class="rusers">
       <select name="oinherit" class="oinherit"><option value="1" selected>{{T "admin.routes.inherit"}}</option><option value="0">{{T "admin.routes.own"}}</option></select>
       <input type="hidden" name="ousers" value="">
@@ -817,7 +815,7 @@ var hostScanTmpl = xtkui.LocParse("hostscan", `<h1>{{T "admin.hs.h1"}} ({{.From}
   {{else}}<tr><td colspan="4" class="empty">{{T "admin.hs.none"}}</td></tr>{{end}}
   </tbody></table>
   <div class="actions" style="margin-top:.8rem">
-   <label>{{T "admin.f.rule"}} <select name="rule"><option>authorized</option><option>authenticated</option><option>public</option></select></label>
+   <label>{{T "admin.f.rule"}} <select name="rule">{{ruleOptions "authorized"}}</select></label>
    <button class="btn primary">{{T "admin.hs.add_selected"}}</button>
   </div>
  </form>

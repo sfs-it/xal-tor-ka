@@ -55,3 +55,23 @@ func TestLangCornerAndCluster(t *testing.T) {
 		t.Error("IconCluster(loggedIn=true) must show logout")
 	}
 }
+
+func TestRuleOptionsOrderAndDefault(t *testing.T) {
+	// The order is a UX+safety invariant: least→most restrictive, matching the
+	// on-screen explanation. If someone reorders it, this test must fail.
+	got := string(ruleOptions("authorized"))
+	pub := strings.Index(got, ">public<")
+	aut := strings.Index(got, ">authenticated<")
+	azd := strings.Index(got, ">authorized<")
+	if !(pub >= 0 && pub < aut && aut < azd) {
+		t.Fatalf("wrong order: public=%d authenticated=%d authorized=%d in %q", pub, aut, azd, got)
+	}
+	// The passed value is the one pre-selected — a new service must never default
+	// to public by accident.
+	if !strings.Contains(got, "<option selected>authorized</option>") {
+		t.Errorf("selected default not applied: %q", got)
+	}
+	if strings.Count(got, "selected") != 1 {
+		t.Errorf("exactly one option must be selected: %q", got)
+	}
+}

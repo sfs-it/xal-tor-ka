@@ -88,14 +88,35 @@ func LangCorner(lang string) template.HTML {
 	return template.HTML(`<div class="corner">` + langPopup(lang) + `</div>`)
 }
 
+// ruleOptions renders the <option>s for an access-rule <select>, in ONE place so
+// they cannot drift apart. Order matches the on-screen explanation and the mental
+// model, from the least to the most restrictive: public → authenticated → authorized.
+// The caller passes the value to pre-select, which is also the safe default of the
+// form: "authorized" for a new service (never born public by accident),
+// "authenticated" for a new per-path rule.
+func ruleOptions(selected string) template.HTML {
+	var b strings.Builder
+	for _, r := range []string{"public", "authenticated", "authorized"} {
+		b.WriteString("<option")
+		if r == selected {
+			b.WriteString(" selected")
+		}
+		b.WriteString(">")
+		b.WriteString(r)
+		b.WriteString("</option>")
+	}
+	return template.HTML(b.String())
+}
+
 // TmplFuncs are the localization helpers for data-driven templates (they pass a
 // .Lang field): {{T .Lang "key"}}, {{cluster .Lang}}, {{corner .Lang}}, {{if rtl .Lang}}.
 var TmplFuncs = template.FuncMap{
-	"T":       i18n.T,
-	"langs":   func() []i18n.Lang { return i18n.Supported },
-	"rtl":     i18n.IsRTL,
-	"cluster": func(lang string) template.HTML { return IconCluster(lang, true) },
-	"corner":  func(lang string) template.HTML { return LangCorner(lang) },
+	"T":           i18n.T,
+	"langs":       func() []i18n.Lang { return i18n.Supported },
+	"rtl":         i18n.IsRTL,
+	"cluster":     func(lang string) template.HTML { return IconCluster(lang, true) },
+	"corner":      func(lang string) template.HTML { return LangCorner(lang) },
+	"ruleOptions": ruleOptions,
 }
 
 // LocFuncs returns helpers bound to a language, so templates can call
@@ -106,8 +127,9 @@ func LocFuncs(lang string) template.FuncMap {
 		"rtl":     func() bool { return i18n.IsRTL(lang) },
 		"curlang": func() string { return lang },
 		"langs":   func() []i18n.Lang { return i18n.Supported },
-		"cluster": func() template.HTML { return IconCluster(lang, true) },
-		"corner":  func() template.HTML { return LangCorner(lang) },
+		"cluster":     func() template.HTML { return IconCluster(lang, true) },
+		"corner":      func() template.HTML { return LangCorner(lang) },
+		"ruleOptions": ruleOptions,
 	}
 }
 
