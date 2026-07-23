@@ -6,7 +6,7 @@ COMPOSE := docker compose
 VERSION := $(shell sed -n 's/.*Version = "\(.*\)".*/\1/p' version/version.go)
 
 .PHONY: help bootstrap run build fmt vet tidy test clean \
-        up down logs rebuild ps setup admin version
+        up down logs rebuild ps setup admin version deploy
 
 help: ## Elenca i target disponibili
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -66,3 +66,6 @@ setup: ## Crea il profilo admin di setup nel container (EMAIL=...)
 admin: ## Crea/promuove un utente admin (EMAIL=... PASSWORD=...) e riavvia
 	$(COMPOSE) run --rm xaltorka user --email "$(EMAIL)" --password "$(PASSWORD)" --admin --config /etc/xaltorka
 	$(COMPOSE) restart xaltorka
+
+deploy: ## Deploy del commit corrente su una macchina remota (XTK_HOST=user@host XTK_SSH_KEY=... [XTK_SERVICES=...])
+	./scripts/deploy.sh
