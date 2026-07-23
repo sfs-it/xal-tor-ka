@@ -339,5 +339,6 @@
   "admin.routes.users": "Utilisateurs",
   "admin.routes.inherit": "Hérite",
   "admin.routes.own": "Liste propre",
-  "admin.routes.pickusers": "choisir les utilisateurs"
+  "admin.routes.pickusers": "choisir les utilisateurs",
+  "admin.hs.capped": "Plage trop large : elle a été réduite aux 2000 premiers ports (le titre indique ce qui a réellement été sondé). Pour chercher plus haut, relancez en partant du port voulu — p. ex. from=8700."
 }

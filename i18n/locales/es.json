@@ -339,5 +339,6 @@
   "admin.routes.users": "Usuarios",
   "admin.routes.inherit": "Hereda",
   "admin.routes.own": "Lista propia",
-  "admin.routes.pickusers": "elegir usuarios"
+  "admin.routes.pickusers": "elegir usuarios",
+  "admin.hs.capped": "Rango demasiado amplio: se ha reducido a los primeros 2000 puertos (el título muestra lo realmente sondeado). Para buscar más arriba, vuelve a lanzarlo desde el puerto que te interesa — p. ej. from=8700."
 }

@@ -339,5 +339,6 @@
   "admin.routes.users": "用户",
   "admin.routes.inherit": "继承",
   "admin.routes.own": "独立列表",
-  "admin.routes.pickusers": "选择用户"
+  "admin.routes.pickusers": "选择用户",
+  "admin.hs.capped": "范围过大：已缩减为前 2000 个端口（标题显示实际探测的范围）。要查找更高的端口，请从目标端口重新开始 —— 例如 from=8700。"
 }

@@ -339,5 +339,6 @@
   "admin.routes.users": "Benutzer",
   "admin.routes.inherit": "Erbt",
   "admin.routes.own": "Eigene Liste",
-  "admin.routes.pickusers": "Benutzer wählen"
+  "admin.routes.pickusers": "Benutzer wählen",
+  "admin.hs.capped": "Bereich zu groß: auf die ersten 2000 Ports begrenzt (der Titel zeigt den tatsächlich geprüften Bereich). Für höhere Ports erneut ab dem gewünschten Port starten — z. B. from=8700."
 }

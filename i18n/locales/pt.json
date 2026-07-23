@@ -339,5 +339,6 @@
   "admin.routes.users": "Utilizadores",
   "admin.routes.inherit": "Herda",
   "admin.routes.own": "Lista própria",
-  "admin.routes.pickusers": "escolher utilizadores"
+  "admin.routes.pickusers": "escolher utilizadores",
+  "admin.hs.capped": "Intervalo demasiado amplo: foi reduzido às primeiras 2000 portas (o título mostra o que foi realmente sondado). Para procurar mais acima, execute de novo a partir da porta pretendida — ex. from=8700."
 }

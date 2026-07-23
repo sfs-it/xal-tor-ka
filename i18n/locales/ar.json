@@ -339,5 +339,6 @@
   "admin.routes.users": "المستخدمون",
   "admin.routes.inherit": "يرث",
   "admin.routes.own": "قائمة خاصة",
-  "admin.routes.pickusers": "اختيار المستخدمين"
+  "admin.routes.pickusers": "اختيار المستخدمين",
+  "admin.hs.capped": "النطاق واسع جدًا: تم تضييقه إلى أول 2000 منفذ (العنوان يبيّن ما جرى فحصه فعليًا). للبحث في نطاق أعلى، أعد التشغيل بدءًا من المنفذ المطلوب — مثل from=8700."
 }

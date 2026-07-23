@@ -339,5 +339,6 @@
   "admin.routes.users": "Users",
   "admin.routes.inherit": "Inherit",
   "admin.routes.own": "Own list",
-  "admin.routes.pickusers": "pick users"
+  "admin.routes.pickusers": "pick users",
+  "admin.hs.capped": "Range too wide: it was narrowed to the first 2000 ports (the title shows what was actually probed). To look higher up, run it again starting from the port you care about — e.g. from=8700."
 }

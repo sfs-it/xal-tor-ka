@@ -804,6 +804,7 @@ func (s *Server) handleDiscoverAdd(w http.ResponseWriter, r *http.Request) {
 
 var hostScanTmpl = xtkui.LocParse("hostscan", `<h1>{{T "admin.hs.h1"}} ({{.From}}–{{.To}})</h1>
  <p class="hint">{{T "admin.hs.hint"}}</p>
+ {{if .Capped}}<p class="hint" style="border-left:3px solid var(--line);padding-left:.6rem">{{T "admin.hs.capped"}}</p>{{end}}
  <form method="post" action="/admin/hostscan/add">
   <table><thead><tr>
    <th><input type="checkbox" onclick="for(const c of document.querySelectorAll('input[name=ports]'))c.checked=this.checked"></th>
@@ -842,6 +843,10 @@ func (s *Server) handleHostScan(w http.ResponseWriter, r *http.Request) {
 	if to <= 0 {
 		to = from + 100
 	}
+	// Clamp BEFORE rendering: the page must state the range it really probed, not the
+	// one that was asked for — a scan that quietly covers a slice of the request makes
+	// a missing service look absent when it was never looked at.
+	from, to, capped := dockerscan.ClampRange(from, to)
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
 	open := dockerscan.ScanPorts(ctx, "host.docker.internal", from, to)
@@ -867,8 +872,10 @@ func (s *Server) handleHostScan(w http.ResponseWriter, r *http.Request) {
 	}
 	s.renderAdminPage(w, r, "servizi", hostScanTmpl, struct {
 		From, To int
+		Capped   bool
+		Max      int
 		Ports    []hostPortRow
-	}{From: from, To: to, Ports: rows})
+	}{From: from, To: to, Capped: capped, Max: dockerscan.MaxScanPorts, Ports: rows})
 }
 
 // handleHostScanAdd bulk-creates vhosts for the selected host ports.
