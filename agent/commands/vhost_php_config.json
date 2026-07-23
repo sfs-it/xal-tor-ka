@@ -9,7 +9,7 @@
     "memory_limit":        { "required": false, "pattern": "(-1|[0-9]{1,6}[KMG]?)" },
     "max_file_uploads":    { "required": false, "pattern": "[0-9]{1,5}" },
     "max_execution_time":  { "required": false, "pattern": "[0-9]{1,5}" },
-    "ini_raw_b64":         { "required": false, "pattern": "[A-Za-z0-9+/=]{0,8000}" },
-    "fpm_raw_b64":         { "required": false, "pattern": "[A-Za-z0-9+/=]{0,8000}" }
+    "ini_raw_b64":         { "required": false, "pattern": "[A-Za-z0-9+/=]*" },
+    "fpm_raw_b64":         { "required": false, "pattern": "[A-Za-z0-9+/=]*" }
   }
 }
