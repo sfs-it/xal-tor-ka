@@ -211,7 +211,7 @@
   "admin.act.disable": "disabilita",
   "admin.act.delete": "elimina",
   "admin.confirm_del": "Eliminare questa voce?",
-  "admin.rule.help": "public: aperto a tutti. authenticated: utenti con sessione valida (2FA). whitelist: solo utenti esplicitamente autorizzati (implica l'autenticazione); gli amministratori accedono sempre (override).",
+  "admin.rule.help": "public: aperto a tutti. authenticated: chiunque abbia una sessione valida (2FA). authorized: solo gli utenti abilitati a QUESTO servizio. Gli amministratori entrano sempre.",
   "admin.edit.help.id": "non modificabile",
   "admin.edit.help.name": "nome mostrato nella dashboard",
   "admin.edit.help.host": "hostname pubblico instradato dal gateway",

@@ -211,7 +211,7 @@
   "admin.act.disable": "désactiver",
   "admin.act.delete": "supprimer",
   "admin.confirm_del": "Supprimer cette entrée ?",
-  "admin.rule.help": "public : ouvert à tous. authenticated : utilisateurs avec une session valide (2FA). whitelist : uniquement les utilisateurs explicitement autorisés (implique l'authentification) ; les administrateurs ont toujours accès (override).",
+  "admin.rule.help": "public : ouvert à tous. authenticated : toute personne avec une session valide (2FA). authorized : seuls les utilisateurs autorisés sur CE service. Les administrateurs entrent toujours.",
   "admin.edit.help.id": "non modifiable",
   "admin.edit.help.name": "nom affiché dans le tableau de bord",
   "admin.edit.help.host": "nom d'hôte public routé par la passerelle",

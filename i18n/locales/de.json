@@ -211,7 +211,7 @@
   "admin.act.disable": "deaktivieren",
   "admin.act.delete": "löschen",
   "admin.confirm_del": "Diesen Eintrag löschen?",
-  "admin.rule.help": "public: für alle offen. authenticated: Benutzer mit gültiger Sitzung (2FA). whitelist: nur ausdrücklich autorisierte Benutzer (setzt Authentifizierung voraus); Administratoren haben immer Zugriff (override).",
+  "admin.rule.help": "public: für alle offen. authenticated: jeder mit gültiger Sitzung (2FA). authorized: nur die für DIESEN Dienst freigegebenen Benutzer. Administratoren kommen immer hinein.",
   "admin.edit.help.id": "nicht bearbeitbar",
   "admin.edit.help.name": "im Dashboard angezeigter Name",
   "admin.edit.help.host": "öffentlicher Hostname, der vom Gateway geroutet wird",

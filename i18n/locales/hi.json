@@ -211,7 +211,7 @@
   "admin.act.disable": "अक्षम करें",
   "admin.act.delete": "हटाएँ",
   "admin.confirm_del": "क्या यह प्रविष्टि हटाएँ?",
-  "admin.rule.help": "public: सभी के लिए खुला। authenticated: वैध सत्र वाले उपयोगकर्ता (2FA)। whitelist: केवल स्पष्ट रूप से अधिकृत उपयोगकर्ता (प्रमाणीकरण अनिवार्य); व्यवस्थापकों की पहुँच हमेशा रहती है (override)।",
+  "admin.rule.help": "public: सभी के लिए खुला। authenticated: वैध सत्र (2FA) वाला कोई भी। authorized: केवल इस सेवा के लिए सक्षम उपयोगकर्ता। प्रशासक हमेशा प्रवेश करते हैं।",
   "admin.edit.help.id": "संपादन योग्य नहीं",
   "admin.edit.help.name": "डैशबोर्ड में दिखाया गया नाम",
   "admin.edit.help.host": "गेटवे द्वारा रूट किया गया सार्वजनिक होस्टनाम",

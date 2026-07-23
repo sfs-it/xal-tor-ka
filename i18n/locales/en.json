@@ -211,7 +211,7 @@
   "admin.act.disable": "disable",
   "admin.act.delete": "delete",
   "admin.confirm_del": "Delete this entry?",
-  "admin.rule.help": "public: open to everyone. authenticated: users with a valid session (2FA). whitelist: only explicitly authorized users (implies authentication); administrators always have access (override).",
+  "admin.rule.help": "public: open to everyone. authenticated: anyone with a valid session (2FA). authorized: only the users enabled on THIS service. Administrators always get in.",
   "admin.edit.help.id": "not editable",
   "admin.edit.help.name": "name shown in the dashboard",
   "admin.edit.help.host": "public hostname routed by the gateway",

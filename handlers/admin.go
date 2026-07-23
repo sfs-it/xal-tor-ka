@@ -296,7 +296,7 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
     <tr><th>{{T "admin.f.rule"}}</th><td><select name="rule">
      <option {{if eq .Rule "authorized"}}selected{{end}}>authorized</option>
      <option {{if eq .Rule "authenticated"}}selected{{end}}>authenticated</option>
-     <option {{if eq .Rule "public"}}selected{{end}}>public</option></select></td><td class="fhelp">{{T "admin.rule.help"}}</td></tr>
+     <option {{if eq .Rule "public"}}selected{{end}}>public</option></select></td><td></td></tr>
     </tbody></table>
     <div class="rule-help">
      <p><b>{{T "admin.rule.public"}}</b> — {{T "admin.rule.public.d"}}</p>

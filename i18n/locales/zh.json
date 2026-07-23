@@ -211,7 +211,7 @@
   "admin.act.disable": "禁用",
   "admin.act.delete": "删除",
   "admin.confirm_del": "确定删除此条目吗？",
-  "admin.rule.help": "public：对所有人开放。authenticated：拥有有效会话的用户（2FA）。whitelist：仅限明确授权的用户（隐含需要认证）；管理员始终可以访问（override）。",
+  "admin.rule.help": "public：对所有人开放。authenticated：任何拥有有效会话（2FA）的用户。authorized：仅限被授权访问本服务的用户。管理员始终可以进入。",
   "admin.edit.help.id": "不可编辑",
   "admin.edit.help.name": "在仪表板中显示的名称",
   "admin.edit.help.host": "由网关路由的公共主机名",

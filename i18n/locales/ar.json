@@ -211,7 +211,7 @@
   "admin.act.disable": "تعطيل",
   "admin.act.delete": "حذف",
   "admin.confirm_del": "هل تريد حذف هذا العنصر؟",
-  "admin.rule.help": "public: متاح للجميع. authenticated: المستخدمون بجلسة صالحة (2FA). whitelist: المستخدمون المصرّح لهم صراحةً فقط (يستلزم المصادقة)؛ للمسؤولين دائمًا صلاحية الوصول (override).",
+  "admin.rule.help": "public: مفتوح للجميع. authenticated: أي شخص لديه جلسة صالحة (2FA). authorized: فقط المستخدمون المصرَّح لهم بهذه الخدمة. المسؤولون يدخلون دائمًا.",
   "admin.edit.help.id": "غير قابل للتعديل",
   "admin.edit.help.name": "الاسم المعروض في لوحة التحكم",
   "admin.edit.help.host": "اسم المضيف العام الموجَّه بواسطة البوابة",
