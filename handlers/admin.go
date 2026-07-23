@@ -93,8 +93,8 @@ var servicesTmpl = xtkui.LocParse("services", `<section>
    <td><a href="//{{.Host}}" target="_blank" rel="noopener"><code>{{.Host}}</code></a>{{range .Routes}}<div class="hint"><code>{{.Upstream}}</code></div>{{end}}</td>
    <td>{{range .Routes}}<span class="tag">{{.Rule}}</span> {{end}}</td>
    <td></td><td class="rowact"><a class="btn sm" href="/admin/tls#h-{{.Host}}">{{T "admin.tls.manage"}}</a></td></tr>{{end}}
- {{range .Groups}}{{$g := .}}{{$grp := and $g.Site (gt (len $g.Backends) 1)}}{{if $grp}}<tr class="svc-ghdr"><td colspan="4"><b>{{$g.Site}}/</b> <span class="hint">{{len $g.Backends}} vhost</span></td></tr>{{end}}{{range $g.Backends}}<tr{{if .Disabled}} class="off"{{end}}>
-   <td>{{if $grp}}<span class="tls-branch" aria-hidden="true">↳</span> {{end}}<b>{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</b>{{if .Disabled}} <span class="tag ro">off</span>{{end}}{{if .Description}}<div class="hint">{{.Description}}</div>{{end}}</td>
+ {{range .Groups}}{{$g := .}}{{$grp := and $g.Site (gt (len $g.Backends) 1)}}{{if $grp}}<tr class="svc-ghdr"><td colspan="4"><b>{{$g.Site}}/</b> <span class="hint">{{len $g.Backends}} {{T "admin.services"}}</span></td></tr>{{end}}{{range $g.Backends}}<tr{{if .Disabled}} class="off"{{end}}>
+   <td>{{if $grp}}<span class="tls-branch" aria-hidden="true">↳</span> {{end}}<b>{{.Label}}</b>{{if .Disabled}} <span class="tag ro">off</span>{{end}}{{if .Description}}<div class="hint">{{.Description}}</div>{{end}}</td>
    <td><a href="//{{.Host}}" target="_blank" rel="noopener"><code>{{.Host}}</code></a>{{range .Routes}}<div class="hint"><code>{{.Upstream}}</code></div>{{end}}</td>
    <td>{{range .Routes}}<span class="tag">{{.Rule}}</span> {{end}}{{if .IPAllow}}<span class="tag ro ipbadge" title="{{range .IPAllow}}{{.}}&#10;{{end}}">🔒 {{len .IPAllow}} IP</span>{{end}}</td>
    <td class="rowact">
@@ -377,17 +377,37 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// svcGroup collects the service backends of one hosting site (Site != "") so the Services
-// table can nest a site's vhosts under a header — like the Certificati page. Standalone
-// (non-hosting) backends each become a single-item group with Site == "".
-type svcGroup struct {
-	Site     string
-	Backends []models.Backend
+// svcItem is a backend as shown in the Services table: the backend itself (its fields
+// stay directly reachable from the template) plus the label to display.
+type svcItem struct {
+	models.Backend
+	Label string
 }
 
-// groupServiceBackends groups hosting backends by their owning site, preserving first
-// appearance order; non-hosting backends keep their position as singleton groups.
+// svcGroup collects the services shown under one header. A group is either a hosting
+// SITE — whose vhosts may span several hostnames (segnalapa.it, api.segnalapa.it, …) —
+// or a DOMAIN shared by more than one service: the site on "/" plus the services mounted
+// on its paths. A lone service stays ungrouped (Site == "").
+type svcGroup struct {
+	Site     string
+	Backends []svcItem
+}
+
+// groupServiceBackends nests the services under their site or domain, preserving first
+// appearance order. A service with no hosting marker still belongs with the others on
+// its domain: a reverse-proxy mounted on a path of an existing site must appear under
+// that site, not float away as a lone row (the proxy already treats the host as the
+// unit — the panel has to tell the same story).
 func groupServiceBackends(bs []models.Backend) []svcGroup {
+	hostSite := map[string]string{} // host → hosting site owning it, when there is one
+	hostCount := map[string]int{}   // services per host: >1 means the domain is shared
+	for _, b := range bs {
+		hostCount[b.Host]++
+		if b.Hosting != nil && b.Hosting.Site != "" && hostSite[b.Host] == "" {
+			hostSite[b.Host] = b.Hosting.Site
+		}
+	}
+
 	var out []svcGroup
 	idx := map[string]int{}
 	for _, b := range bs {
@@ -396,17 +416,42 @@ func groupServiceBackends(bs []models.Backend) []svcGroup {
 			site = b.Hosting.Site
 		}
 		if site == "" {
-			out = append(out, svcGroup{Backends: []models.Backend{b}})
+			if s := hostSite[b.Host]; s != "" {
+				site = s // joins the site that owns this domain
+			} else if b.Host != "" && hostCount[b.Host] > 1 {
+				site = b.Host // no hosting site: the domain itself is the group
+			}
+		}
+		it := svcItem{Backend: b, Label: serviceLabel(b, site)}
+		if site == "" {
+			out = append(out, svcGroup{Backends: []svcItem{it}})
 			continue
 		}
 		if i, ok := idx[site]; ok {
-			out[i].Backends = append(out[i].Backends, b)
+			out[i].Backends = append(out[i].Backends, it)
 		} else {
 			idx[site] = len(out)
-			out = append(out, svcGroup{Site: site, Backends: []models.Backend{b}})
+			out = append(out, svcGroup{Site: site, Backends: []svcItem{it}})
 		}
 	}
 	return out
+}
+
+// serviceLabel is the name shown in the Services table. Inside a group the header
+// already states the site, so the redundant "<site>/" prefix is dropped
+// ("segnalapa/api (hosting)" → "api"); outside a group the full name is kept.
+func serviceLabel(b models.Backend, site string) string {
+	name := b.Name
+	if name == "" {
+		name = b.ID
+	}
+	if site == "" {
+		return name
+	}
+	if b.Hosting != nil && b.Hosting.Vhost != "" {
+		return b.Hosting.Vhost
+	}
+	return strings.TrimPrefix(name, site+"/")
 }
 
 func (s *Server) handleAdminServices(w http.ResponseWriter, r *http.Request) {
