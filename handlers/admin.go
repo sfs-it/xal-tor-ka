@@ -269,7 +269,7 @@ var monitoringTmpl = xtkui.LocParse("mon", `<section>
 var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}»</h1>
 {{if .Managed}}<div class="hint" style="border:1px solid var(--line);border-radius:9px;padding:.7rem .9rem;margin:.3rem 0 1rem;display:flex;gap:.8rem;align-items:center;flex-wrap:wrap">🏠 <span>{{T "admin.edit.managed"}}</span> <a class="btn sm" href="/admin/hosting">{{T "admin.edit.gotohosting"}} →</a></div>{{end}}
  <div class="card">
-  <form method="post" action="/admin/backend/edit">
+  <form method="post" action="/admin/backend/edit" enctype="multipart/form-data">
    <input type="hidden" name="id" value="{{.ID}}">
    <table class="ftable"><tbody>
     <tr><th>{{T "admin.f.id"}}</th><td><input value="{{.ID}}" disabled></td><td class="fhelp">{{T "admin.edit.help.id"}}</td></tr>
@@ -283,7 +283,9 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
      <option {{if eq .Rule "authenticated"}}selected{{end}}>authenticated</option>
      <option {{if eq .Rule "public"}}selected{{end}}>public</option></select></td><td class="fhelp">{{T "admin.rule.help"}}</td></tr>
     <tr><th>{{T "admin.f.upstream"}}</th><td><input name="upstream" value="{{.Upstream}}"{{if .Managed}} readonly{{else}} required{{end}}></td><td class="fhelp">{{if .Managed}}{{T "admin.edit.upstream.managed"}}{{else}}{{T "admin.edit.help.upstream"}}{{end}}</td></tr>
-    <tr><th>{{T "admin.f.desc"}}</th><td colspan="2"><input name="description" value="{{.Description}}" placeholder="{{T "admin.edit.help.desc"}}"></td></tr>
+    <tr><th>{{T "admin.f.desc"}}</th><td colspan="2"><textarea name="description" rows="3" style="width:100%;font-family:inherit" placeholder="Markdown: **grassetto**, [link](https://…), elenchi — reso e sanitizzato sulla card">{{.Description}}</textarea></td></tr>
+    <tr><th>Listing</th><td colspan="2"><label class="hint" style="display:inline-flex;align-items:center;gap:.35rem"><input type="checkbox" name="listed" value="1"{{if not .Unlisted}} checked{{end}}> Esponi nel listing pubblico dei servizi</label></td></tr>
+    <tr><th>Immagine</th><td colspan="2">{{if .Image}}<img src="/listing/img/{{.ID}}" alt="" style="max-height:80px;border-radius:6px;display:block;margin-bottom:.4rem"><label class="hint" style="display:inline-flex;gap:.35rem;margin-bottom:.4rem"><input type="checkbox" name="img_remove" value="1"> rimuovi immagine</label><br>{{end}}<input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif"><div class="fhelp">Anteprima sulla card del listing (PNG/JPEG/WebP/GIF, max 2 MB).</div></td></tr>
     <tr><th>{{T "admin.col.ipallow"}}</th><td><input name="ip_allow" value="{{.IPAllow}}" placeholder="203.0.113.0/24 10.0.0.5"></td><td class="fhelp">{{T "admin.edit.help.ipallow"}}</td></tr>
    </tbody></table>
    <h3 style="margin-top:1.3rem">{{T "admin.routes.h"}}</h3>
@@ -1232,17 +1234,17 @@ func (s *Server) handleBackendEditForm(w http.ResponseWriter, r *http.Request) {
 			wafCustom = b.Waf.CustomRules
 		}
 		s.renderAdminPage(w, r, "servizi", adminEditTmpl, struct {
-			ID, Name, Description, Host, URL, Path, Rule, Upstream, IPAllow string
-			NgxTimeout, NgxMaxBody                                          int
-			NgxWS, NgxNoBuf, NgxSelfSigned, WWW, Managed                    bool
-			NgxCustomLoc, NgxCustomSrv                                      string
-			Overrides                                                       []routeView
-			WafEnabled                                                      bool
-			WafMode, WafDisabledRules, WafIgnoreIPs, WafCustomRules         string
+			ID, Name, Description, Host, URL, Path, Rule, Upstream, IPAllow, Image string
+			NgxTimeout, NgxMaxBody                                                 int
+			NgxWS, NgxNoBuf, NgxSelfSigned, WWW, Managed, Unlisted                 bool
+			NgxCustomLoc, NgxCustomSrv                                             string
+			Overrides                                                              []routeView
+			WafEnabled                                                             bool
+			WafMode, WafDisabledRules, WafIgnoreIPs, WafCustomRules                string
 		}{
-			b.ID, b.Name, b.Description, b.Host, b.URL, rt.Path, rt.Rule, rt.Upstream, strings.Join(b.IPAllow, " "),
+			b.ID, b.Name, b.Description, b.Host, b.URL, rt.Path, rt.Rule, rt.Upstream, strings.Join(b.IPAllow, " "), b.Image,
 			b.Nginx.ProxyTimeout, b.Nginx.MaxBodyMB,
-			b.Nginx.WebSocket, b.Nginx.NoBuffering, b.Nginx.BackendSelfSigned, b.WWW, b.Hosting != nil,
+			b.Nginx.WebSocket, b.Nginx.NoBuffering, b.Nginx.BackendSelfSigned, b.WWW, b.Hosting != nil, b.Unlisted,
 			b.Nginx.CustomLocation, b.Nginx.CustomServer, overrides, wafEnabled, wafMode, wafRules, wafIgnore, wafCustom,
 		})
 		return
@@ -1279,6 +1281,11 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ngx := parseNginxOpts(r)
+	imgName, imgRemove, imgErr := s.saveListingImage(r, id)
+	if imgErr != nil {
+		http.Error(w, imgErr.Error(), http.StatusBadRequest)
+		return
+	}
 	err := s.mutateServices(func(svc *models.Services) error {
 		for i := range svc.Backends {
 			if svc.Backends[i].ID != id {
@@ -1287,6 +1294,13 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 			b := &svc.Backends[i]
 			b.Name = r.PostFormValue("name")
 			b.Description = r.PostFormValue("description")
+			b.Unlisted = r.PostFormValue("listed") == ""
+			if imgRemove {
+				s.removeListingImage(b.Image)
+				b.Image = ""
+			} else if imgName != "" {
+				b.Image = imgName
+			}
 			b.Host = host
 			b.URL = r.PostFormValue("url")
 			b.WWW = r.PostFormValue("www") != ""

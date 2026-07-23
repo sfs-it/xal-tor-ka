@@ -203,6 +203,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /auth/{provider}/callback", s.handleOIDCCallback)
 	mux.HandleFunc("POST /logout", s.handleLogout)
 	mux.HandleFunc("GET /listing", s.handleListing)
+	mux.HandleFunc("GET /listing/img/{id}", s.handleListingImg)
 	mux.HandleFunc("GET /lang/{code}", s.handleSetLang)
 	mux.HandleFunc("GET /profilo", s.handleProfile)
 	mux.HandleFunc("POST /profilo/password", s.handleProfilePassword)
@@ -365,9 +366,9 @@ var listingTmpl = template.Must(template.New("listing").Funcs(xtkui.TmplFuncs).P
  <div class="grid">
  {{range .Groups}}{{if and .Site (gt (len .Tiles) 1)}}<section class="sitegroup"><h2>{{.Site}}/</h2><div class="grid subgrid">{{range .Tiles}}<a class="card" href="{{.URL}}"{{if .External}} target="_blank" rel="noopener"{{end}}>
    <div class="row"><h3>{{.Name}}</h3><span class="tag {{if .External}}ext{{end}}">{{if .External}}{{T $.Lang "tag.external"}}{{else}}{{T $.Lang "tag.proxy"}}{{end}}</span></div>
-   {{if .Description}}<div class="meta">{{.Description}}</div>{{else if .Host}}<div class="meta"><code>{{.Host}}</code></div>{{end}}</a>{{end}}</div></section>{{else}}{{range .Tiles}}<a class="card" href="{{.URL}}"{{if .External}} target="_blank" rel="noopener"{{end}}>
+   {{if .Image}}<img src="{{.Image}}" alt="" loading="lazy" style="max-width:100%;border-radius:8px;margin:.4rem 0;display:block">{{end}}{{if .Description}}<div class="meta">{{.Description}}</div>{{else if .Host}}<div class="meta"><code>{{.Host}}</code></div>{{end}}</a>{{end}}</div></section>{{else}}{{range .Tiles}}<a class="card" href="{{.URL}}"{{if .External}} target="_blank" rel="noopener"{{end}}>
    <div class="row"><h3>{{.Name}}</h3><span class="tag {{if .External}}ext{{end}}">{{if .External}}{{T $.Lang "tag.external"}}{{else}}{{T $.Lang "tag.proxy"}}{{end}}</span></div>
-   {{if .Description}}<div class="meta">{{.Description}}</div>{{else if .Host}}<div class="meta"><code>{{.Host}}</code></div>{{end}}</a>{{end}}{{end}}
+   {{if .Image}}<img src="{{.Image}}" alt="" loading="lazy" style="max-width:100%;border-radius:8px;margin:.4rem 0;display:block">{{end}}{{if .Description}}<div class="meta">{{.Description}}</div>{{else if .Host}}<div class="meta"><code>{{.Host}}</code></div>{{end}}</a>{{end}}{{end}}
  {{else}}<p class="empty">{{T .Lang "listing.empty"}}</p>{{end}}
  </div>
 </main></body></html>`))
@@ -375,7 +376,8 @@ var listingTmpl = template.Must(template.New("listing").Funcs(xtkui.TmplFuncs).P
 type tile struct {
 	Name        string
 	URL         string
-	Description string
+	Description template.HTML // sanitized rich description (Markdown → HTML), shown on the card
+	Image       string        // preview image URL (/listing/img/<id>), optional
 	Host        string
 	Site        string // hosting site that owns this tile ("" = standalone)
 	External    bool
@@ -427,7 +429,7 @@ func (s *Server) handleListing(w http.ResponseWriter, r *http.Request) {
 func (s *Server) tilesFor(u models.User) []tile {
 	var ts []tile
 	for _, be := range s.Resolver.Backends() {
-		if !s.canSeeBackend(u, be) {
+		if !s.canSeeBackend(u, be) || be.Unlisted {
 			continue
 		}
 		name := be.Name
@@ -442,14 +444,19 @@ func (s *Server) tilesFor(u models.User) []tile {
 		if be.Hosting != nil {
 			site = be.Hosting.Site
 		}
-		ts = append(ts, tile{Name: name, URL: url, Host: be.Host, Site: site, External: false})
+		img := ""
+		if be.Image != "" {
+			img = "/listing/img/" + be.ID
+		}
+		ts = append(ts, tile{Name: name, URL: url, Host: be.Host, Site: site, External: false,
+			Description: richHTML(be.Description), Image: img})
 	}
 	for _, l := range s.currentLinks() {
 		if l.Disabled {
 			continue
 		}
 		if u.Admin || l.Public || s.Resolver.Authorized(u, l.ID) {
-			ts = append(ts, tile{Name: l.Name, URL: l.URL, Description: l.Description, External: true})
+			ts = append(ts, tile{Name: l.Name, URL: l.URL, Description: template.HTML(template.HTMLEscapeString(l.Description)), External: true})
 		}
 	}
 	return ts

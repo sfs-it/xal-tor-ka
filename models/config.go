@@ -188,6 +188,10 @@ type Backend struct {
 	URL         string `json:"url,omitempty"`
 	WWW         bool   `json:"www,omitempty"`      // also serve/cert www.<host> (extra server_name + cert SAN)
 	Disabled    bool   `json:"disabled,omitempty"` // excluded from resolver/proxy/health
+	// Unlisted hides this service from the public /listing (default: shown). Description
+	// (Markdown, sanitized) and Image (preview) enrich its card on that page.
+	Unlisted bool   `json:"unlisted,omitempty"`
+	Image    string `json:"image,omitempty"` // preview image filename under data/listing-img/, shown on the listing card
 	// IPAllow is an optional per-vhost IP allow-list (CIDRs). When non-empty,
 	// requests whose client IP is not covered are denied (403) before the rule is
 	// evaluated — so it also restricts "public" services. Empty = no IP restriction.
