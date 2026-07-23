@@ -461,7 +461,7 @@ var indexTmpl = xtkui.LocParse("hosting", subtabsSrc+`<h1>Hosts</h1>
               <input type="hidden" name="hosting_vhost" value="{{.Vhost}}">
               <div class="formgrid">
                 <div><label>Public host (this vhost's domain)</label><input name="host" value="{{if .Domain}}{{.Domain}}{{else}}{{.PubHost}}{{end}}" placeholder="mysite.example.com" required autofocus></div>
-                <div><label>Rule</label><select name="rule"><option{{if eq .PubRule "public"}} selected{{end}}>public</option><option{{if eq .PubRule "authenticated"}} selected{{end}}>authenticated</option><option{{if eq .PubRule "whitelist"}} selected{{end}}>whitelist</option></select></div>
+                <div><label>Rule</label><select name="rule"><option{{if eq .PubRule "public"}} selected{{end}}>public</option><option{{if eq .PubRule "authenticated"}} selected{{end}}>authenticated</option><option{{if eq .PubRule "authorized"}} selected{{end}}>authorized</option></select></div>
                 <div><label class="hint" style="display:inline-flex;align-items:center;gap:.4rem"><input type="checkbox" name="www" value="1"{{if .PubWWW}} checked{{end}}> also serve &amp; cert <b>www.</b></label></div>
                 <div><button class="btn primary">Publish backend</button></div>
               </div>

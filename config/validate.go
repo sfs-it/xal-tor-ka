@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	validRules    = map[string]bool{"public": true, "authenticated": true, "whitelist": true}
+	validRules    = map[string]bool{"public": true, "authenticated": true, "authorized": true, "whitelist": true} // "whitelist" = legacy name of "authorized"
 	validTLSModes = map[string]bool{"external": true, "acme": true, "selfsigned": true}
 	validStores   = map[string]bool{"sqlite": true, "memory": true, "file": true}
 )
@@ -88,7 +88,7 @@ func Validate(b *Bundle) error {
 		}
 		for j, r := range be.Routes {
 			if !validRules[r.Rule] {
-				return fmt.Errorf("%s[%s].routes[%d].rule %q invalid (public|authenticated|whitelist)", scope, be.ID, j, r.Rule)
+				return fmt.Errorf("%s[%s].routes[%d].rule %q invalid (public|authenticated|authorized)", scope, be.ID, j, r.Rule)
 			}
 			if err := validateUpstreamPort(r.Upstream); err != nil {
 				return fmt.Errorf("%s[%s].routes[%d].upstream: %w", scope, be.ID, j, err)

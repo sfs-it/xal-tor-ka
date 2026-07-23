@@ -111,7 +111,7 @@ var servicesTmpl = xtkui.LocParse("services", `<section>
    <div><label>{{T "admin.f.name"}}</label><input name="name"></div>
    <div><label>{{T "admin.f.host"}}</label><input name="host" placeholder="app.example.com" required></div>
    <div><label>{{T "admin.f.path"}}</label><input name="path" value="/"></div>
-   <div><label>{{T "admin.f.rule"}}</label><select name="rule"><option>whitelist</option><option>authenticated</option><option>public</option></select></div>
+   <div><label>{{T "admin.f.rule"}}</label><select name="rule"><option>authorized</option><option>authenticated</option><option>public</option></select></div>
    <div><label>{{T "admin.f.upstream"}}</label><input name="upstream" placeholder="http://10.0.0.5:8080"></div>
    <div><label>{{T "admin.f.url"}}</label><input name="url" placeholder="https://app.example.com"></div>
    <div><label>www</label><label class="hint" style="display:inline-flex;align-items:center;gap:.35rem;height:2.2rem"><input type="checkbox" name="www" value="1"> also www.&lt;host&gt;</label></div>
@@ -161,7 +161,7 @@ var dockerTmpl = xtkui.LocParse("docker", `<section>
   {{range .Discovered}}<tr><td>{{.Name}}</td><td>{{.Port}}</td><td><code>{{.Host}}</code></td>
    <td class="rowact">{{if .Added}}<span class="tag ro">{{T "admin.dk.added"}}</span>{{else}}<form class="inline" method="post" action="/admin/discover/add">
     <input type="hidden" name="name" value="{{.Name}}"><input type="hidden" name="port" value="{{.Port}}">
-    <select name="rule" style="width:auto;vertical-align:middle"><option>whitelist</option><option>authenticated</option><option>public</option></select>
+    <select name="rule" style="width:auto;vertical-align:middle"><option>authorized</option><option>authenticated</option><option>public</option></select>
     <button class="btn primary sm">{{T "btn.add"}}</button></form>{{end}}</td></tr>
   {{else}}<tr><td colspan="4" class="empty">{{T "admin.dk.none"}}</td></tr>{{end}}
   </tbody></table>
@@ -279,7 +279,7 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
     <tr><th>www</th><td><label class="hint" style="display:inline-flex;align-items:center;gap:.35rem"><input type="checkbox" name="www" value="1"{{if .WWW}} checked{{end}}> also serve/cert <code>www.{{.Host}}</code></label></td><td class="fhelp">Adds www.&lt;host&gt; to the vhost server_name and (on issue) the certificate SAN.</td></tr>
     <tr><th>{{T "admin.f.path"}}</th><td><input name="path" value="{{.Path}}"></td><td class="fhelp">{{T "admin.edit.help.path"}}</td></tr>
     <tr><th>{{T "admin.f.rule"}}</th><td><select name="rule">
-     <option {{if eq .Rule "whitelist"}}selected{{end}}>whitelist</option>
+     <option {{if eq .Rule "authorized"}}selected{{end}}>authorized</option>
      <option {{if eq .Rule "authenticated"}}selected{{end}}>authenticated</option>
      <option {{if eq .Rule "public"}}selected{{end}}>public</option></select></td><td class="fhelp">{{T "admin.rule.help"}}</td></tr>
     <tr><th>{{T "admin.f.upstream"}}</th><td><input name="upstream" value="{{.Upstream}}"{{if .Managed}} readonly{{else}} required{{end}}></td><td class="fhelp">{{if .Managed}}{{T "admin.edit.upstream.managed"}}{{else}}{{T "admin.edit.help.upstream"}}{{end}}</td></tr>
@@ -295,7 +295,7 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
     {{range .Overrides}}<tr class="rrow">
      <td><input name="opath" value="{{.Path}}" placeholder="/wp-login.php"></td>
      <td><select name="omatch"><option value="prefix"{{if not .Exact}} selected{{end}}>{{T "admin.routes.prefix"}}</option><option value="exact"{{if .Exact}} selected{{end}}>{{T "admin.routes.exact"}}</option></select></td>
-     <td><select name="orule"><option{{if eq .Rule "authenticated"}} selected{{end}}>authenticated</option><option{{if eq .Rule "whitelist"}} selected{{end}}>whitelist</option><option{{if eq .Rule "public"}} selected{{end}}>public</option></select></td>
+     <td><select name="orule"><option{{if eq .Rule "authenticated"}} selected{{end}}>authenticated</option><option{{if eq .Rule "authorized"}} selected{{end}}>authorized</option><option{{if eq .Rule "public"}} selected{{end}}>public</option></select></td>
      <td><button type="button" class="btn sm" onclick="this.closest('tr').remove()">✕</button></td></tr>{{end}}
    </tbody></table>
    <p><button type="button" class="btn sm" onclick="xtkAddRoute()">+ {{T "admin.routes.add"}}</button></p>
@@ -303,7 +303,7 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
    <template id="xtk-rtmpl"><tr class="rrow">
      <td><input name="opath" placeholder="/wp-login.php"></td>
      <td><select name="omatch"><option value="prefix">{{T "admin.routes.prefix"}}</option><option value="exact">{{T "admin.routes.exact"}}</option></select></td>
-     <td><select name="orule"><option>authenticated</option><option>whitelist</option><option>public</option></select></td>
+     <td><select name="orule"><option>authenticated</option><option>authorized</option><option>public</option></select></td>
      <td><button type="button" class="btn sm" onclick="this.closest('tr').remove()">✕</button></td></tr></template>
    <script>function xtkAddRoute(){var t=document.getElementById('xtk-rtmpl');document.querySelector('#xtk-routes tbody').appendChild(t.content.cloneNode(true));}</script>
    <h3 style="margin-top:1.3rem">{{T "admin.nginx.h"}}</h3>
@@ -676,13 +676,13 @@ func (s *Server) handleDiscoverAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	name := sanitizeName(r.PostFormValue("name"))
 	port, _ := strconv.Atoi(r.PostFormValue("port"))
-	rule := r.PostFormValue("rule")
+	rule := models.CanonicalRule(r.PostFormValue("rule"))
 	if name == "" || port <= 0 || port > 65535 {
 		http.Error(w, i18n.T(s.lang(r), "err.invalid_container_port"), http.StatusBadRequest)
 		return
 	}
-	if rule != "public" && rule != "authenticated" && rule != "whitelist" {
-		rule = "whitelist"
+	if rule != models.RulePublic && rule != models.RuleAuthenticated && rule != models.RuleAuthorized {
+		rule = models.RuleAuthorized
 	}
 	host := name + ".localhost"
 	upstream := fmt.Sprintf("http://host.docker.internal:%d", port)
@@ -714,7 +714,7 @@ var hostScanTmpl = xtkui.LocParse("hostscan", `<h1>{{T "admin.hs.h1"}} ({{.From}
   {{else}}<tr><td colspan="4" class="empty">{{T "admin.hs.none"}}</td></tr>{{end}}
   </tbody></table>
   <div class="actions" style="margin-top:.8rem">
-   <label>{{T "admin.f.rule"}} <select name="rule"><option>whitelist</option><option>authenticated</option><option>public</option></select></label>
+   <label>{{T "admin.f.rule"}} <select name="rule"><option>authorized</option><option>authenticated</option><option>public</option></select></label>
    <button class="btn primary">{{T "admin.hs.add_selected"}}</button>
   </div>
  </form>
@@ -774,9 +774,9 @@ func (s *Server) handleHostScanAdd(w http.ResponseWriter, r *http.Request) {
 	if !s.adminGuard(w, r) {
 		return
 	}
-	rule := r.PostFormValue("rule")
-	if rule != "public" && rule != "authenticated" && rule != "whitelist" {
-		rule = "whitelist"
+	rule := models.CanonicalRule(r.PostFormValue("rule"))
+	if rule != models.RulePublic && rule != models.RuleAuthenticated && rule != models.RuleAuthorized {
+		rule = models.RuleAuthorized
 	}
 	ports := r.PostForm["ports"]
 	err := s.mutateServices(func(svc *models.Services) error {
@@ -1131,12 +1131,12 @@ func (s *Server) handleBackendAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	id, host := r.PostFormValue("id"), r.PostFormValue("host")
 	upstream := s.hostInternalize(r.PostFormValue("upstream"))
-	rule := r.PostFormValue("rule")
+	rule := models.CanonicalRule(r.PostFormValue("rule"))
 	if id == "" || host == "" || upstream == "" {
 		http.Error(w, i18n.T(s.lang(r), "err.id_host_upstream_required"), http.StatusBadRequest)
 		return
 	}
-	if rule != "public" && rule != "authenticated" && rule != "whitelist" {
+	if rule != models.RulePublic && rule != models.RuleAuthenticated && rule != models.RuleAuthorized {
 		http.Error(w, i18n.T(s.lang(r), "err.invalid_rule"), http.StatusBadRequest)
 		return
 	}
@@ -1263,7 +1263,7 @@ func (s *Server) handleBackendEditForm(w http.ResponseWriter, r *http.Request) {
 		if b.ID != id {
 			continue
 		}
-		rt := models.Route{Path: "/", Rule: "whitelist"}
+		rt := models.Route{Path: "/", Rule: models.RuleAuthorized}
 		if len(b.Routes) > 0 {
 			rt = b.Routes[0]
 		}
@@ -1312,9 +1312,9 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := r.PostFormValue("id")
-	rule := r.PostFormValue("rule")
-	if rule != "public" && rule != "authenticated" && rule != "whitelist" {
-		rule = "whitelist"
+	rule := models.CanonicalRule(r.PostFormValue("rule"))
+	if rule != models.RulePublic && rule != models.RuleAuthenticated && rule != models.RuleAuthorized {
+		rule = models.RuleAuthorized
 	}
 	path := r.PostFormValue("path")
 	if path == "" {
@@ -1374,11 +1374,11 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 				if cp == "" {
 					continue
 				}
-				orule := "authenticated"
+				orule := models.RuleAuthenticated
 				if i < len(orules) {
 					orule = orules[i]
 				}
-				if orule != "public" && orule != "authenticated" && orule != "whitelist" {
+				if orule != models.RulePublic && orule != models.RuleAuthenticated && orule != models.RuleAuthorized {
 					orule = "authenticated"
 				}
 				if i < len(omatches) && omatches[i] == "exact" {

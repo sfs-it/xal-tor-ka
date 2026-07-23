@@ -15,7 +15,7 @@ func newR() *Resolver {
 		{ID: "site", Host: "site.example.com", Routes: []models.Route{
 			{Path: "/", Rule: "public"},
 			{Path: "/api", Rule: "authenticated"},
-			{Path: "/admin", Rule: "whitelist"},
+			{Path: "/admin", Rule: models.RuleAuthorized},
 		}},
 	})
 	return r
@@ -31,8 +31,8 @@ func TestResolveLongestSegment(t *testing.T) {
 		{"/api", "authenticated"},
 		{"/api/v1/x", "authenticated"},
 		{"/apixyz", "public"}, // must NOT fall back to /api
-		{"/admin", "whitelist"},
-		{"/admin/", "whitelist"},
+		{"/admin", models.RuleAuthorized},
+		{"/admin/", models.RuleAuthorized},
 	}
 	for _, c := range cases {
 		_, rt, ok := r.Resolve("site.example.com", c.path)
@@ -66,14 +66,14 @@ func TestResolveAcrossBackendsSharingAHost(t *testing.T) {
 	r := &Resolver{}
 	r.Set([]models.Backend{
 		{ID: "sfsit", Host: "sfs.it", Routes: []models.Route{{Path: "/", Rule: "public", Upstream: "http://site:8080"}}},
-		{ID: "sfsit-bottiglia-tunnel", Host: "sfs.it", Routes: []models.Route{{Path: "/bottiglia2", Rule: "whitelist", Upstream: "http://tunnel:8770"}}},
+		{ID: "sfsit-bottiglia-tunnel", Host: "sfs.it", Routes: []models.Route{{Path: "/bottiglia2", Rule: models.RuleAuthorized, Upstream: "http://tunnel:8770"}}},
 	})
 
 	be, rt, ok := r.Resolve("sfs.it", "/bottiglia2/messaggi")
 	if !ok {
 		t.Fatal("sub-path service must resolve even though a sibling owns /")
 	}
-	if be.ID != "sfsit-bottiglia-tunnel" || rt.Rule != "whitelist" {
+	if be.ID != "sfsit-bottiglia-tunnel" || rt.Rule != models.RuleAuthorized {
 		t.Errorf("wrong match: backend=%q rule=%q", be.ID, rt.Rule)
 	}
 

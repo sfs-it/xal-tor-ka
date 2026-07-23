@@ -591,7 +591,7 @@ func runAddBackend(args []string) error {
 	name := fs.String("name", "", "name shown in the listing")
 	host := fs.String("host", "", "public routed hostname")
 	upstream := fs.String("upstream", "", "internal upstream, e.g. http://10.0.0.5:8080")
-	rule := fs.String("rule", "whitelist", "public|authenticated|whitelist")
+	rule := fs.String("rule", models.RuleAuthorized, "public|authenticated|authorized")
 	publicURL := fs.String("url", "", "public URL for the tile (default: //host)")
 	path := fs.String("path", "/", "path prefix")
 	_ = fs.Parse(args)

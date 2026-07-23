@@ -325,7 +325,7 @@ func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	switch route.Rule {
+	switch models.CanonicalRule(route.Rule) {
 	case "public":
 		w.WriteHeader(http.StatusOK)
 	case "authenticated":
@@ -335,7 +335,7 @@ func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.WriteHeader(http.StatusUnauthorized)
-	case "whitelist":
+	case models.RuleAuthorized:
 		sess, ok := s.session(r)
 		if !ok || !sess.TwoFADone {
 			w.WriteHeader(http.StatusUnauthorized)

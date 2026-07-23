@@ -298,8 +298,42 @@ type Monitor struct {
 // Route maps a path prefix to an access rule and an upstream address.
 type Route struct {
 	Path     string `json:"path"`
-	Rule     string `json:"rule"` // public|authenticated|whitelist
+	Rule     string `json:"rule"` // public|authenticated|authorized
 	Upstream string `json:"upstream"`
+}
+
+// The access rules, from the most open to the most closed. The distinction that
+// matters is authentication vs authorisation: RuleAuthenticated only asks WHO you
+// are (any account on the gate gets in), RuleAuthorized also asks whether you were
+// granted this specific service.
+const (
+	RulePublic        = "public"        // no login at all
+	RuleAuthenticated = "authenticated" // any user with a valid session
+	RuleAuthorized    = "authorized"    // only users explicitly enabled on this service
+	// ruleWhitelistLegacy is the former name of RuleAuthorized. It was replaced
+	// because this product ALSO has a per-service IP allow-list, so "whitelist" read
+	// as two different things on the same screen. Files written before the rename are
+	// still accepted and are canonicalised on load.
+	ruleWhitelistLegacy = "whitelist"
+)
+
+// CanonicalRule maps a stored rule to its current name, so configuration written
+// before the rename keeps working unchanged.
+func CanonicalRule(r string) string {
+	if r == ruleWhitelistLegacy {
+		return RuleAuthorized
+	}
+	return r
+}
+
+// CanonicalizeRules rewrites the rules of every route in place. Call it right after
+// loading, so the rest of the code only ever sees the current vocabulary.
+func CanonicalizeRules(bs []Backend) {
+	for i := range bs {
+		for j := range bs[i].Routes {
+			bs[i].Routes[j].Rule = CanonicalRule(bs[i].Routes[j].Rule)
+		}
+	}
 }
 
 // Health describes the HTTP health endpoint of a backend.

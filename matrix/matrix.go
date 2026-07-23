@@ -92,7 +92,9 @@ func pathMatches(reqPath, routePath string) bool {
 	return reqPath == rp || strings.HasPrefix(reqPath, rp+"/")
 }
 
-// Authorized reports whether the user is whitelisted for the backend id.
+// Authorized reports whether the user was explicitly enabled on the backend id.
+// This is what separates the "authorized" rule from "authenticated": the latter only
+// asks for a valid session, this one also asks whether THIS user may use THIS service.
 func (r *Resolver) Authorized(u models.User, backendID string) bool {
 	for _, b := range u.Backends {
 		if b == backendID {

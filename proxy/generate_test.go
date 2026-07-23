@@ -19,7 +19,7 @@ func TestGenerate(t *testing.T) {
 			Routes: []models.Route{
 				{Path: "/", Rule: "public", Upstream: "http://10.0.0.5:80"},
 				{Path: "/api", Rule: "authenticated", Upstream: "http://10.0.0.5:8000"},
-				{Path: "/admin", Rule: "whitelist", Upstream: "http://10.0.0.5:9000"},
+				{Path: "/admin", Rule: models.RuleAuthorized, Upstream: "http://10.0.0.5:9000"},
 			},
 		},
 	}
@@ -85,7 +85,7 @@ func TestGenerateGroupsBackendsByHost(t *testing.T) {
 	backends := []models.Backend{
 		{
 			ID: "sfsit-bottiglia-tunnel", Host: "sfs.it",
-			Routes: []models.Route{{Path: "/bottiglia2", Rule: "whitelist", Upstream: "http://tunnel:8770"}},
+			Routes: []models.Route{{Path: "/bottiglia2", Rule: models.RuleAuthorized, Upstream: "http://tunnel:8770"}},
 			Nginx:  models.NginxOpts{CustomLocation: "proxy_set_header X-Gate \"s3cr3t\";"},
 		},
 		{

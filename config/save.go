@@ -66,6 +66,8 @@ func LoadServices(path string) (models.Services, error) {
 	if err := json.Unmarshal(raw, &svc); err != nil {
 		return svc, fmt.Errorf("parse services file %s: %w", path, err)
 	}
+	// Files written before "whitelist" was renamed "authorized" keep working.
+	models.CanonicalizeRules(svc.Backends)
 	return svc, nil
 }
 
