@@ -357,3 +357,17 @@ td.rusers .oinherit{width:auto;font-size:.92em}
 .rusers-pick>summary{cursor:pointer;font-size:.9em;color:var(--muted)}
 .rusers-pick>summary:hover{color:var(--fg)}
 .rusers-pick .svcuser-list{max-height:11rem;margin-top:.35rem}
+
+/* La colonna Utenti ha aggiunto larghezza alla tabella delle regole per path: senza
+   larghezze fisse straborda dal contenitore e taglia via l'ultima colonna. */
+table.rtable{width:100%;table-layout:fixed}
+table.rtable th,table.rtable td{overflow:visible}
+table.rtable td:nth-child(1),table.rtable th:nth-child(1){width:32%}
+table.rtable td:nth-child(2),table.rtable th:nth-child(2){width:15%}
+table.rtable td:nth-child(3),table.rtable th:nth-child(3){width:20%}
+table.rtable td:nth-child(4),table.rtable th:nth-child(4){width:auto}
+table.rtable td:nth-child(5),table.rtable th:nth-child(5){width:3.2rem;text-align:right}
+table.rtable input,table.rtable select{width:100%;box-sizing:border-box}
+td.rusers .oinherit{width:100%}
+.rusers-pick .svcuser-list{position:relative;z-index:2;background:var(--panel,#fff);
+  border:1px solid var(--line);border-radius:8px;padding:.45rem .6rem;min-width:14rem}
