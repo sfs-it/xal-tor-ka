@@ -188,7 +188,25 @@ func run() error {
 
 	// Merge services.json (extra backends + link tiles) into the resolver.
 	if err := srvHandlers.Reload(); err != nil {
-		slog.Warn("services reload failed", "err", err)
+		slog.Error("services reload failed", "err", err)
+	}
+
+	// Boot-time LOUD check. The core regenerates nginx/conf.d/backends.conf with an
+	// atomic write, which needs permission on the DIRECTORY. When a deploy leaves
+	// that directory root-owned the degradation is SILENT: services.json still
+	// updates and the admin UI looks healthy, but no publish and no certificate
+	// ever reaches NGINX. A WARN was not enough — it hid the fault for a full day
+	// in production. Shout in the log AND fire the alerting channel.
+	if err := srvHandlers.Proxy.CheckWritable(); err != nil {
+		confDir := filepath.Join(*configDir, "nginx", "conf.d")
+		slog.Error("CRITICAL: cannot regenerate the NGINX config — publish and TLS changes will NOT reach NGINX",
+			"err", err, "fix", "chown 1000:1000 "+confDir)
+		notify.New(bundle.Config.Monitoring.Alerting, bundle.Secrets).Send(
+			"Xal-Tor-Ka "+version.Version+" — NGINX config NOT writable",
+			"The gateway cannot regenerate "+filepath.Join(confDir, "backends.conf")+".\n"+
+				"Publish and TLS changes will NOT reach NGINX (the admin UI will still look fine).\n\n"+
+				"Error: "+err.Error()+"\n"+
+				"Fix: chown 1000:1000 "+confDir+"  then restart the gateway.")
 	}
 
 	// Health checker: probes backend /health endpoints, feeds the admin Monitoring.

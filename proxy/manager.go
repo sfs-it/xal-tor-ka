@@ -59,6 +59,35 @@ func (m *Manager) Apply(backends []models.Backend) error {
 	return m.reload()
 }
 
+// CheckWritable verifies that the core can actually regenerate the config. The
+// atomic write needs permission on the DIRECTORY holding OutPath (temp file +
+// rename), not just on the file itself, so this probes the directory the same
+// way Apply does.
+//
+// It exists because the failure it catches is otherwise SILENT: when a deploy
+// leaves nginx/conf.d owned by root, services.json keeps updating (a different
+// directory) and the admin UI looks perfectly healthy, but backends.conf is
+// never regenerated — so no publish and no certificate ever reaches NGINX. That
+// degraded a production box for a full day behind a single WARN.
+//
+// A nil manager or empty OutPath is a no-op (local dev without NGINX).
+func (m *Manager) CheckWritable() error {
+	if m == nil || m.OutPath == "" {
+		return nil
+	}
+	dir := filepath.Dir(m.OutPath)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("nginx conf dir %s: %w", dir, err)
+	}
+	// Dotfile on purpose: it never matches the include glob (*.conf), even if we
+	// were killed between the write and the cleanup.
+	probe := filepath.Join(dir, ".xtk-writeprobe")
+	if err := os.WriteFile(probe, []byte("xaltorka writability probe\n"), 0o644); err != nil {
+		return fmt.Errorf("cannot create files in %s: %w", dir, err)
+	}
+	return os.Remove(probe)
+}
+
 // reload runs the configured NGINX reload command (no-op if unset). nginx itself
 // validates the new config on reload and keeps the running config if it is
 // invalid, so a bad generated file does not take the proxy down.
