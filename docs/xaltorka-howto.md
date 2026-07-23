@@ -280,6 +280,68 @@ Fai accedere un utente con un **codice usa-e-getta** al posto della password. Il
 
 ---
 
+## Ricetta 19 — Pubblicare un servizio su un **path** di un dominio esistente
+Hai un servizio interno (una docker con la sua porta, oppure un vhost dell'hosting) e vuoi
+esporlo su `miodominio.it/strumento` **senza toccare l'hosting del dominio**. Il servizio
+resta una **voce propria** nei Servizi: si pubblica, si protegge e si rimuove da solo.
+
+1. **Services → Add backend**:
+   - **Host**: il dominio che già esiste (es. `sfs.it`) — lo stesso del sito.
+   - **Path**: il path pubblico (es. `/strumento`).
+   - **Upstream**: dove gira davvero (es. `http://mia-docker:8080`).
+   - **Regola**: `public`, `authenticated` o `whitelist` (vedi il riquadro sotto).
+2. Salva. Il dominio ora ha **due voci**: il sito (`/`) e il tuo servizio (`/strumento`),
+   indipendenti. Il path viene **inoltrato** all'upstream (non viene tolto): se l'app ha
+   bisogno di sapere il prefisso, usa `X-Forwarded-Prefix` in **Modifica → NGINX custom**.
+3. Il certificato TLS resta **uno per dominio**: se il sito ce l'ha già, il servizio lo eredita.
+
+**Chi comanda sull'host.** Più servizi possono condividere lo stesso hostname: nginx riceve
+**un solo blocco** per dominio. Le impostazioni di *dominio* — certificato, `www.`, WAF,
+`client_max_body_size`, «NGINX custom (server)» — le porta il **servizio primario**, cioè quello
+che possiede `/`. Gli altri contribuiscono **solo la propria location**: il loro «NGINX custom
+(location)» vale **soltanto per il loro path** e non tocca gli altri servizi del dominio (utile
+se ci inietti un header segreto: resta confinato). Due servizi con **stesso host e stesso path**
+non sono ammessi: vince il primo e il duplicato viene ignorato.
+
+> ⚠️ **Effetto da conoscere:** appena **un solo** servizio del dominio non è `public`, il gate
+> inizia a servire su quel dominio i suoi path riservati — `/login`, `/logout`, `/auth/`,
+> `/listing`, `/_xtk/` — perché il redirect al login deve funzionare lì. Sono pochi e con
+> prefisso `_xtk` proprio per pestare i piedi il meno possibile: il sito **mantiene il suo
+> `/assets/`** e tutto il resto. Prima di proteggere un path su un sito già online, controlla
+> di non usare tu uno di quei cinque.
+
+> 🔒 **`authenticated` non è «solo il mio utente».** `authenticated` significa *qualunque utente
+> del gate con una sessione valida* — non guarda le autorizzazioni per-servizio. Se vuoi che
+> entri **solo** chi hai deciso, usa **`whitelist`** e autorizza l'utente su quel servizio
+> (Utenti → host abilitati). È la differenza fra «serve un login» e «serve *quel* login».
+
+---
+
+## Ricetta 20 — Il listing pubblico dei servizi (`/listing`)
+La pagina `/listing` è la vetrina dei servizi del server. Da beta0.12 decidi tu **cosa** mostrare
+e **come**.
+
+1. **Services → Modifica** il servizio:
+   - **«Esponi nel listing»**: togli la spunta per tenerlo fuori dalla vetrina (strumenti interni).
+   - **Descrizione**: accetta **Markdown** (grassetti, elenchi, link). Viene **sanitizzata** prima
+     di essere mostrata: niente script o HTML pericoloso, anche se lo incolli.
+   - **Immagine di anteprima**: caricane una — compare sulla card del servizio.
+2. I servizi di uno stesso **multidominio** vengono **raggruppati** in un unico blocco, invece di
+   apparire come schede sparse.
+
+> Nota: la descrizione è pensata per gli **umani** che arrivano sul server. La sanitizzazione è
+> attiva sempre e non è disattivabile: il listing è pubblico.
+
+---
+
+## Ricetta 21 — Emissione Let's Encrypt: cosa succede mentre aspetti
+Premendo **«Emetti LE»** l'emissione può durare parecchi secondi (ACME deve verificare il
+dominio). Da beta0.12 compare un **overlay** che dice «Emissione certificato Let's Encrypt per
+`<host>`…» finché l'operazione non si chiude: non è bloccato, sta lavorando. Non ricaricare la
+pagina a metà.
+
+---
+
 ## Riferimento rapido
 | Voglio… | Vai a |
 |---|---|
@@ -294,6 +356,8 @@ Fai accedere un utente con un **codice usa-e-getta** al posto della password. Il
 | Accesso ai file del sito | Hosting → scheda sito → SSH keys (SFTP) |
 | Chi può entrare nell'admin | Whitelist IP admin |
 | Proteggere wp-login/una cartella | Services → Modifica → Regole per path |
+| Pubblicare un servizio su `dominio/path` | Services → Add backend (host esistente + path) |
+| Nascondere un servizio dalla vetrina | Services → Modifica → «Esponi nel listing» |
 | Bloccare i brute-force | fail2ban (jail) → Hosting → System (IP bannati/Unban) |
 | Aggiornare l'OS dell'host | Hosting → System → Apply selected |
 | Firewall applicativo (SQLi/XSS) | Services → Modifica → WAF (Detection-only → Blocking) |

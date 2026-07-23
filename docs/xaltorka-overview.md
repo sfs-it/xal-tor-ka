@@ -33,10 +33,22 @@ richiesta non autenticata.
 ![Login](img/login.png)
 
 ### 2. Reverse-proxy manager con regole per servizio
-Ogni servizio è un *backend* con una **regola di accesso**: `public` (aperto), `authenticated`
-(serve il login), `whitelist` (solo IP consentiti). Li gestisci dal pannello — host pubblico,
-upstream interno, regola — senza toccare file di configurazione a mano. Il catalogo dei servizi
-è anche la **home page** per l'utente autenticato.
+Ogni servizio è un *backend* con una **regola di accesso**:
+- **`public`** — aperto a tutti, pass-through puro: il servizio possiede tutti i suoi path.
+- **`authenticated`** — serve una **sessione valida**: entra *qualunque* utente del gate.
+- **`whitelist`** — serve la sessione **e** l'autorizzazione **su quel servizio**: entra solo chi
+  hai abilitato. È questa la regola per «lo vede solo il mio utente dedicato».
+
+*(In più, indipendente dalla regola, ogni servizio può avere una **allow-list di IP**: chi non
+rientra viene respinto prima ancora che la regola venga valutata — vale anche per i `public`.)*
+
+Li gestisci dal pannello — host pubblico, upstream interno, regola — senza toccare file di
+configurazione a mano. Un servizio si monta **su un hostname** (`api.esempio.it`) **oppure su un
+path** di un dominio che già esiste (`esempio.it/api`), e la sorgente può essere una **docker
+qualsiasi** o un **vhost dell'hosting interno**: la logica non cambia. Così un dominio può avere
+il suo sito e, accanto, altri servizi indipendenti — ognuno con la sua voce, la sua regola e il
+suo ciclo di vita, senza toccare l'hosting del dominio. Il catalogo dei servizi è anche la
+**home page** per l'utente autenticato.
 
 ![Catalogo servizi](img/listing.png)
 ![Gestione backend](img/servizi.png)
