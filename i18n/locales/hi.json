@@ -317,5 +317,19 @@
   "setup.done.go_login": "लॉगिन पर जाएँ",
   "setup.err.pw_mismatch": "पासवर्ड मेल नहीं खाते",
   "admin.usr.filter": "Filter users…",
-  "admin.usr.sort_admin": "Sort by admin"
+  "admin.usr.sort_admin": "Sort by admin",
+  "admin.tab.general": "सामान्य",
+  "admin.tab.access": "पहुँच",
+  "admin.tab.nginx": "NGINX",
+  "admin.tab.security": "सुरक्षा",
+  "admin.rule.public": "सार्वजनिक",
+  "admin.rule.public.d": "कोई भी, बिना लॉगिन।",
+  "admin.rule.authenticated": "प्रमाणित",
+  "admin.rule.authenticated.d": "गेटवे पर खाता आवश्यक: कोई भी लॉग-इन उपयोगकर्ता प्रवेश करता है। «बाहरी लोग नहीं» के लिए, «केवल यह व्यक्ति» के लिए नहीं।",
+  "admin.rule.authorized": "अधिकृत",
+  "admin.rule.authorized.d": "खाता और इस सेवा की अनुमति दोनों आवश्यक: केवल नीचे चुने गए उपयोगकर्ता प्रवेश करते हैं।",
+  "admin.rule.note": "प्रशासक हमेशा प्रवेश करते हैं। IP अनुमति-सूची स्वतंत्र है और तीनों पर लागू होती है, सार्वजनिक सहित।",
+  "admin.svcusers.h": "सक्षम उपयोगकर्ता",
+  "admin.svcusers.hint": "चिह्नित करें कि इस सेवा का उपयोग कौन कर सकता है। यह केवल «अधिकृत» नियम पर लागू होता है।",
+  "admin.svcusers.filter": "ईमेल से फ़िल्टर करें…"
 }

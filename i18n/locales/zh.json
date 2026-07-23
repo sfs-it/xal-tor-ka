@@ -317,5 +317,19 @@
   "setup.done.go_login": "前往登录",
   "setup.err.pw_mismatch": "两次输入的密码不一致",
   "admin.usr.filter": "Filter users…",
-  "admin.usr.sort_admin": "Sort by admin"
+  "admin.usr.sort_admin": "Sort by admin",
+  "admin.tab.general": "常规",
+  "admin.tab.access": "访问",
+  "admin.tab.nginx": "NGINX",
+  "admin.tab.security": "安全",
+  "admin.rule.public": "公开",
+  "admin.rule.public.d": "任何人，无需登录。",
+  "admin.rule.authenticated": "已认证",
+  "admin.rule.authenticated.d": "需要网关账号：任何已登录用户都能进入。用于“禁止外人”，而非“仅限某人”。",
+  "admin.rule.authorized": "已授权",
+  "admin.rule.authorized.d": "需要账号并且被授权访问本服务：只有下方勾选的用户可进入。",
+  "admin.rule.note": "管理员始终可以进入。IP 允许列表是独立的，对三种规则均生效，包括公开。",
+  "admin.svcusers.h": "已启用用户",
+  "admin.svcusers.hint": "勾选可使用本服务的用户。仅对“已授权”规则生效。",
+  "admin.svcusers.filter": "按邮箱筛选…"
 }

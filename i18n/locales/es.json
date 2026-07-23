@@ -317,5 +317,19 @@
   "setup.done.go_login": "Ir al inicio de sesión",
   "setup.err.pw_mismatch": "las contraseñas no coinciden",
   "admin.usr.filter": "Filter users…",
-  "admin.usr.sort_admin": "Sort by admin"
+  "admin.usr.sort_admin": "Sort by admin",
+  "admin.tab.general": "General",
+  "admin.tab.access": "Acceso",
+  "admin.tab.nginx": "NGINX",
+  "admin.tab.security": "Seguridad",
+  "admin.rule.public": "Público",
+  "admin.rule.public.d": "cualquiera, sin inicio de sesión.",
+  "admin.rule.authenticated": "Autenticado",
+  "admin.rule.authenticated.d": "requiere una cuenta en la pasarela: entra CUALQUIER usuario con sesión. Úsalo para «nada de extraños», no para «solo esta persona».",
+  "admin.rule.authorized": "Autorizados",
+  "admin.rule.authorized.d": "requiere una cuenta Y la habilitación en ESTE servicio: solo entran los usuarios marcados abajo.",
+  "admin.rule.note": "Los administradores siempre entran. La lista de IP permitidas es independiente y se aplica a las tres, Público incluido.",
+  "admin.svcusers.h": "Usuarios habilitados",
+  "admin.svcusers.hint": "Marca quién puede usar este servicio. Solo se aplica a la regla «Autorizados».",
+  "admin.svcusers.filter": "Filtrar por correo…"
 }

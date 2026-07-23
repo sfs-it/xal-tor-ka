@@ -317,5 +317,19 @@
   "setup.done.go_login": "Vai al login",
   "setup.err.pw_mismatch": "le password non coincidono",
   "admin.usr.filter": "Filtra utenti…",
-  "admin.usr.sort_admin": "Ordina per admin"
+  "admin.usr.sort_admin": "Ordina per admin",
+  "admin.tab.general": "Generale",
+  "admin.tab.access": "Accesso",
+  "admin.tab.nginx": "NGINX",
+  "admin.tab.security": "Sicurezza",
+  "admin.rule.public": "Pubblico",
+  "admin.rule.public.d": "chiunque, senza login.",
+  "admin.rule.authenticated": "Autenticato",
+  "admin.rule.authenticated.d": "serve un account sul gateway: entra CHIUNQUE abbia fatto login. Usalo per «niente estranei», non per «solo una persona».",
+  "admin.rule.authorized": "Autorizzati",
+  "admin.rule.authorized.d": "serve un account E l'abilitazione a QUESTO servizio: entra solo chi selezioni qui sotto.",
+  "admin.rule.note": "Gli amministratori entrano sempre. L'allow-list IP è indipendente e vale per tutte e tre, Pubblico incluso.",
+  "admin.svcusers.h": "Utenti abilitati",
+  "admin.svcusers.hint": "Spunta chi può usare questo servizio. Vale solo per la regola «Autorizzati».",
+  "admin.svcusers.filter": "Filtra per email…"
 }

@@ -317,5 +317,19 @@
   "setup.done.go_login": "Go to login",
   "setup.err.pw_mismatch": "passwords do not match",
   "admin.usr.filter": "Filter users…",
-  "admin.usr.sort_admin": "Sort by admin"
+  "admin.usr.sort_admin": "Sort by admin",
+  "admin.tab.general": "General",
+  "admin.tab.access": "Access",
+  "admin.tab.nginx": "NGINX",
+  "admin.tab.security": "Security",
+  "admin.rule.public": "Public",
+  "admin.rule.public.d": "anyone, no login at all.",
+  "admin.rule.authenticated": "Authenticated",
+  "admin.rule.authenticated.d": "an account on the gateway is required: ANY logged-in user gets in. Use it for “no strangers”, not for “only this person”.",
+  "admin.rule.authorized": "Authorized",
+  "admin.rule.authorized.d": "an account AND a grant on THIS service are required: only the users you tick below get in.",
+  "admin.rule.note": "Administrators always get in. The IP allow-list is independent and applies to all three, Public included.",
+  "admin.svcusers.h": "Enabled users",
+  "admin.svcusers.hint": "Tick who may use this service. It only applies to the “Authorized” rule.",
+  "admin.svcusers.filter": "Filter by email…"
 }

@@ -271,6 +271,13 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
  <div class="card">
   <form method="post" action="/admin/backend/edit" enctype="multipart/form-data">
    <input type="hidden" name="id" value="{{.ID}}">
+   <div class="xtk-tabs" role="tablist">
+    <button type="button" class="xtk-tab on" data-p="tg">{{T "admin.tab.general"}}</button>
+    <button type="button" class="xtk-tab" data-p="ta">{{T "admin.tab.access"}}</button>
+    <button type="button" class="xtk-tab" data-p="tn">{{T "admin.tab.nginx"}}</button>
+    <button type="button" class="xtk-tab" data-p="ts">{{T "admin.tab.security"}}</button>
+   </div>
+   <div class="xtk-pane on" id="tg">
    <table class="ftable"><tbody>
     <tr><th>{{T "admin.f.id"}}</th><td><input value="{{.ID}}" disabled></td><td class="fhelp">{{T "admin.edit.help.id"}}</td></tr>
     <tr><th>{{T "admin.f.name"}}</th><td><input name="name" value="{{.Name}}"></td><td class="fhelp">{{T "admin.edit.help.name"}}</td></tr>
@@ -278,16 +285,35 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
     <tr><th>{{T "admin.f.url"}}</th><td><input name="url" value="{{.URL}}"></td><td class="fhelp">{{T "admin.edit.help.url"}}</td></tr>
     <tr><th>www</th><td><label class="hint" style="display:inline-flex;align-items:center;gap:.35rem"><input type="checkbox" name="www" value="1"{{if .WWW}} checked{{end}}> also serve/cert <code>www.{{.Host}}</code></label></td><td class="fhelp">Adds www.&lt;host&gt; to the vhost server_name and (on issue) the certificate SAN.</td></tr>
     <tr><th>{{T "admin.f.path"}}</th><td><input name="path" value="{{.Path}}"></td><td class="fhelp">{{T "admin.edit.help.path"}}</td></tr>
-    <tr><th>{{T "admin.f.rule"}}</th><td><select name="rule">
-     <option {{if eq .Rule "authorized"}}selected{{end}}>authorized</option>
-     <option {{if eq .Rule "authenticated"}}selected{{end}}>authenticated</option>
-     <option {{if eq .Rule "public"}}selected{{end}}>public</option></select></td><td class="fhelp">{{T "admin.rule.help"}}</td></tr>
     <tr><th>{{T "admin.f.upstream"}}</th><td><input name="upstream" value="{{.Upstream}}"{{if .Managed}} readonly{{else}} required{{end}}></td><td class="fhelp">{{if .Managed}}{{T "admin.edit.upstream.managed"}}{{else}}{{T "admin.edit.help.upstream"}}{{end}}</td></tr>
     <tr><th>{{T "admin.f.desc"}}</th><td colspan="2"><textarea name="description" rows="3" style="width:100%;font-family:inherit" placeholder="Markdown: **grassetto**, [link](https://…), elenchi — reso e sanitizzato sulla card">{{.Description}}</textarea></td></tr>
     <tr><th>Listing</th><td colspan="2"><label class="hint" style="display:inline-flex;align-items:center;gap:.35rem"><input type="checkbox" name="listed" value="1"{{if not .Unlisted}} checked{{end}}> Esponi nel listing pubblico dei servizi</label></td></tr>
     <tr><th>Immagine</th><td colspan="2">{{if .Image}}<img src="/listing/img/{{.ID}}" alt="" style="max-height:80px;border-radius:6px;display:block;margin-bottom:.4rem"><label class="hint" style="display:inline-flex;gap:.35rem;margin-bottom:.4rem"><input type="checkbox" name="img_remove" value="1"> rimuovi immagine</label><br>{{end}}<input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif"><div class="fhelp">Anteprima sulla card del listing (PNG/JPEG/WebP/GIF, max 2 MB).</div></td></tr>
-    <tr><th>{{T "admin.col.ipallow"}}</th><td><input name="ip_allow" value="{{.IPAllow}}" placeholder="203.0.113.0/24 10.0.0.5"></td><td class="fhelp">{{T "admin.edit.help.ipallow"}}</td></tr>
-   </tbody></table>
+   </tbody></table></div>
+
+   <div class="xtk-pane" id="ta">
+    <table class="ftable"><tbody>
+    <tr><th>{{T "admin.f.rule"}}</th><td><select name="rule">
+     <option {{if eq .Rule "authorized"}}selected{{end}}>authorized</option>
+     <option {{if eq .Rule "authenticated"}}selected{{end}}>authenticated</option>
+     <option {{if eq .Rule "public"}}selected{{end}}>public</option></select></td><td class="fhelp">{{T "admin.rule.help"}}</td></tr>
+    </tbody></table>
+    <div class="rule-help">
+     <p><b>{{T "admin.rule.public"}}</b> — {{T "admin.rule.public.d"}}</p>
+     <p><b>{{T "admin.rule.authenticated"}}</b> — {{T "admin.rule.authenticated.d"}}</p>
+     <p><b>{{T "admin.rule.authorized"}}</b> — {{T "admin.rule.authorized.d"}}</p>
+     <p class="hint">{{T "admin.rule.note"}}</p>
+    </div>
+    <div id="svcusers" class="svcusers">
+     <h3>{{T "admin.svcusers.h"}}</h3>
+     <p class="hint">{{T "admin.svcusers.hint"}}</p>
+     <input type="hidden" name="svcuser_sent" value="1">
+     <input type="search" class="svcuser-filter" placeholder="{{T "admin.svcusers.filter"}}" oninput="xtkFilterUsers(this)">
+     <div class="svcuser-list">
+      {{range .Users}}<label class="check svcuser" data-e="{{.Email}}"><input type="checkbox" name="svcuser" value="{{.Email}}"{{if .Enabled}} checked{{end}}{{if .Admin}} disabled{{end}}> {{.Email}}{{if .Admin}} <span class="tag ro">admin</span>{{end}}</label>{{end}}
+     </div>
+    </div>
+
    <h3 style="margin-top:1.3rem">{{T "admin.routes.h"}}</h3>
    <p class="hint">{{T "admin.routes.hint"}}</p>
    <table class="ftable rtable" id="xtk-routes"><tbody>
@@ -306,6 +332,9 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
      <td><select name="orule"><option>authenticated</option><option>authorized</option><option>public</option></select></td>
      <td><button type="button" class="btn sm" onclick="this.closest('tr').remove()">✕</button></td></tr></template>
    <script>function xtkAddRoute(){var t=document.getElementById('xtk-rtmpl');document.querySelector('#xtk-routes tbody').appendChild(t.content.cloneNode(true));}</script>
+   </div>
+
+   <div class="xtk-pane" id="tn">
    <h3 style="margin-top:1.3rem">{{T "admin.nginx.h"}}</h3>
    <p class="hint">{{T "admin.nginx.hint"}}</p>
    <table class="ftable"><tbody>
@@ -318,6 +347,12 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
     <tr><th>{{T "admin.nginx.custom_srv"}}</th><td colspan="2"><textarea name="ngx_custom_srv" rows="2">{{.NgxCustomSrv}}</textarea></td></tr>
    </tbody></table>
    <p class="hint">{{T "admin.nginx.custom.help"}}</p>
+   </div>
+
+   <div class="xtk-pane" id="ts">
+    <table class="ftable"><tbody>
+    <tr><th>{{T "admin.col.ipallow"}}</th><td><input name="ip_allow" value="{{.IPAllow}}" placeholder="203.0.113.0/24 10.0.0.5"></td><td class="fhelp">{{T "admin.edit.help.ipallow"}}</td></tr>
+    </tbody></table>
    <h3 style="margin-top:1.3rem">{{T "admin.waf.h"}}</h3>
    <p class="hint">{{T "admin.waf.hint"}}</p>
    <table class="ftable"><tbody>
@@ -332,7 +367,26 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
    <p class="hint">{{T "admin.waf.custom.help"}}</p>
    <div class="actions" style="margin-top:1rem">
     <button class="btn primary">{{T "btn.save"}}</button><a class="btn" href="/admin/tls#h-{{.Host}}">{{T "admin.tls.manage"}}</a><a class="btn" href="/admin/servizi">{{T "admin.cancel"}}</a></div>
+  </div>
   </form>
+<script>
+(function(){
+ document.querySelectorAll('.xtk-tab').forEach(function(t){
+  t.addEventListener('click',function(){
+   document.querySelectorAll('.xtk-tab').forEach(function(x){x.classList.remove('on')});
+   document.querySelectorAll('.xtk-pane').forEach(function(x){x.classList.remove('on')});
+   t.classList.add('on'); document.getElementById(t.dataset.p).classList.add('on');
+  });
+ });
+ var sel=document.querySelector('select[name="rule"]'), box=document.getElementById('svcusers');
+ function sync(){ if(box&&sel) box.style.display = (sel.value==='authorized')?'':'none'; }
+ if(sel){ sel.addEventListener('change',sync); sync(); }
+ window.xtkFilterUsers=function(i){var q=i.value.toLowerCase();
+  i.closest('.svcusers').querySelectorAll('.svcuser').forEach(function(l){
+   l.style.display = l.dataset.e.toLowerCase().indexOf(q)>=0 ? '' : 'none';});};
+})();
+</script>
+
  </div>`)
 
 var adminQRTmpl = xtkui.LocParse("adminqr", `<h1>{{T "admin.qr.title"}} {{.Email}}</h1>
@@ -1012,6 +1066,33 @@ func (s *Server) authGatedServiceIDs(svc models.Services) []string {
 
 type authzItem struct{ ID, Label string }
 
+// svcUserRow is a user as offered in a service's Access tab: who they are and whether
+// they are enabled on THIS service. Administrators are listed but not selectable —
+// they get in regardless, and hiding that would misrepresent who can actually enter.
+type svcUserRow struct {
+	Email   string
+	Enabled bool
+	Admin   bool
+}
+
+// serviceUsers lists every user with a flag telling whether backendID is among the
+// services they were granted.
+func (s *Server) serviceUsers(backendID string) []svcUserRow {
+	var out []svcUserRow
+	for _, u := range s.Users.All() {
+		on := false
+		for _, id := range u.Backends {
+			if id == backendID {
+				on = true
+				break
+			}
+		}
+		out = append(out, svcUserRow{Email: u.Email, Enabled: on, Admin: u.Admin})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Email < out[j].Email })
+	return out
+}
+
 // authzNode is one row-group of the per-user authorization checklist: a hosting site
 // (Site != "") with its vhosts, or a standalone service (Site == "", one item).
 type authzNode struct {
@@ -1296,11 +1377,13 @@ func (s *Server) handleBackendEditForm(w http.ResponseWriter, r *http.Request) {
 			Overrides                                                              []routeView
 			WafEnabled                                                             bool
 			WafMode, WafDisabledRules, WafIgnoreIPs, WafCustomRules                string
+			Users                                                                  []svcUserRow
 		}{
 			b.ID, b.Name, b.Description, b.Host, b.URL, rt.Path, rt.Rule, rt.Upstream, strings.Join(b.IPAllow, " "), b.Image,
 			b.Nginx.ProxyTimeout, b.Nginx.MaxBodyMB,
 			b.Nginx.WebSocket, b.Nginx.NoBuffering, b.Nginx.BackendSelfSigned, b.WWW, b.Hosting != nil, b.Unlisted,
 			b.Nginx.CustomLocation, b.Nginx.CustomServer, overrides, wafEnabled, wafMode, wafRules, wafIgnore, wafCustom,
+			s.serviceUsers(b.ID),
 		})
 		return
 	}
@@ -1413,7 +1496,48 @@ func (s *Server) handleBackendEdit(w http.ResponseWriter, r *http.Request) {
 		}
 		return fmt.Errorf("backend not found")
 	})
+	if err == nil {
+		err = s.applyServiceGrants(r, id)
+	}
 	s.afterMutation(w, r, err)
+}
+
+// applyServiceGrants writes back the per-user grants edited in the Access tab. The
+// hidden marker tells an unchecked-everything submit apart from a form that never
+// carried the list, so saving from another tab can never silently revoke everyone.
+func (s *Server) applyServiceGrants(r *http.Request, backendID string) error {
+	if r.PostFormValue("svcuser_sent") == "" {
+		return nil
+	}
+	enabled := map[string]bool{}
+	for _, e := range r.PostForm["svcuser"] {
+		enabled[e] = true
+	}
+	return s.mutateUsers(func(users *[]models.User) error {
+		for i := range *users {
+			u := &(*users)[i]
+			has := false
+			for _, id := range u.Backends {
+				if id == backendID {
+					has = true
+					break
+				}
+			}
+			switch {
+			case enabled[u.Email] && !has:
+				u.Backends = append(u.Backends, backendID)
+			case !enabled[u.Email] && has:
+				out := u.Backends[:0]
+				for _, id := range u.Backends {
+					if id != backendID {
+						out = append(out, id)
+					}
+				}
+				u.Backends = out
+			}
+		}
+		return nil
+	})
 }
 
 // parseNginxOpts reads the per-vhost "NGINX settings" section of the backend edit

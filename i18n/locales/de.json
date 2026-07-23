@@ -317,5 +317,19 @@
   "setup.done.go_login": "Zur Anmeldung",
   "setup.err.pw_mismatch": "Passwörter stimmen nicht überein",
   "admin.usr.filter": "Filter users…",
-  "admin.usr.sort_admin": "Sort by admin"
+  "admin.usr.sort_admin": "Sort by admin",
+  "admin.tab.general": "Allgemein",
+  "admin.tab.access": "Zugriff",
+  "admin.tab.nginx": "NGINX",
+  "admin.tab.security": "Sicherheit",
+  "admin.rule.public": "Öffentlich",
+  "admin.rule.public.d": "jeder, ohne Anmeldung.",
+  "admin.rule.authenticated": "Authentifiziert",
+  "admin.rule.authenticated.d": "ein Konto am Gateway ist nötig: JEDER angemeldete Benutzer kommt hinein. Für „keine Fremden“, nicht für „nur diese Person“.",
+  "admin.rule.authorized": "Autorisiert",
+  "admin.rule.authorized.d": "Konto UND Freigabe für DIESEN Dienst nötig: nur die unten angehakten Benutzer kommen hinein.",
+  "admin.rule.note": "Administratoren kommen immer hinein. Die IP-Freigabeliste ist unabhängig und gilt für alle drei, auch Öffentlich.",
+  "admin.svcusers.h": "Freigegebene Benutzer",
+  "admin.svcusers.hint": "Markieren Sie, wer diesen Dienst nutzen darf. Gilt nur für die Regel „Autorisiert“.",
+  "admin.svcusers.filter": "Nach E-Mail filtern…"
 }

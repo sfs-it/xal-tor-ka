@@ -317,5 +317,19 @@
   "setup.done.go_login": "الانتقال إلى تسجيل الدخول",
   "setup.err.pw_mismatch": "كلمتا المرور غير متطابقتين",
   "admin.usr.filter": "Filter users…",
-  "admin.usr.sort_admin": "Sort by admin"
+  "admin.usr.sort_admin": "Sort by admin",
+  "admin.tab.general": "عام",
+  "admin.tab.access": "الوصول",
+  "admin.tab.nginx": "NGINX",
+  "admin.tab.security": "الأمان",
+  "admin.rule.public": "عام",
+  "admin.rule.public.d": "أي شخص، دون تسجيل دخول.",
+  "admin.rule.authenticated": "مُصادَق",
+  "admin.rule.authenticated.d": "يلزم حساب على البوابة: يدخل أي مستخدم مسجَّل الدخول. استخدمه لـ«لا غرباء»، لا لـ«هذا الشخص فقط».",
+  "admin.rule.authorized": "مُصرَّح لهم",
+  "admin.rule.authorized.d": "يلزم حساب وتصريح لهذه الخدمة تحديدًا: يدخل فقط من تحدّدهم أدناه.",
+  "admin.rule.note": "يدخل المسؤولون دائمًا. قائمة العناوين المسموح بها مستقلة وتنطبق على الثلاثة، بما فيها العام.",
+  "admin.svcusers.h": "المستخدمون المصرَّح لهم",
+  "admin.svcusers.hint": "حدِّد من يمكنه استخدام هذه الخدمة. ينطبق فقط على قاعدة «المصرَّح لهم».",
+  "admin.svcusers.filter": "تصفية بالبريد…"
 }

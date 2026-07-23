@@ -317,5 +317,19 @@
   "setup.done.go_login": "Aller à la connexion",
   "setup.err.pw_mismatch": "les mots de passe ne correspondent pas",
   "admin.usr.filter": "Filter users…",
-  "admin.usr.sort_admin": "Sort by admin"
+  "admin.usr.sort_admin": "Sort by admin",
+  "admin.tab.general": "Général",
+  "admin.tab.access": "Accès",
+  "admin.tab.nginx": "NGINX",
+  "admin.tab.security": "Sécurité",
+  "admin.rule.public": "Public",
+  "admin.rule.public.d": "tout le monde, sans connexion.",
+  "admin.rule.authenticated": "Authentifié",
+  "admin.rule.authenticated.d": "un compte sur la passerelle est requis : TOUT utilisateur connecté entre. À utiliser pour « pas d’inconnus », pas pour « seulement cette personne ».",
+  "admin.rule.authorized": "Autorisés",
+  "admin.rule.authorized.d": "un compte ET une autorisation sur CE service : seuls les utilisateurs cochés ci-dessous entrent.",
+  "admin.rule.note": "Les administrateurs entrent toujours. La liste d’IP autorisées est indépendante et s’applique aux trois, Public compris.",
+  "admin.svcusers.h": "Utilisateurs autorisés",
+  "admin.svcusers.hint": "Cochez qui peut utiliser ce service. Ne s’applique qu’à la règle « Autorisés ».",
+  "admin.svcusers.filter": "Filtrer par e-mail…"
 }

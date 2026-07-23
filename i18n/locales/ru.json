@@ -317,5 +317,19 @@
   "setup.done.go_login": "Перейти ко входу",
   "setup.err.pw_mismatch": "пароли не совпадают",
   "admin.usr.filter": "Filter users…",
-  "admin.usr.sort_admin": "Sort by admin"
+  "admin.usr.sort_admin": "Sort by admin",
+  "admin.tab.general": "Общие",
+  "admin.tab.access": "Доступ",
+  "admin.tab.nginx": "NGINX",
+  "admin.tab.security": "Безопасность",
+  "admin.rule.public": "Публичный",
+  "admin.rule.public.d": "любой, без входа.",
+  "admin.rule.authenticated": "Аутентифицированный",
+  "admin.rule.authenticated.d": "нужна учётная запись на шлюзе: войдёт ЛЮБОЙ авторизованный пользователь. Для «без посторонних», не для «только этот человек».",
+  "admin.rule.authorized": "Авторизованные",
+  "admin.rule.authorized.d": "нужна учётная запись И доступ именно к ЭТОМУ сервису: войдут только отмеченные ниже.",
+  "admin.rule.note": "Администраторы входят всегда. Список разрешённых IP независим и действует для всех трёх, включая публичный.",
+  "admin.svcusers.h": "Допущенные пользователи",
+  "admin.svcusers.hint": "Отметьте, кому разрешён этот сервис. Действует только для правила «Авторизованные».",
+  "admin.svcusers.filter": "Фильтр по e-mail…"
 }
