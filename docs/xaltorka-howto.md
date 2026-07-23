@@ -343,6 +343,57 @@ pagina a metà.
 
 ---
 
+## Ricetta 22 — Chi entra: regole d'accesso e permessi per directory
+La scheda di un servizio è divisa in quattro tab — **Generale · Accesso · NGINX · Sicurezza**.
+Tutto ciò che riguarda «chi entra» sta in **Accesso**.
+
+### Le tre regole
+| Regola | Chi entra |
+|---|---|
+| **Pubblico** | chiunque, senza login. |
+| **Autenticato** | serve un account sul gateway: entra **chiunque** abbia fatto login. |
+| **Autorizzati** | serve un account **e** l'abilitazione **a questo servizio**: entra solo chi spunti. |
+
+> 🔒 La distinzione che conta è **autenticazione ≠ autorizzazione**. «Autenticato» chiede solo *chi
+> sei*; se ti serve «lo vede **solo** quella persona», la regola è **Autorizzati**. Gli
+> **amministratori entrano sempre**, e l'**allow-list IP** è indipendente dalla regola: vale per
+> tutte e tre, `Pubblico` incluso.
+>
+> *(«Autorizzati» si chiamava `whitelist`. Rinominata perché il prodotto ha già un'allow-list di
+> IP e la stessa parola indicava due cose diverse. I file scritti prima continuano a funzionare.)*
+
+### Abilitare le persone
+Nel tab **Accesso** c'è la lista **Utenti abilitati**: spunta chi può usare il servizio. La lista
+resta **visibile anche quando la regola non la usa** (spenta, con una nota): così puoi preparare
+gli accessi *prima* di passare ad «Autorizzati», invece di cambiare regola e poi riabilitare tutti.
+Gli amministratori compaiono marcati e non selezionabili — entrano comunque, e nasconderli
+racconterebbe una cosa falsa su chi può accedere. Con molti utenti, usa **«+ Aggiungi utente»** e
+il filtro per email.
+
+### Permessi per directory (l'ereditarietà)
+Nella tabella **Regole per path** ogni riga ha la colonna **Utenti** con due scelte:
+- **Eredita** *(predefinito)* — quella directory usa la lista del servizio.
+- **Propri** — quella directory ha la **sua** lista: apri «scegli utenti» e spunta chi vale **lì**.
+
+L'ereditarietà **scende**: una sottocartella che eredita prende la lista dell'**antenato più
+vicino** che ne ha una propria, e se nessun antenato la definisce ricade sul servizio. Esempio:
+
+```
+/                       → lista del servizio
+/riservato    (Propri)  → lista A
+/riservato/doc          → eredita ⇒ lista A   (l'antenato più vicino)
+/riservato/x  (Propri)  → lista B             (la propria vince)
+/altro                  → eredita ⇒ lista del servizio
+```
+
+Un prefisso parziale **non** è un antenato: `/riservatox` non eredita da `/riservato`.
+
+> Attenzione: una directory con lista **propria** e **nessun utente spuntato** è chiusa a tutti
+> (tranne gli amministratori) — non aperta. È voluto: sull'accesso, il default deve sbagliare
+> verso il chiuso.
+
+---
+
 ## Riferimento rapido
 | Voglio… | Vai a |
 |---|---|
@@ -356,7 +407,9 @@ pagina a metà.
 | SSO aziendale | Providers (OIDC) / config LDAP |
 | Accesso ai file del sito | Hosting → scheda sito → SSH keys (SFTP) |
 | Chi può entrare nell'admin | Whitelist IP admin |
-| Proteggere wp-login/una cartella | Services → Modifica → Regole per path |
+| Proteggere wp-login/una cartella | Services → Modifica → Accesso → Regole per path |
+| Far entrare **solo** certe persone | Accesso → regola «Autorizzati» + spunta gli utenti |
+| Utenti diversi su una sottocartella | Regole per path → colonna Utenti → «Propri» |
 | Pubblicare un servizio su `dominio/path` | Services → Add backend (host esistente + path) |
 | Nascondere un servizio dalla vetrina | Services → Modifica → «Esponi nel listing» |
 | Bloccare i brute-force | fail2ban (jail) → Hosting → System (IP bannati/Unban) |
