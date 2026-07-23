@@ -434,6 +434,16 @@ func groupServiceBackends(bs []models.Backend) []svcGroup {
 			out = append(out, svcGroup{Site: site, Backends: []svcItem{it}})
 		}
 	}
+
+	// The short label only makes sense under a header that names the site, and the
+	// table draws that header only for groups with more than one service. A lone
+	// service keeps its full name — otherwise "centrosub-com/httpdocs (hosting)"
+	// would show as a bare "httpdocs" with nothing saying which site it belongs to.
+	for i := range out {
+		if len(out[i].Backends) == 1 {
+			out[i].Backends[0].Label = serviceLabel(out[i].Backends[0].Backend, "")
+		}
+	}
 	return out
 }
 

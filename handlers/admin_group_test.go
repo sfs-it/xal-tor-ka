@@ -50,6 +50,14 @@ func TestGroupServiceBackends(t *testing.T) {
 			t.Errorf("grouped vhost should show its short name, got %q", it.Label)
 		}
 	}
+	// A hosting service alone on its domain keeps its FULL name: no header is drawn
+	// for a single-item group, so a bare vhost name would lose the site it belongs to.
+	single := []models.Backend{{ID: "cs", Name: "centrosub-com/httpdocs (hosting)", Host: "centrosub.com",
+		Hosting: &models.HostingRef{Site: "centrosub-com", Vhost: "httpdocs"}}}
+	if lbl := groupServiceBackends(single)[0].Backends[0].Label; lbl != "centrosub-com/httpdocs (hosting)" {
+		t.Errorf("lone hosting service must keep its full name, got %q", lbl)
+	}
+
 	// Outside a group the full name is kept.
 	for _, g := range got {
 		if g.Site == "" && g.Backends[0].ID == "centrosub" && g.Backends[0].Label != "centrosub (hosting)" {
