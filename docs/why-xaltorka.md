@@ -28,7 +28,7 @@ gestibile da UI.
 - **Autenticazione pluggable**: password **locali** (argon2id), **OIDC** (Google/Microsoft/
   generico), **LDAP / Active Directory** *(dalla beta0.6)*, **PAM** *(in roadmap)*.
 - **Reverse-proxy gestito da pannello**: aggiungi un backend (`host → upstream`) e scegli la
-  **regola d'accesso**: `public` · `authenticated` (login+2FA) · `whitelist` (solo IP/utenti
+  **regola d'accesso**: `public` · `authenticated` (login+2FA) · `authorized` (solo utenti
   autorizzati). Niente file nginx a mano.
 - **TLS completo**: CA interna + self-signed per LAN/dev, **Let's Encrypt (ACME)** per i domini
   pubblici, gestione certificati dal pannello (incluso `www.`).

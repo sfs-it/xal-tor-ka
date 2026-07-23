@@ -28,7 +28,8 @@ Hai già un servizio che gira (un container, un backend interno) e vuoi metterlo
    - **Host pubblico**: il dominio da cui si accede (es. `app.example.com`).
    - **Upstream**: l'indirizzo interno del servizio (es. `http://mio-servizio:8080`; anche un
      servizio sulla rete Docker interna, non solo sulle reti del computer).
-   - **Regola**: `public` (aperto), `authenticated` (richiede login), `whitelist` (solo IP consentiti).
+   - **Regola**: `public` (aperto), `authenticated` (richiede login: entra *qualunque* utente del
+     gate), `authorized` (entra **solo** chi abiliti nel tab Accesso del servizio).
 3. Salva. Il backend compare nell'elenco e il routing NGINX si aggiorna.
 
 ![Gestione backend](img/servizi.png)
@@ -137,7 +138,7 @@ profondità: i bot non raggiungono nemmeno la pagina di login.
 
 1. **Administration → Services → Modifica** il servizio.
 2. Nella sezione **Regole per path** aggiungi righe: **path** + **match** (`esatto =` per un file,
-   `prefisso` per una cartella) + **regola** (`authenticated`/`whitelist`).
+   `prefisso` per una cartella) + **regola** (`authenticated`/`authorized`).
 3. Salva. Il resto di `/` mantiene la regola principale; la riga più specifica vince. Funziona
    anche per i siti in hosting (l'upstream resta quello gestito).
 
@@ -289,7 +290,7 @@ resta una **voce propria** nei Servizi: si pubblica, si protegge e si rimuove da
    - **Host**: il dominio che già esiste (es. `sfs.it`) — lo stesso del sito.
    - **Path**: il path pubblico (es. `/strumento`).
    - **Upstream**: dove gira davvero (es. `http://mia-docker:8080`).
-   - **Regola**: `public`, `authenticated` o `whitelist` (vedi il riquadro sotto).
+   - **Regola**: `public`, `authenticated` o `authorized` (vedi il riquadro sotto).
 2. Salva. Il dominio ora ha **due voci**: il sito (`/`) e il tuo servizio (`/strumento`),
    indipendenti. Il path viene **inoltrato** all'upstream (non viene tolto): se l'app ha
    bisogno di sapere il prefisso, usa `X-Forwarded-Prefix` in **Modifica → NGINX custom**.
@@ -312,8 +313,8 @@ non sono ammessi: vince il primo e il duplicato viene ignorato.
 
 > 🔒 **`authenticated` non è «solo il mio utente».** `authenticated` significa *qualunque utente
 > del gate con una sessione valida* — non guarda le autorizzazioni per-servizio. Se vuoi che
-> entri **solo** chi hai deciso, usa **`whitelist`** e autorizza l'utente su quel servizio
-> (Utenti → host abilitati). È la differenza fra «serve un login» e «serve *quel* login».
+> entri **solo** chi hai deciso, usa **`authorized`** e spunta gli utenti nel tab **Accesso**
+> della scheda del servizio. È la differenza fra «serve un login» e «serve *quel* login».
 
 ---
 

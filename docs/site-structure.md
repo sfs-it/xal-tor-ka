@@ -70,7 +70,7 @@ Ogni vhost ha un `docker-compose.yml` in `.vhosts/<vhost>/`, avviato con
 ## 4. Mappatura Gateway (pubblicazione + TLS)
 
 - **Publish** (dal pannello Hosting o «Servizi»): crea un **backend** in `services.json`
-  con `host=<dominio>`, `route.upstream=http://<alias>:8080`, `rule` (public/authenticated/whitelist).
+  con `host=<dominio>`, `route.upstream=http://<alias>:8080`, `rule` (public/authenticated/authorized).
   Il gateway rigenera `nginx/conf.d/backends.conf` → il dominio è servito.
 - **TLS**: dalla pagina «Certificati» → «emetti LE» (ACME HTTP-01: il dominio deve risolvere
   pubblicamente su questo gateway con la :80 raggiungibile) o «self-signed» (CA interna, per

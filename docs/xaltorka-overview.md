@@ -36,8 +36,10 @@ richiesta non autenticata.
 Ogni servizio è un *backend* con una **regola di accesso**:
 - **`public`** — aperto a tutti, pass-through puro: il servizio possiede tutti i suoi path.
 - **`authenticated`** — serve una **sessione valida**: entra *qualunque* utente del gate.
-- **`whitelist`** — serve la sessione **e** l'autorizzazione **su quel servizio**: entra solo chi
-  hai abilitato. È questa la regola per «lo vede solo il mio utente dedicato».
+- **`authorized`** — serve la sessione **e** l'autorizzazione **su quel servizio**: entra solo chi
+  hai abilitato. È questa la regola per «lo vede solo il mio utente dedicato». *(Si chiamava
+  `whitelist`: rinominata perché in questo prodotto esiste già un'allow-list di IP, e la stessa
+  parola indicava due cose diverse. I file scritti prima continuano a funzionare.)*
 
 *(In più, indipendente dalla regola, ogni servizio può avere una **allow-list di IP**: chi non
 rientra viene respinto prima ancora che la regola venga valutata — vale anche per i `public`.)*
@@ -102,7 +104,7 @@ Oltre all'auth centralizzata, strati di difesa attivabili per servizio o per hos
 
 ## Perché adottarlo
 - **Un login e un HTTPS per tutto**, invece di reimplementarli in ogni servizio.
-- **Autorizzazione uniforme** (public / autenticato / whitelist) decisa in un posto solo.
+- **Autorizzazione uniforme** (public / authenticated / authorized) decisa in un posto solo.
 - **Metti online un sito** in minuti, isolato e già pronto a pubblicare — senza Plesk/cPanel.
 - **Fonti d'identità aziendali** (AD/LDAP, OIDC) senza scrivere codice.
 - **Auditabile e riproducibile**: ogni operazione tracciata, configurazione dichiarativa.
