@@ -334,3 +334,18 @@ tr.tls-sub td:first-child{padding-inline-start:1.6rem}
   border:1px solid var(--line);border-radius:9px;padding:.5rem .7rem}
 .svcuser{display:flex;align-items:center;gap:.45rem}
 .svcuser input[disabled]+*{opacity:.65}
+
+/* La lista utenti NON si nasconde quando la regola non la usa: si spegne a vista ma
+   resta modificabile — nascondere la config è un boomerang (cambi regola e devi
+   ri-abilitare tutti a mano, senza nemmeno vedere chi entrerebbe). */
+.svcusers-off-note{display:none}
+.svcusers.inactive{opacity:.72}
+.svcusers.inactive .svcuser-list,
+.svcusers.inactive .svcuser-add{background:rgba(127,127,127,.08)}
+.svcusers.inactive .svcusers-off-note{display:block;border-left:3px solid var(--line);padding-left:.6rem}
+.svcuser-add{margin-top:.5rem}
+.svcuser-add>summary{cursor:pointer;display:inline-block;padding:.35rem .7rem;border:1px solid var(--line);
+  border-radius:7px;font-weight:600;font-size:.92em}
+.svcuser-add>summary:hover{background:rgba(127,127,127,.07)}
+.svcuser-add .svcuser-list{margin-top:.5rem}
+.svcuser-empty{margin:.2rem 0}

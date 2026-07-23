@@ -331,5 +331,9 @@
   "admin.rule.note": "Administrators always get in. The IP allow-list is independent and applies to all three, Public included.",
   "admin.svcusers.h": "Enabled users",
   "admin.svcusers.hint": "Tick who may use this service. It only applies to the “Authorized” rule.",
-  "admin.svcusers.filter": "Filter by email…"
+  "admin.svcusers.filter": "Filter by email…",
+  "admin.svcusers.add": "Add user",
+  "admin.svcusers.none": "No users enabled yet.",
+  "admin.svcusers.allin": "Every user is already enabled.",
+  "admin.svcusers.inactive": "Not in force with the current rule — the grants stay saved and take effect as soon as you pick “Authorized”. You can set them up now anyway."
 }

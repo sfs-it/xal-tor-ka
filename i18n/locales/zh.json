@@ -331,5 +331,9 @@
   "admin.rule.note": "管理员始终可以进入。IP 允许列表是独立的，对三种规则均生效，包括公开。",
   "admin.svcusers.h": "已启用用户",
   "admin.svcusers.hint": "勾选可使用本服务的用户。仅对“已授权”规则生效。",
-  "admin.svcusers.filter": "按邮箱筛选…"
+  "admin.svcusers.filter": "按邮箱筛选…",
+  "admin.svcusers.add": "添加用户",
+  "admin.svcusers.none": "尚未启用任何用户。",
+  "admin.svcusers.allin": "所有用户均已启用。",
+  "admin.svcusers.inactive": "当前规则下不生效 —— 授权会被保存，一旦选择“已授权”即刻生效。现在就可以先设置。"
 }

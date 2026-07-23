@@ -331,5 +331,9 @@
   "admin.rule.note": "Gli amministratori entrano sempre. L'allow-list IP è indipendente e vale per tutte e tre, Pubblico incluso.",
   "admin.svcusers.h": "Utenti abilitati",
   "admin.svcusers.hint": "Spunta chi può usare questo servizio. Vale solo per la regola «Autorizzati».",
-  "admin.svcusers.filter": "Filtra per email…"
+  "admin.svcusers.filter": "Filtra per email…",
+  "admin.svcusers.add": "Aggiungi utente",
+  "admin.svcusers.none": "Nessun utente abilitato per ora.",
+  "admin.svcusers.allin": "Tutti gli utenti sono già abilitati.",
+  "admin.svcusers.inactive": "Non in uso con la regola attuale — le abilitazioni restano salvate e tornano effettive appena scegli «Autorizzati». Puoi impostarle già da ora."
 }

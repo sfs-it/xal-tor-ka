@@ -331,5 +331,9 @@
   "admin.rule.note": "Los administradores siempre entran. La lista de IP permitidas es independiente y se aplica a las tres, Público incluido.",
   "admin.svcusers.h": "Usuarios habilitados",
   "admin.svcusers.hint": "Marca quién puede usar este servicio. Solo se aplica a la regla «Autorizados».",
-  "admin.svcusers.filter": "Filtrar por correo…"
+  "admin.svcusers.filter": "Filtrar por correo…",
+  "admin.svcusers.add": "Añadir usuario",
+  "admin.svcusers.none": "Ningún usuario habilitado todavía.",
+  "admin.svcusers.allin": "Todos los usuarios ya están habilitados.",
+  "admin.svcusers.inactive": "Sin efecto con la regla actual — las habilitaciones se conservan y se aplican en cuanto elijas «Autorizados». Puedes prepararlas ya."
 }

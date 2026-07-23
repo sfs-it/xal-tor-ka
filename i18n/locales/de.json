@@ -331,5 +331,9 @@
   "admin.rule.note": "Administratoren kommen immer hinein. Die IP-Freigabeliste ist unabhängig und gilt für alle drei, auch Öffentlich.",
   "admin.svcusers.h": "Freigegebene Benutzer",
   "admin.svcusers.hint": "Markieren Sie, wer diesen Dienst nutzen darf. Gilt nur für die Regel „Autorisiert“.",
-  "admin.svcusers.filter": "Nach E-Mail filtern…"
+  "admin.svcusers.filter": "Nach E-Mail filtern…",
+  "admin.svcusers.add": "Benutzer hinzufügen",
+  "admin.svcusers.none": "Noch keine Benutzer freigegeben.",
+  "admin.svcusers.allin": "Alle Benutzer sind bereits freigegeben.",
+  "admin.svcusers.inactive": "Mit der aktuellen Regel ohne Wirkung — die Freigaben bleiben gespeichert und greifen, sobald Sie „Autorisiert“ wählen. Sie können sie jetzt schon setzen."
 }

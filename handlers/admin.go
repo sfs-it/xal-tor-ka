@@ -307,11 +307,20 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
     <div id="svcusers" class="svcusers">
      <h3>{{T "admin.svcusers.h"}}</h3>
      <p class="hint">{{T "admin.svcusers.hint"}}</p>
+     <p class="svcusers-off-note hint">{{T "admin.svcusers.inactive"}}</p>
      <input type="hidden" name="svcuser_sent" value="1">
-     <input type="search" class="svcuser-filter" placeholder="{{T "admin.svcusers.filter"}}" oninput="xtkFilterUsers(this)">
      <div class="svcuser-list">
-      {{range .Users}}<label class="check svcuser" data-e="{{.Email}}"><input type="checkbox" name="svcuser" value="{{.Email}}"{{if .Enabled}} checked{{end}}{{if .Admin}} disabled{{end}}> {{.Email}}{{if .Admin}} <span class="tag ro">admin</span>{{end}}</label>{{end}}
+      {{$any := false}}{{range .Users}}{{if or .Enabled .Admin}}{{$any = true}}<label class="check svcuser" data-e="{{.Email}}"><input type="checkbox" name="svcuser" value="{{.Email}}"{{if .Enabled}} checked{{end}}{{if .Admin}} disabled{{end}}> {{.Email}}{{if .Admin}} <span class="tag ro">admin</span>{{end}}</label>{{end}}{{end}}
+      {{if not $any}}<p class="hint svcuser-empty">{{T "admin.svcusers.none"}}</p>{{end}}
      </div>
+     <details class="svcuser-add">
+      <summary>+ {{T "admin.svcusers.add"}}</summary>
+      <input type="search" class="svcuser-filter" placeholder="{{T "admin.svcusers.filter"}}" oninput="xtkFilterUsers(this)">
+      <div class="svcuser-list">
+       {{$more := false}}{{range .Users}}{{if and (not .Enabled) (not .Admin)}}{{$more = true}}<label class="check svcuser" data-e="{{.Email}}"><input type="checkbox" name="svcuser" value="{{.Email}}"> {{.Email}}</label>{{end}}{{end}}
+       {{if not $more}}<p class="hint">{{T "admin.svcusers.allin"}}</p>{{end}}
+      </div>
+     </details>
     </div>
 
    <h3 style="margin-top:1.3rem">{{T "admin.routes.h"}}</h3>
@@ -379,7 +388,9 @@ var adminEditTmpl = xtkui.LocParse("adminedit", `<h1>{{T "admin.edit.h1"}} «{{i
   });
  });
  var sel=document.querySelector('select[name="rule"]'), box=document.getElementById('svcusers');
- function sync(){ if(box&&sel) box.style.display = (sel.value==='authorized')?'':'none'; }
+ // Non si nasconde: resta visibile e modificabile anche quando la regola non la usa,
+ // così cambiando regola non tocca ri-abilitare tutti a mano (e si vede chi entrerebbe).
+ function sync(){ if(box&&sel) box.classList.toggle('inactive', sel.value!=='authorized'); }
  if(sel){ sel.addEventListener('change',sync); sync(); }
  window.xtkFilterUsers=function(i){var q=i.value.toLowerCase();
   i.closest('.svcusers').querySelectorAll('.svcuser').forEach(function(l){
