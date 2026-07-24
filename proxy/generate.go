@@ -203,8 +203,22 @@ func writeServer(b *strings.Builder, g GenConfig, grp []models.Backend) {
 	// so even an AUTH-GATED site keeps its own /assets/ — the login/2FA UI pulls its
 	// CSS/JS from /_xtk/assets/. A fully-public backend gets NONE of these (pure
 	// pass-through: it owns all its paths, /assets/ included).
+	//
+	// /admin is a gate-UI path of the same kind as /login/logout/listing: on a host where
+	// a SERVICE owns "/" (e.g. the gate in front of ollama), the admin panel would otherwise
+	// fall through to that service (→ 404/502). Carving it out lets the admin panel be reached
+	// on any gate-fronted host. BUT a service that declares its OWN /admin route OWNS it — the
+	// gate yields, so we neither shadow it nor emit a DUPLICATE location{} (which nginx rejects,
+	// taking every site down). We record reserved paths in `seen` for the same reason: a member
+	// route can never collide with a reserved gate path (gate wins, emitted first).
+	seen := map[string]bool{}
 	if groupUsesAuth(grp) {
-		for _, p := range []string{"/login", "/auth/", "/logout", "/listing", "/_xtk/"} {
+		reserved := []string{"/login", "/auth/", "/logout", "/listing", "/_xtk/"}
+		if !groupDeclaresPath(grp, "/admin") {
+			reserved = append(reserved, "/admin")
+		}
+		for _, p := range reserved {
+			seen[p] = true
 			fmt.Fprintf(b, "    location %s {\n", p)
 			fmt.Fprintf(b, "        proxy_pass http://%s;\n", g.Upstream)
 			b.WriteString("        proxy_set_header Host $host;\n")
@@ -216,10 +230,10 @@ func writeServer(b *strings.Builder, g GenConfig, grp []models.Backend) {
 	}
 
 	// Every backend on this host contributes its routes, each rendered with its own
-	// NginxOpts. Paths are de-duplicated across the group: two services declaring the
-	// same host+path would otherwise emit a duplicate location{} and nginx would
-	// REJECT the whole config — taking every site down. First wins (primary first).
-	seen := map[string]bool{}
+	// NginxOpts. Paths are de-duplicated across the group (and against the reserved gate
+	// paths above): two services declaring the same host+path would otherwise emit a
+	// duplicate location{} and nginx would REJECT the whole config — taking every site
+	// down. First wins (reserved gate paths first, then primary).
 	idx := 0
 	for _, member := range grp {
 		for _, rt := range member.Routes {
@@ -263,6 +277,25 @@ func groupUsesAuth(grp []models.Backend) bool {
 	for _, be := range grp {
 		if backendUsesAuth(be) {
 			return true
+		}
+	}
+	return false
+}
+
+// groupDeclaresPath reports whether any service sharing this hostname explicitly
+// declares `path` as one of its own routes. Used so the gate does not reserve a
+// UI path (e.g. /admin) that a service already owns — avoiding both a shadow and a
+// duplicate location{} (which nginx rejects). An empty route path means "/".
+func groupDeclaresPath(grp []models.Backend, path string) bool {
+	for _, be := range grp {
+		for _, rt := range be.Routes {
+			p := rt.Path
+			if p == "" {
+				p = "/"
+			}
+			if p == path {
+				return true
+			}
 		}
 	}
 	return false

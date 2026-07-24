@@ -52,6 +52,50 @@ func TestGenerate(t *testing.T) {
 	}
 }
 
+// TestGenerateAdminReservation locks two invariants around the gate's /admin panel:
+//  1. On a host where a SERVICE owns "/" under gate auth (e.g. Xal-Tor-Ka in front of
+//     ollama) and NO service declares /admin, the gate reserves /admin → the admin panel
+//     is reachable instead of falling through to the service (404/502).
+//  2. When a service DOES declare its own /admin, that service owns it — the gate yields,
+//     so /admin appears exactly once (no duplicate location{}, which nginx would reject,
+//     taking every site down).
+func TestGenerateAdminReservation(t *testing.T) {
+	g := GenConfig{Upstream: "xaltorka:8080", Resolver: "127.0.0.11"}
+
+	// (1) gate-fronted service (ollama on "/"), no /admin route of its own.
+	hydra := []models.Backend{{
+		ID:   "ollama",
+		Host: "hydra.local",
+		Routes: []models.Route{
+			{Path: "/", Rule: models.RuleAuthorized, Upstream: "http://127.0.0.1:11434"},
+		},
+	}}
+	out := Generate(g, hydra)
+	if n := strings.Count(out, "location /admin {"); n != 1 {
+		t.Fatalf("want exactly one /admin location, got %d\n---\n%s", n, out)
+	}
+	if adm := blockAfter(out, "location /admin {"); !strings.Contains(adm, "proxy_pass http://xaltorka:8080;") {
+		t.Errorf("/admin on a gate-fronted service host must proxy to the gate, got:\n%s", adm)
+	}
+
+	// (2) a service that declares its own /admin owns it — no duplicate, no shadow.
+	site := []models.Backend{{
+		ID:   "site",
+		Host: "site.example.com",
+		Routes: []models.Route{
+			{Path: "/", Rule: "public", Upstream: "http://10.0.0.5:80"},
+			{Path: "/admin", Rule: models.RuleAuthorized, Upstream: "http://10.0.0.5:9000"},
+		},
+	}}
+	out2 := Generate(g, site)
+	if n := strings.Count(out2, "location /admin {"); n != 1 {
+		t.Fatalf("a duplicate /admin would make nginx reject the whole config; got %d\n---\n%s", n, out2)
+	}
+	if adm := blockAfter(out2, "location /admin {"); !strings.Contains(adm, "10.0.0.5:9000") {
+		t.Errorf("a service declaring /admin must own it (not the gate), got:\n%s", adm)
+	}
+}
+
 func TestGenerateSkipsEmpty(t *testing.T) {
 	out := Generate(GenConfig{Upstream: "x:8080"}, []models.Backend{
 		{ID: "nohost", Routes: []models.Route{{Path: "/", Rule: "public", Upstream: "http://x:1"}}},
