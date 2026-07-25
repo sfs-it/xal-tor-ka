@@ -45,11 +45,20 @@ log "1/6 build del binario agente"
 if command -v go >/dev/null 2>&1; then
   ( cd "$REPO" && go build -o "/tmp/xtk-agent.$$" ./agent/xtk-agent )
   install -m 0755 "/tmp/xtk-agent.$$" /usr/local/bin/xtk-agent && rm -f "/tmp/xtk-agent.$$"
-  echo "  installato /usr/local/bin/xtk-agent"
+  echo "  installato /usr/local/bin/xtk-agent (build host)"
+elif command -v docker >/dev/null 2>&1; then
+  # No Go toolchain on the host (an appliance should not need one): build the agent
+  # in a throwaway golang container. Docker is already a hard requirement of Xal-Tor-Ka,
+  # so this keeps the box clean and the deploy self-contained (no prebuilt to ship by hand).
+  echo "  'go' assente: compilo l'agente in un container golang (nessun toolchain sull'host)"
+  docker run --rm -e CGO_ENABLED=0 -v "$REPO":/src -w /src golang:1.25 \
+    go build -o /src/.xtk-agent.build ./agent/xtk-agent
+  install -m 0755 "$REPO/.xtk-agent.build" /usr/local/bin/xtk-agent && rm -f "$REPO/.xtk-agent.build"
+  echo "  installato /usr/local/bin/xtk-agent (build via docker golang:1.25)"
 elif [ -x /usr/local/bin/xtk-agent ]; then
-  echo "  'go' assente: tengo il binario esistente /usr/local/bin/xtk-agent"
+  echo "  'go' e docker assenti: tengo il binario esistente /usr/local/bin/xtk-agent"
 else
-  echo "errore: 'go' assente e nessun /usr/local/bin/xtk-agent prebuilt" >&2; exit 1
+  echo "errore: servono 'go' OPPURE 'docker' per costruire l'agente (o un /usr/local/bin/xtk-agent prebuilt)" >&2; exit 1
 fi
 
 log "2/6 gruppo del socket (gid $GID)"
@@ -106,4 +115,5 @@ fi
 
 log "FATTO"
 echo "Agente: $(systemctl is-active xtk-agent) · socket /run/xtk-agent/agent.sock (gruppo gid $GID)"
-[ "$OVERLAY" = 1 ] && echo "Ricarica /admin: la voce di menù «Hosting» ora è attiva."
+if [ "$OVERLAY" = 1 ]; then echo "Ricarica /admin: la voce di menù «Hosting» ora è attiva."; fi
+exit 0   # explicit success: the last conditional above must not set the script's exit code
