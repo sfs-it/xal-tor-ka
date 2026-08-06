@@ -33,7 +33,10 @@ GATE_URL="${XTK_DOMAIN:+https://$XTK_DOMAIN}"; GATE_URL="${GATE_URL:-https://${H
 say "TLS_MODE=${TLS_MODE}  GATE_URL=${GATE_URL}  ACME_EMAIL=${XTK_ACME_EMAIL:-<none>}  STAGING=${XTK_ACME_STAGING:-1}"
 
 say "1/7 clone/update repo (${XTK_REPO_URL} @ ${XTK_REF})"
-ssh_run "mkdir -p ${XTK_REMOTE_DIR} && if [ -d ${XTK_REMOTE_DIR}/.git ]; then cd ${XTK_REMOTE_DIR} && git fetch --all && git checkout ${XTK_REF} && git pull; else git clone --branch ${XTK_REF} ${XTK_REPO_URL} ${XTK_REMOTE_DIR}; fi"
+# Robust branch switch: config.json is edited in place (3-ter), so a plain checkout
+# across branches would abort on local changes. Force-checkout + hard-reset to the
+# target ref (3-ter re-applies the ACME email; gitignored secrets are untouched).
+ssh_run "mkdir -p ${XTK_REMOTE_DIR} && if [ -d ${XTK_REMOTE_DIR}/.git ]; then cd ${XTK_REMOTE_DIR} && git config --global --add safe.directory ${XTK_REMOTE_DIR} 2>/dev/null || true; git fetch --all -q && git checkout -f ${XTK_REF} && git reset --hard \"origin/${XTK_REF}\" -q; else git clone --branch ${XTK_REF} ${XTK_REPO_URL} ${XTK_REMOTE_DIR}; fi"
 
 if [ "$TLS_MODE" = "acme" ]; then
 	say "1-bis/7 patch default nginx server to serve the ACME HTTP-01 challenge for the gate's OWN domain"
@@ -102,14 +105,25 @@ if [ "$TLS_MODE" = "acme" ]; then
 	say "6-pre/7 match ACME account to target CA (${target_ca})"
 	ssh_run "cd ${XTK_REMOTE_DIR} && cur=\$(cat certs/.acme_ca 2>/dev/null || echo none); if [ \"\$cur\" != \"${target_ca}\" ]; then echo \"ACME CA switch \$cur -> ${target_ca}: clearing account key + old cert\"; rm -f certs/acme_account.key certs/${XTK_DOMAIN}.crt certs/${XTK_DOMAIN}.key; printf '%s' '${target_ca}' > certs/.acme_ca; chown 1000:1000 certs/.acme_ca; else echo \"account already for ${target_ca}\"; fi"
 
-	say "6/7 issue ACME cert for ${XTK_DOMAIN} via HTTP-01 (staging=${XTK_ACME_STAGING:-1})"
-	# One-off container issues (writes cert + challenge tokens to the shared certs/
-	# webroot the running nginx serves on :80). Then restart the core so it emits the
-	# 443 vhost (HasCert now true) and reload nginx to pick up the new cert files.
-	# --config MUST precede the subcommand: Go's flag parser stops at the first
-	# positional arg, so `cert issue <host> --config …` would ignore --config and
-	# read ./config.json (permission denied). Flags first: `cert --config … issue <host>`.
-	ssh_run "cd ${XTK_REMOTE_DIR} && docker compose run --rm ${acme_env} xaltorka cert --config /etc/xaltorka issue ${XTK_DOMAIN}"
+	# Skip issuance if a valid cert (>30d) already exists — idempotent re-deploys
+	# must NOT churn Let's Encrypt certs (5 duplicates/domain/week rate limit). The
+	# 6-pre CA-switch above deletes the cert only when switching staging<->prod, so a
+	# surviving cert is the right CA's.
+	skip_issue=0
+	if ! dry; then
+		mapfile -t _o < <(ssh_opts)
+		if ssh "${_o[@]}" "root@${HCLOUD_SERVER_IP}" "openssl x509 -checkend 2592000 -noout -in ${XTK_REMOTE_DIR}/certs/${XTK_DOMAIN}.crt" 2>/dev/null; then
+			ok "6/7 valid cert already present (>30d) — skipping ACME issuance (avoids LE rate limits)"; skip_issue=1
+		fi
+	fi
+	if [ "$skip_issue" = 0 ]; then
+		say "6/7 issue ACME cert for ${XTK_DOMAIN} via HTTP-01 (staging=${XTK_ACME_STAGING:-1})"
+		# One-off container issues (writes cert + challenge tokens to the shared certs/
+		# webroot the running nginx serves on :80). --config MUST precede the subcommand:
+		# Go's flag parser stops at the first positional arg, so `cert issue <host>
+		# --config …` would ignore --config and read ./config.json (permission denied).
+		ssh_run "cd ${XTK_REMOTE_DIR} && docker compose run --rm ${acme_env} xaltorka cert --config /etc/xaltorka issue ${XTK_DOMAIN}"
+	fi
 	# The gate FQDN is served by the default_server, which generate.go never gives a
 	# 443 listener (that logic is per-backend). Now that the cert EXISTS (post-issuance,
 	# so no chicken-egg), add `listen 443 ssl` + the gate cert to the default server.
@@ -128,7 +142,9 @@ say "7/7 seed the initial administrator (install-ready — no manual setup-token
 # server-side, but is fragile to token supersession; seeding removes the footgun).
 # Password: from XTK_ADMIN_PASSWORD if set, else generated and saved to a 600 file
 # on the box. $PW is expanded REMOTE-side, so it never lands in the deploy log.
-ssh_run "cd ${XTK_REMOTE_DIR}; PW='${XTK_ADMIN_PASSWORD:-}'; [ -n \"\$PW\" ] || PW=\$(openssl rand -base64 18 2>/dev/null | tr -dc 'A-Za-z0-9' | cut -c1-20); docker compose run --rm xaltorka user --email '${XTK_ADMIN_EMAIL}' --password \"\$PW\" --admin --config /etc/xaltorka || { echo 'ADMIN SEED FAILED'; exit 1; }; umask 077; printf 'admin=%s\npassword=%s\n' '${XTK_ADMIN_EMAIL}' \"\$PW\" > .admin-initial-credentials; chmod 600 .admin-initial-credentials; docker compose restart xaltorka >/dev/null 2>&1; sleep 5; docker compose logs --tail 10 xaltorka | grep -oE 'users=[0-9]+' | tail -1"
+# Idempotent: if the admin already exists, DO NOT reset its password on a re-deploy
+# (the operator may have changed it). Seed only on first install.
+ssh_run "cd ${XTK_REMOTE_DIR}; if grep -q '\"email\"[[:space:]]*:[[:space:]]*\"${XTK_ADMIN_EMAIL}\"' users.json 2>/dev/null; then echo 'admin ${XTK_ADMIN_EMAIL} already exists — keeping current credentials (no reset)'; else PW='${XTK_ADMIN_PASSWORD:-}'; [ -n \"\$PW\" ] || PW=\$(openssl rand -base64 18 2>/dev/null | tr -dc 'A-Za-z0-9' | cut -c1-20); docker compose run --rm xaltorka user --email '${XTK_ADMIN_EMAIL}' --password \"\$PW\" --admin --config /etc/xaltorka || { echo 'ADMIN SEED FAILED'; exit 1; }; umask 077; printf 'admin=%s\npassword=%s\n' '${XTK_ADMIN_EMAIL}' \"\$PW\" > .admin-initial-credentials; chmod 600 .admin-initial-credentials; docker compose restart xaltorka >/dev/null 2>&1; sleep 5; echo 'admin seeded + core reloaded'; fi; docker compose logs --tail 10 xaltorka | grep -oE 'users=[0-9]+' | tail -1"
 
 say "7-bis/7 show where the initial admin credentials are (read once, change after login)"
 ssh_run "cd ${XTK_REMOTE_DIR} && echo 'initial admin creds: /opt/xaltorka/.admin-initial-credentials (chmod 600)' && ls -ln .admin-initial-credentials"
