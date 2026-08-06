@@ -43,16 +43,21 @@ EOF
 
 log "1/6 build del binario agente"
 if command -v go >/dev/null 2>&1; then
-  ( cd "$REPO" && go build -o "/tmp/xtk-agent.$$" ./agent/xtk-agent )
+  # -buildvcs=false: the repo dir may be owned by a different uid than the builder
+  # (deploy chowns it to the core's uid), which makes git error with "dubious
+  # ownership" -> "error obtaining VCS status". The agent needs no VCS stamp.
+  ( cd "$REPO" && go build -buildvcs=false -o "/tmp/xtk-agent.$$" ./agent/xtk-agent )
   install -m 0755 "/tmp/xtk-agent.$$" /usr/local/bin/xtk-agent && rm -f "/tmp/xtk-agent.$$"
   echo "  installato /usr/local/bin/xtk-agent (build host)"
 elif command -v docker >/dev/null 2>&1; then
   # No Go toolchain on the host (an appliance should not need one): build the agent
   # in a throwaway golang container. Docker is already a hard requirement of Xal-Tor-Ka,
   # so this keeps the box clean and the deploy self-contained (no prebuilt to ship by hand).
+  # -buildvcs=false: the bind-mounted repo's .git is owned by another uid than the
+  # container root -> git "dubious ownership" -> VCS-status error. No stamp needed.
   echo "  'go' assente: compilo l'agente in un container golang (nessun toolchain sull'host)"
   docker run --rm -e CGO_ENABLED=0 -v "$REPO":/src -w /src golang:1.25 \
-    go build -o /src/.xtk-agent.build ./agent/xtk-agent
+    go build -buildvcs=false -o /src/.xtk-agent.build ./agent/xtk-agent
   install -m 0755 "$REPO/.xtk-agent.build" /usr/local/bin/xtk-agent && rm -f "$REPO/.xtk-agent.build"
   echo "  installato /usr/local/bin/xtk-agent (build via docker golang:1.25)"
 elif [ -x /usr/local/bin/xtk-agent ]; then
