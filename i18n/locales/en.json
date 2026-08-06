@@ -78,6 +78,7 @@
   "err.email_password_required": "email and password required",
   "admin.title": "Administration",
   "admin.subtitle": "Administration",
+  "admin.secalert": "⚠ Security: administrators are advised to use a fixed IP (ADMIN_CIDR) and/or enable 2FA (TOTP).",
   "admin.services": "Services",
   "admin.providers": "Providers",
   "admin.prov.h2": "Authentication providers",

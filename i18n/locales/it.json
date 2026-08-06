@@ -78,6 +78,7 @@
   "err.email_password_required": "email e password obbligatorie",
   "admin.title": "Amministrazione",
   "admin.subtitle": "Amministrazione",
+  "admin.secalert": "⚠ Sicurezza: per gli amministratori è consigliato un IP fisso (ADMIN_CIDR) e/o la 2FA (TOTP) attiva.",
   "admin.services": "Servizi",
   "admin.providers": "Provider",
   "admin.prov.h2": "Provider di autenticazione",

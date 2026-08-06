@@ -123,10 +123,10 @@ var TmplFuncs = template.FuncMap{
 // {{T "key"}} / {{cluster}} / {{corner}} / {{curlang}} without a .Lang field.
 func LocFuncs(lang string) template.FuncMap {
 	return template.FuncMap{
-		"T":       func(k string) string { return i18n.T(lang, k) },
-		"rtl":     func() bool { return i18n.IsRTL(lang) },
-		"curlang": func() string { return lang },
-		"langs":   func() []i18n.Lang { return i18n.Supported },
+		"T":           func(k string) string { return i18n.T(lang, k) },
+		"rtl":         func() bool { return i18n.IsRTL(lang) },
+		"curlang":     func() string { return lang },
+		"langs":       func() []i18n.Lang { return i18n.Supported },
 		"cluster":     func() template.HTML { return IconCluster(lang, true) },
 		"corner":      func() template.HTML { return LangCorner(lang) },
 		"ruleOptions": ruleOptions,
@@ -197,6 +197,7 @@ type Chrome struct {
 	DashboardHref string    // trailing dashboard link ("" = omit)
 	DashboardKey  string    // i18n key for the dashboard link label
 	LoggedIn      bool      // show profile+logout in the cluster
+	Notice        string    // persistent banner shown above the page content ("" = none)
 }
 
 // Topbar renders the shared header for the given language.
@@ -248,6 +249,10 @@ func (c Chrome) Render(w http.ResponseWriter, lang string, t *template.Template,
 	io.WriteString(w, c.Topbar(lang))
 	io.WriteString(w, `<main class="container">`)
 	io.WriteString(w, c.Subtabs)
+	if c.Notice != "" {
+		fmt.Fprintf(w, `<div role="alert" style="background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:8px;padding:.6rem .9rem;margin:0 0 1rem;font-size:.9rem">%s</div>`,
+			template.HTMLEscapeString(c.Notice))
+	}
 	if ct, err := t.Clone(); err == nil {
 		ct.Funcs(LocFuncs(lang))
 		_ = ct.Execute(w, data)

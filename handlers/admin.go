@@ -64,7 +64,27 @@ func (s *Server) renderAdminPage(w http.ResponseWriter, r *http.Request, active 
 		Nav: nav, Active: topActive, Subtabs: subtabs,
 		DashboardHref: "/listing", DashboardKey: "nav.dashboard", LoggedIn: true,
 	}
+	// Persistent security reminder for administrators: shown whenever the admin
+	// area is IP-open (ADMIN_CIDR=0.0.0.0/0 or empty) or 2FA is disabled.
+	if adminIPOpen(s.Cfg.Admin.IPWhitelist) || s.Cfg.DisableTOTP {
+		c.Notice = i18n.T(lang, "admin.secalert")
+	}
 	c.Render(w, lang, t, data)
+}
+
+// adminIPOpen reports whether the admin area is reachable from any IP (empty
+// whitelist or a catch-all CIDR) — used to surface the security banner.
+func adminIPOpen(wl []string) bool {
+	if len(wl) == 0 {
+		return true
+	}
+	for _, cidr := range wl {
+		switch strings.TrimSpace(cidr) {
+		case "0.0.0.0/0", "::/0":
+			return true
+		}
+	}
+	return false
 }
 
 // handleAdmin is the overview page with summary tiles linking to the sections.
