@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -72,6 +73,9 @@ func main() {
 			return
 		case "cert":
 			exitOnErr(runCert(os.Args[2:]))
+			return
+		case "admin-cidr":
+			exitOnErr(runAdminCIDR(os.Args[2:]))
 			return
 		}
 	}
@@ -235,6 +239,22 @@ func run() error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// SIGHUP hot-reloads services.json (admin IP whitelist, backends, providers)
+	// with no restart — the lockout-proof apply path for the `admin-cidr` CLI:
+	// no HTTP, no admin session, no IP gate. Safe to send locally / in-container
+	// to PID 1. It runs the same Reload() as POST /admin/reload.
+	hup := make(chan os.Signal, 1)
+	signal.Notify(hup, syscall.SIGHUP)
+	go func() {
+		for range hup {
+			if err := srvHandlers.Reload(); err != nil {
+				slog.Error("SIGHUP reload failed", "err", err)
+			} else {
+				slog.Info("reloaded via SIGHUP")
+			}
+		}
+	}()
 
 	go checker.Start(ctx)
 
@@ -640,6 +660,145 @@ func runAddBackend(args []string) error {
 	}
 	fmt.Printf("Backend '%s' (%s%s → %s) added. Apply by restarting the service.\n", *id, *host, *path, *upstream)
 	return nil
+}
+
+// runAdminCIDR manages the admin IP whitelist (who may reach /admin) from the box,
+// WITHOUT the web UI and WITHOUT being already whitelisted — the fix for the lockout
+// a stale/narrow ADMIN_CIDR causes. It edits services.json's admin_ip_whitelist (the
+// runtime override of config.admin.ip_whitelist) and, with --apply, hot-reloads the
+// running gateway via SIGHUP (no restart, no HTTP, no IP gate). Ops:
+//
+//	xaltorka admin-cidr show               print config base + override + effective
+//	xaltorka admin-cidr set <cidr...>      replace the override
+//	xaltorka admin-cidr add <cidr...>      append to the override
+//	xaltorka admin-cidr open               shortcut for set 0.0.0.0/0
+//	xaltorka admin-cidr clear              drop the override (revert to config)
+func runAdminCIDR(args []string) error {
+	fs := flag.NewFlagSet("admin-cidr", flag.ExitOnError)
+	dir := fs.String("config", ".", "configuration directory")
+	apply := fs.Bool("apply", false, "hot-apply by sending SIGHUP to the running gateway")
+	pid := fs.Int("pid", 1, "gateway PID to SIGHUP on --apply (in Docker the server is PID 1)")
+	_ = fs.Parse(args)
+	rest := fs.Args()
+	if len(rest) == 0 {
+		return errors.New("admin-cidr requires: show | set <cidr...> | add <cidr...> | open | clear")
+	}
+	op, cidrArgs := rest[0], rest[1:]
+
+	servicesPath, backupsDir, err := servicePaths(*dir)
+	if err != nil {
+		return err
+	}
+	cfg, _ := config.LoadConfigOnly(*dir)
+	svc, err := config.LoadServices(servicesPath)
+	if err != nil {
+		return err
+	}
+	effective := func() []string {
+		if len(svc.AdminIPWhitelist) == 0 {
+			return cfg.Admin.IPWhitelist
+		}
+		return svc.AdminIPWhitelist
+	}
+
+	switch op {
+	case "show":
+		fmt.Printf("config.admin.ip_whitelist  : %v\n", cfg.Admin.IPWhitelist)
+		fmt.Printf("services.admin_ip_whitelist: %v\n", svc.AdminIPWhitelist)
+		fmt.Printf("effective                  : %v\n", effective())
+		if adminCIDRsOpen(effective()) {
+			fmt.Println("state: /admin is IP-OPEN (0.0.0.0/0 or ::/0)")
+		}
+		return nil
+	case "set", "add", "open":
+		var incoming []string
+		if op == "open" {
+			incoming = []string{"0.0.0.0/0"}
+		} else {
+			if incoming, err = parseCIDRList(cidrArgs); err != nil {
+				return err
+			}
+			if len(incoming) == 0 {
+				return fmt.Errorf("admin-cidr %s requires at least one CIDR/IP", op)
+			}
+		}
+		if op == "add" {
+			svc.AdminIPWhitelist = dedupCIDRs(append(append([]string{}, svc.AdminIPWhitelist...), incoming...))
+		} else {
+			svc.AdminIPWhitelist = dedupCIDRs(incoming)
+		}
+	case "clear":
+		svc.AdminIPWhitelist = nil
+	default:
+		return fmt.Errorf("unknown admin-cidr op %q (show|set|add|open|clear)", op)
+	}
+
+	if err := config.SaveServices(servicesPath, backupsDir, svc); err != nil {
+		return err
+	}
+	fmt.Printf("services.admin_ip_whitelist now: %v (effective: %v)\n", svc.AdminIPWhitelist, effective())
+	if adminCIDRsOpen(effective()) {
+		fmt.Println("WARNING: /admin is now IP-OPEN (0.0.0.0/0) — enable 2FA/TOTP as the compensating control.")
+	}
+	if *apply {
+		if err := syscall.Kill(*pid, syscall.SIGHUP); err != nil {
+			return fmt.Errorf("saved, but hot-apply failed: SIGHUP pid %d: %w (reload manually or restart)", *pid, err)
+		}
+		fmt.Printf("applied: SIGHUP → pid %d (hot reload, no restart)\n", *pid)
+	} else {
+		fmt.Println("not applied — hot-apply with --apply (SIGHUP), or restart the gateway.")
+	}
+	return nil
+}
+
+// parseCIDRList validates space/comma/semicolon-separated IPs or CIDRs; a bare IP
+// gets /32 (v4) or /128 (v6). Mirrors the admin-form CIDR normalizer.
+func parseCIDRList(args []string) ([]string, error) {
+	var out []string
+	for _, a := range args {
+		for _, tok := range strings.FieldsFunc(a, func(r rune) bool {
+			return r == ',' || r == ' ' || r == ';' || r == '\t' || r == '\n' || r == '\r'
+		}) {
+			c := tok
+			if !strings.Contains(c, "/") {
+				if ip := net.ParseIP(c); ip != nil {
+					if ip.To4() != nil {
+						c += "/32"
+					} else {
+						c += "/128"
+					}
+				}
+			}
+			if _, _, err := net.ParseCIDR(c); err != nil {
+				return nil, fmt.Errorf("invalid CIDR/IP %q", tok)
+			}
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+
+// dedupCIDRs removes duplicates, preserving first-seen order.
+func dedupCIDRs(in []string) []string {
+	seen := make(map[string]bool, len(in))
+	out := make([]string, 0, len(in))
+	for _, c := range in {
+		if !seen[c] {
+			seen[c] = true
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// adminCIDRsOpen reports whether the whitelist allows any address.
+func adminCIDRsOpen(cidrs []string) bool {
+	for _, c := range cidrs {
+		if c == "0.0.0.0/0" || c == "::/0" {
+			return true
+		}
+	}
+	return false
 }
 
 // servicePaths resolves services.json and the backups dir for a config dir.
