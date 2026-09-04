@@ -119,6 +119,7 @@
   "admin.monitoring": "Monitoraggio",
   "admin.tls": "TLS",
   "admin.hosting": "Hosting",
+  "admin.vpn": "VPN",
   "admin.hosting_off.title": "Modulo Hosting non attivo",
   "admin.hosting_off.body": "Il modulo hosting pilota un agente host privilegiato (utenti-OS, docker, vhost). Per abilitarlo, eseguilo sul host (non da qui):",
   "admin.tls.h2": "Certificati",

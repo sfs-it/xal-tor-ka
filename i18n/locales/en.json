@@ -119,6 +119,7 @@
   "admin.monitoring": "Monitoring",
   "admin.tls": "TLS",
   "admin.hosting": "Hosting",
+  "admin.vpn": "VPN",
   "admin.hosting_off.title": "Hosting module not enabled",
   "admin.hosting_off.body": "The hosting module drives a privileged host agent (OS users, dockers, vhosts). To enable it, run this on the host (not from here):",
   "admin.tls.h2": "Certificates",

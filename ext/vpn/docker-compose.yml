@@ -1,0 +1,68 @@
+# VPN extension overlay. Enable it by merging over the core compose:
+#   docker compose -f docker-compose.yml -f ext/vpn/docker-compose.yml up -d --build
+# (the installer deploy/vpn/install.sh makes this sticky via COMPOSE_FILE in .env —
+#  MERGING with any hosting overlay already there, never overwriting it).
+#
+# It adds the internal UI service (xtk-vpn-ui) and switches the core's VPN_UPSTREAM on,
+# so the core reverse-proxies /admin/vpn/* to it (admin session gated) and shows the VPN
+# nav entry. Same pattern as ext/hosting (see DRAFT-ext-module.md).
+#
+# F1 (this file): ONLY the UI. The module is inert unless vpn.json has enabled=true.
+# F2 will add the privileged data-plane service `xtk-vpn` (cap_add NET_ADMIN, wg0, the
+# dedicated 172.31.7.0/24 network) and the xtk-vpn-agent socket group — see the block at
+# the bottom, kept commented until F2 so F1 has zero network effect.
+services:
+  xaltorka:
+    environment:
+      - VPN_UPSTREAM=http://xtk-vpn-ui:8091
+
+  xtk-vpn-ui:
+    build:
+      context: .
+      dockerfile: ext/vpn/Dockerfile
+    image: xtk-vpn-ui:latest
+    restart: unless-stopped
+    user: "65532" # distroless nonroot
+    group_add:
+      - "${XTK_VPN_AGENT_GID:-1998}" # the xtk-vpn-agent socket group (used from F2)
+    volumes:
+      # read-write view of the module's OWN config dir (vpn.json lives here). The DIR is
+      # mounted (not the file) so the atomic temp+rename in Store.Save stays inode-stable.
+      - ./data/vpn:/etc/xaltorka/vpn:rw
+      # bind-mount the agent socket DIR (not the file): survives agent restarts. Empty and
+      # unused in F1 (no vpn-agent yet); the dir is auto-created on the host by docker.
+      - /run/xtk-vpn-agent:/run/xtk-vpn-agent
+    networks:
+      - internal
+    depends_on:
+      - xaltorka
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 64M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# ---------------------------------------------------------------------------------------
+# F2 — privileged data-plane (add when implementing F2; kept out of F1 so the module has
+# no network effect until then). Sketch:
+#
+#   xtk-vpn:
+#     build: { context: ., dockerfile: ext/vpn/dataplane.Dockerfile }
+#     image: xtk-vpn:latest
+#     restart: unless-stopped
+#     cap_add: [NET_ADMIN]                 # ONLY this container — never xtk-vpn-ui
+#     sysctls: { net.ipv4.ip_forward: "1" }
+#     ports: [ "${VPN_LISTEN_PORT:-51820}:51820/udp" ]   # node-specific, via env
+#     networks: { xtk-vpn: { ipv4_address: 172.31.7.2 } }
+#     volumes: [ "./data/vpn:/etc/xaltorka/vpn:rw" ]
+#     deploy: { resources: { limits: { cpus: "0.5", memory: 128M } } }
+#     logging: { driver: json-file, options: { max-size: 10m, max-file: "3" } }
+#
+#   networks:
+#     xtk-vpn: { driver: bridge, ipam: { config: [ { subnet: 172.31.7.0/24 } ] } }
+# ---------------------------------------------------------------------------------------

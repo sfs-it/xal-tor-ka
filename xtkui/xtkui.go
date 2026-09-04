@@ -145,10 +145,13 @@ type NavItem struct {
 }
 
 // AdminNav is the core admin top navigation, shared by the core and by extensions
-// (e.g. hosting) so the main menu is identical everywhere. withHosting appends the
-// Hosting entry — the core adds it only when the hosting extension is enabled; the
-// extension always passes true and marks it Active.
-func AdminNav(withHosting bool) []NavItem {
+// (e.g. hosting, vpn) so the main menu is identical everywhere. Each enabled
+// extension contributes one NavItem via `extra`: the core builds that slice from the
+// extensions it has wired on (one entry per enabled <MOD>_UPSTREAM), while an
+// extension's own UI passes its single NavItem and marks it Active. This variadic
+// form replaces the former single `withHosting bool` so adding a module is one line,
+// not a new parameter (see DRAFT-ext-module.md, the reusable module pattern).
+func AdminNav(extra ...NavItem) []NavItem {
 	// TLS and Providers are NOT top-level: they live as second-level tabs under
 	// Servizi and Utenti respectively (see SubtabBar + renderAdminPage).
 	nav := []NavItem{
@@ -156,9 +159,8 @@ func AdminNav(withHosting bool) []NavItem {
 		{Key: "utenti", Href: "/admin/utenti", LabelKey: "admin.users"},
 		{Key: "monitoring", Href: "/admin/monitoring", LabelKey: "admin.monitoring"},
 	}
-	if withHosting {
-		nav = append(nav, NavItem{Key: "hosting", Href: "/admin/hosting", LabelKey: "admin.hosting"})
-	}
+	// Module entries (hosting, vpn, …) sit after the core sections and before Docker.
+	nav = append(nav, extra...)
 	// Docker last — the penultimate tab, right before the Dashboard link (standalone,
 	// room for future multi-service orchestration).
 	nav = append(nav, NavItem{Key: "docker", Href: "/admin/docker", LabelKey: "admin.docker"})

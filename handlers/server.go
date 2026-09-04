@@ -70,6 +70,14 @@ type Server struct {
 	HostingUpstream string
 	hostingProxy    *httputil.ReverseProxy
 
+	// VpnUpstream is the vpn extension's internal base URL (e.g.
+	// http://xtk-vpn-ui:8091). Empty disables the extension: /admin/vpn
+	// 404s and its admin-nav entry is hidden. The core reverse-proxies
+	// /admin/vpn/* there, gated by the admin session (adminSessionOK).
+	// Same wiring pattern as HostingUpstream (see DRAFT-ext-module.md).
+	VpnUpstream string
+	vpnProxy    *httputil.ReverseProxy
+
 	// UpstreamLocalhost is the host that user-entered "localhost"/"127.0.0.1"
 	// upstreams are rewritten to. In Docker that is "host.docker.internal" (the
 	// host seen from inside a container); on a host/LXD deploy set "127.0.0.1"
@@ -260,6 +268,16 @@ func (s *Server) Routes() http.Handler {
 		}
 		mux.HandleFunc("/admin/hosting", s.handleHostingProxy)
 		mux.HandleFunc("/admin/hosting/", s.handleHostingProxy)
+	}
+
+	// VPN extension (optional): same wiring as hosting — reverse-proxy /admin/vpn/*
+	// to it, gated by the admin session. No method prefix → GET and POST both route here.
+	if s.VpnUpstream != "" {
+		if u, err := url.Parse(s.VpnUpstream); err == nil {
+			s.vpnProxy = httputil.NewSingleHostReverseProxy(u)
+		}
+		mux.HandleFunc("/admin/vpn", s.handleVpnProxy)
+		mux.HandleFunc("/admin/vpn/", s.handleVpnProxy)
 	}
 	return mux
 }

@@ -1,0 +1,11 @@
+{
+  "enabled": false,
+  "driver": "wireguard",
+  "role": "hub",
+  "listen_port": 51820,
+  "vpn_subnet": "10.8.0.0/24",
+  "docker_net": "172.31.7.0/24",
+  "private_nets": [],
+  "vpn_machines": [],
+  "vpn_users": []
+}

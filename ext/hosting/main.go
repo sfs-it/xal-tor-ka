@@ -306,7 +306,7 @@ func (s *server) chrome(title string) xtkui.Chrome {
 	return xtkui.Chrome{
 		Title: "Xal-Tor-Ka · " + title, BrandText: "⛬ Xal-Tor-Ka", BrandHref: "/admin",
 		SubtitleKey: "admin.subtitle", Version: version.Version,
-		Nav: xtkui.AdminNav(true), Active: "hosting",
+		Nav: xtkui.AdminNav(xtkui.NavItem{Key: "hosting", Href: "/admin/hosting", LabelKey: "admin.hosting"}), Active: "hosting",
 		DashboardHref: "/listing", DashboardKey: "nav.dashboard", LoggedIn: true,
 	}
 }

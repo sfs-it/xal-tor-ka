@@ -2,6 +2,18 @@
 
 ## In corso
 
+* [ ] **2026-09-04 —** Modulo **`ext/vpn`** (VPN node-agnostica, WireGuard v1, blueprint rev 0.5 → `ext/vpn/DESIGN.md`). Fasi:
+  - [x] **A** — pattern-moduli riusabile: `AdminNav` variadic + `DRAFT-ext-module.md`.
+  - [x] **F1** — scaffold `ext/vpn/` + `vpnmgr` (Driver/Store) + 5 modifiche-core, inerte (`enabled=false`). Build/vet/test/smoke verdi.
+  - [ ] **installer** `deploy/vpn/install.sh` node-agnostic (COMPOSE_FILE **merge**) + `Makefile vpn-install:` + `deploy/hetzner/60-vpn.sh` (addon).
+  - [ ] **deploy xaltorka1** enabled=false (safe) → verify.
+  - [ ] **F2** data-plane `xtk-vpn` (NET_ADMIN/wg0) + `xtk-vpn-agent` vettato + `wgDriver` reale (privkey on-machine).
+  - [ ] **F3** hub + vie A/B + matrice (nftables forward-filter). ⚠️ D6 brazzale2024 A/B da decidere qui.
+  - [ ] **C** client: `xtk-vpn-client` (2-livelli) + onboarding-a-script.
+  - [ ] **F4** failsafe scala-di-rientro + invariante anti-lockout (prerequisito F5).
+  - [ ] **F5** hardening «solo-dietro-hub» + difese-attive (⚠️ irreversibile: ultimo, cripto-review Dedalo).
+  - [ ] **F6** pannello `/admin/vpn` completo.
+
 * [ ] **2026-07-11 —** Tappa B — hosting **multi-vhost + logs** (refactor a stadi, architettura approvata)
   Modello: *site* = utente OS + dir chroot; dentro N *vhost*, ognuno la sua docker (web[+php]),
   docroot, logs, PHP, backend gateway. Layout `/opt/sites/<name>/{<vhost>/, logs/<vhost>/,

@@ -39,7 +39,16 @@ import (
 // optional Hosting entry) is the shared xtkui.AdminNav, so the core and the hosting
 // extension render an identical main menu.
 func (s *Server) renderAdminPage(w http.ResponseWriter, r *http.Request, active string, t *template.Template, data any) {
-	nav := xtkui.AdminNav(s.HostingUpstream != "")
+	// One nav entry per enabled extension (see DRAFT-ext-module.md): the core builds
+	// the slice from the <MOD>_UPSTREAM values it has wired on.
+	var mods []xtkui.NavItem
+	if s.HostingUpstream != "" {
+		mods = append(mods, xtkui.NavItem{Key: "hosting", Href: "/admin/hosting", LabelKey: "admin.hosting"})
+	}
+	if s.VpnUpstream != "" {
+		mods = append(mods, xtkui.NavItem{Key: "vpn", Href: "/admin/vpn", LabelKey: "admin.vpn"})
+	}
+	nav := xtkui.AdminNav(mods...)
 	lang := s.lang(r)
 	// TLS and Providers are second-level tabs of Servizi / Utenti: highlight the parent
 	// in the top nav and render a sub-tab bar to switch between the grouped pages.
