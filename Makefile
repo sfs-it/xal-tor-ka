@@ -57,6 +57,9 @@ rebuild: ## Ricostruisce le immagini e riavvia
 hosting-install: ## Installa l'agente hosting privilegiato + alza il modulo (sudo, sul host). ARGS="--dev" per sandbox
 	sudo deploy/agent/install.sh --overlay $(ARGS)
 
+vpn-install: ## Installa/alza il modulo VPN node-agnostico (sudo, sul nodo). ARGS="--dev" per sandbox
+	sudo deploy/vpn/install.sh --overlay $(ARGS)
+
 ps: ## Stato dei servizi
 	$(COMPOSE) ps
 
